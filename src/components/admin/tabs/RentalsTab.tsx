@@ -201,13 +201,19 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                   </td>
                 </tr>
               ))}
-              {filteredRentals.length === 0 && (
+              {rentals.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-10 text-center text-slate-400 font-light italic">
-                    No dispatches listed.
+                    No rentals yet.
                   </td>
                 </tr>
-              )}
+              ) : filteredRentals.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="px-6 py-10 text-center text-slate-400 font-light italic">
+                    No dispatches found matching query.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

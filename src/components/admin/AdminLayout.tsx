@@ -161,7 +161,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
       description: `Rental Issued: ${newRental.quantity} Plates of ${newRental.plateType} for ${newRental.days} days`,
       debit: totalRent,
       credit: 0,
-      balance: parties.find((p) => p.id === newRental.partyId)!.pending + pending,
+      balance: (parties.find((p) => p.id === newRental.partyId)?.pending || 0) + pending,
     };
     setLedger((prev) => [...prev, ledEntry]);
 
@@ -252,7 +252,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
       description: `Material Return Intake: ${newReturn.returnedQuantity} Plates of ${matchedRental.plateType} returned`,
       debit: 0,
       credit: 0,
-      balance: parties.find((p) => p.id === newReturn.partyId)!.pending,
+      balance: parties.find((p) => p.id === newReturn.partyId)?.pending || 0,
     };
     setLedger((prev) => [...prev, ledEntry]);
   };

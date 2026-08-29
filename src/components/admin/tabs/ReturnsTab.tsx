@@ -158,13 +158,19 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                     </td>
                   </tr>
                 ))}
-                {filteredReturns.length === 0 && (
+                {returns.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-10 text-center text-slate-400 font-light italic">
-                      No return logs found.
+                      No returns logged yet.
                     </td>
                   </tr>
-                )}
+                ) : filteredReturns.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center text-slate-400 font-light italic">
+                      No return logs found matching query.
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
@@ -176,32 +182,38 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
             <h4 className="text-sm font-bold text-charcoal">Pending Return Allocations</h4>
           </div>
           <div className="divide-y divide-slate-100">
-            {rentals
-              .filter((r) => r.status === 'active' || r.status === 'overdue')
-              .map((rent) => {
-                const remaining = getRemainingToReturn(rent);
-                if (remaining <= 0) return null;
-                return (
-                  <div key={rent.id} className="p-4 hover:bg-slate-50/50 transition-colors flex justify-between items-center text-left text-xs sm:text-sm">
-                    <div className="space-y-0.5">
-                      <p className="font-bold text-slate-800">{rent.partyName}</p>
-                      <p className="text-slate-500 text-xs font-mono">{rent.plateType} • {remaining} plates outstanding</p>
+            {rentals.filter((r) => r.status === 'active' || r.status === 'overdue').length === 0 ? (
+              <div className="p-6 text-center text-slate-400 font-light italic text-xs sm:text-sm">
+                No active dispatches pending return.
+              </div>
+            ) : (
+              rentals
+                .filter((r) => r.status === 'active' || r.status === 'overdue')
+                .map((rent) => {
+                  const remaining = getRemainingToReturn(rent);
+                  if (remaining <= 0) return null;
+                  return (
+                    <div key={rent.id} className="p-4 hover:bg-slate-50/50 transition-colors flex justify-between items-center text-left text-xs sm:text-sm">
+                      <div className="space-y-0.5">
+                        <p className="font-bold text-slate-800">{rent.partyName}</p>
+                        <p className="text-slate-500 text-xs font-mono">{rent.plateType} • {remaining} plates outstanding</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedPartyId(rent.partyId);
+                          setSelectedRentalId(rent.id);
+                          setReturnedQty(remaining);
+                          setValidationError('');
+                          setIsAddOpen(true);
+                        }}
+                        className="text-xs bg-orange-50 hover:bg-orange-100 text-primary border border-orange-200 px-3 py-1.5 rounded-lg font-bold"
+                      >
+                        Receive
+                      </button>
                     </div>
-                    <button
-                      onClick={() => {
-                        setSelectedPartyId(rent.partyId);
-                        setSelectedRentalId(rent.id);
-                        setReturnedQty(remaining);
-                        setValidationError('');
-                        setIsAddOpen(true);
-                      }}
-                      className="text-xs bg-orange-50 hover:bg-orange-100 text-primary border border-orange-200 px-3 py-1.5 rounded-lg font-bold"
-                    >
-                      Receive
-                    </button>
-                  </div>
-                );
-              })}
+                  );
+                })
+            )}
           </div>
         </div>
 

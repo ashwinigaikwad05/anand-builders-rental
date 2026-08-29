@@ -111,13 +111,19 @@ export const UdhariTab: React.FC<UdhariTabProps> = ({ parties, payments }) => {
                   </tr>
                 );
               })}
-              {filteredParties.length === 0 && (
+              {parties.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-10 text-center text-slate-400 font-light italic">
-                    No outstanding accounts found.
+                    No parties added yet.
                   </td>
                 </tr>
-              )}
+              ) : filteredParties.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-10 text-center text-slate-400 font-light italic">
+                    No outstanding accounts found matching query.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

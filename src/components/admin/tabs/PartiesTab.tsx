@@ -371,13 +371,19 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                       </td>
                     </tr>
                   ))}
-                  {filteredParties.length === 0 && (
+                  {parties.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-10 text-center text-slate-400 font-light italic">
+                        No parties added yet.
+                      </td>
+                    </tr>
+                  ) : filteredParties.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="px-6 py-10 text-center text-slate-400 font-light italic">
                         No parties found matching query.
                       </td>
                     </tr>
-                  )}
+                  ) : null}
                 </tbody>
               </table>
             </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, MapPin, Mail, ArrowUp } from 'lucide-react';
+import { Phone, MapPin, ArrowUp } from 'lucide-react';
 import { CONTACT_INFO } from '../data/mockData';
 
 interface FooterProps {
@@ -114,12 +114,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 </div>
               </div>
 
-              <div className="flex items-start gap-2.5">
-                <Mail className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-                <a href={`mailto:${CONTACT_INFO.email}`} className="text-slate-300 hover:text-white transition-colors">
-                  {CONTACT_INFO.email}
-                </a>
-              </div>
+
             </div>
           </div>
 

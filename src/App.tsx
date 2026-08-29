@@ -21,7 +21,7 @@ function App() {
     localStorage.getItem('admin_session') === 'authenticated_2026'
   );
   
-  const [selectedPlateSize, setSelectedPlateSize] = useState<string>('');
+
 
   // Handle URL change detection (Back/Forward navigation)
   useEffect(() => {
@@ -71,8 +71,7 @@ function App() {
     }
   };
 
-  const handleEnquire = (plateSize: string) => {
-    setSelectedPlateSize(plateSize);
+  const handleEnquire = () => {
     scrollToSection('contact');
   };
 
@@ -135,11 +134,8 @@ function App() {
         onQuoteClick={() => scrollToSection('contact')}
       />
 
-      {/* Contact info cards and enquiries form */}
-      <ContactSection
-        selectedPlateSize={selectedPlateSize}
-        onClearSelectedSize={() => setSelectedPlateSize('')}
-      />
+      {/* Contact info cards */}
+      <ContactSection />
 
       {/* Professional Footer */}
       <Footer onNavigate={scrollToSection} />

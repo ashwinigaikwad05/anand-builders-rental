@@ -131,8 +131,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   ))}
                   {activeRentals.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-6 py-10 text-center text-slate-400 font-light">
-                        No active rentals found.
+                      <td colSpan={5} className="px-6 py-10 text-center text-slate-400 font-light italic">
+                        No rentals yet.
                       </td>
                     </tr>
                   )}
@@ -211,8 +211,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 </div>
               ))}
               {recentPayments.length === 0 && (
-                <div className="p-6 text-center text-slate-400 font-light">
-                  No payments logged yet.
+                <div className="p-6 text-center text-slate-400 font-light italic">
+                  No payments yet.
                 </div>
               )}
             </div>

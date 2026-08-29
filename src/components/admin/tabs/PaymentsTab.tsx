@@ -130,13 +130,19 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   </td>
                 </tr>
               ))}
-              {filteredPayments.length === 0 && (
+              {payments.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-10 text-center text-slate-400 font-light italic">
-                    No payment logs found.
+                    No payments yet.
                   </td>
                 </tr>
-              )}
+              ) : filteredPayments.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-10 text-center text-slate-400 font-light italic">
+                    No payment logs found matching query.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
