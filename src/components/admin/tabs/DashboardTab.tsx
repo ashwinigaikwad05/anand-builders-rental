@@ -7,9 +7,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   ClipboardList,
-  Wallet,
-  Building2,
-  Banknote,
   RefreshCw,
   AlertTriangle
 } from 'lucide-react';
@@ -39,17 +36,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const availablePlates = plates.reduce((sum, p) => sum + p.available, 0);
   const platesWithParties = plates.reduce((sum, p) => sum + p.withParties, 0);
   const totalPendingAmount = parties.reduce((sum, p) => sum + p.pending, 0);
-
-  // Financial account balances calculated from actual payment transactions
-  const account1Total = payments
-    .filter((p) => p.paymentMode === 'Account 1')
-    .reduce((sum, p) => sum + p.amount, 0);
-  const account2Total = payments
-    .filter((p) => p.paymentMode === 'Account 2')
-    .reduce((sum, p) => sum + p.amount, 0);
-  const cashTotal = payments
-    .filter((p) => p.paymentMode === 'Cash')
-    .reduce((sum, p) => sum + p.amount, 0);
 
   // Today's operational flows
   const todayRentalsCount = rentals.filter((r) => r.issueDate === todayStr).length;
@@ -128,48 +114,45 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </div>
       </div>
 
-      {/* Secondary Account Balances & Daily Flow Metrics Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
-            <Building2 className="w-3 h-3 text-blue-500" /> Account 1 (Bank)
-          </span>
-          <p className="text-lg font-black text-charcoal mt-1">₹{account1Total.toLocaleString('en-IN')}</p>
+      {/* Daily Flow & Operational Status Metrics Strip */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+              Today's Rentals
+            </span>
+            <p className="text-2xl font-black text-primary">{todayRentalsCount}</p>
+            <p className="text-[10px] text-slate-400 font-light">Dispatches issued today</p>
+          </div>
+          <div className="p-3.5 bg-orange-50 rounded-xl text-primary">
+            <ClipboardList className="w-6 h-6" />
+          </div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
-            <Wallet className="w-3 h-3 text-purple-500" /> Account 2 (Digital)
-          </span>
-          <p className="text-lg font-black text-charcoal mt-1">₹{account2Total.toLocaleString('en-IN')}</p>
+        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+              Today's Returns
+            </span>
+            <p className="text-2xl font-black text-blue-600">{todayReturnsCount}</p>
+            <p className="text-[10px] text-slate-400 font-light">Intakes received today</p>
+          </div>
+          <div className="p-3.5 bg-blue-50 rounded-xl text-blue-600">
+            <RefreshCw className="w-6 h-6" />
+          </div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
-            <Banknote className="w-3 h-3 text-emerald-500" /> Yard Cash
-          </span>
-          <p className="text-lg font-black text-emerald-600 mt-1">₹{cashTotal.toLocaleString('en-IN')}</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
-            <ClipboardList className="w-3 h-3 text-primary" /> Today's Rentals
-          </span>
-          <p className="text-lg font-black text-primary mt-1">{todayRentalsCount}</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
-            <RefreshCw className="w-3 h-3 text-blue-500" /> Today's Returns
-          </span>
-          <p className="text-lg font-black text-blue-600 mt-1">{todayReturnsCount}</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3 text-rose-500" /> Overdue Rentals
-          </span>
-          <p className="text-lg font-black text-rose-600 mt-1">{overdueRentals.length}</p>
+        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+              Overdue Rentals
+            </span>
+            <p className="text-2xl font-black text-rose-600">{overdueRentals.length}</p>
+            <p className="text-[10px] text-slate-400 font-light">Exceeding rental terms</p>
+          </div>
+          <div className="p-3.5 bg-rose-50 rounded-xl text-rose-600">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
         </div>
       </div>
 
