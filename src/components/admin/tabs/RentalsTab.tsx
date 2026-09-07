@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
-import { Plus, Search, X, Check, ClipboardList, Info, HelpCircle } from 'lucide-react';
-import type { Party, PlateStock, Rental } from '../../../data/adminMockData';
+import { Plus, Search, X, Check, ClipboardList, Info, HelpCircle, Trash2 } from 'lucide-react';
+import type { Party, PlateStock, Rental, RentalItem } from '../../../data/adminMockData';
+
+interface PlateRowItem {
+  id: string;
+  plateType: string;
+  quantity: number;
+  dailyRate: number;
+  days: number;
+}
 
 interface RentalsTabProps {
   rentals: Rental[];
@@ -23,74 +31,148 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   // Form states
   const [selectedPartyId, setSelectedPartyId] = useState('');
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedPlateType, setSelectedPlateType] = useState('');
-  const [quantity, setQuantity] = useState<number>(0);
-  const [dailyRate, setDailyRate] = useState<number>(1.50);
-  const [rentalDays, setRentalDays] = useState<number>(40);
+  const [plateRows, setPlateRows] = useState<PlateRowItem[]>([
+    { id: 'row-1', plateType: '24×3', quantity: 100, dailyRate: 1.50, days: 40 },
+  ]);
   const [amountPaid, setAmountPaid] = useState<number>(0);
   const [paymentMode, setPaymentMode] = useState<'Account 1' | 'Account 2' | 'Cash' | 'Udhari'>('Udhari');
   
   const [validationError, setValidationError] = useState('');
 
-  // Calculations
-  const calculatedTotalRent = quantity * dailyRate * rentalDays;
-  const calculatedPending = calculatedTotalRent - amountPaid;
+  // Calculations across all plate rows
+  const calculatedTotalRent = plateRows.reduce(
+    (sum, r) => sum + r.quantity * r.dailyRate * r.days,
+    0
+  );
+  const calculatedPending = Math.max(0, calculatedTotalRent - amountPaid);
 
   const filteredRentals = rentals.filter((r) =>
     r.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.plateType.includes(searchTerm)
   );
 
-  const handlePlateChange = (plateType: string) => {
-    setSelectedPlateType(plateType);
-    const matched = plates.find((p) => p.plateType === plateType);
-    if (matched) {
-      setDailyRate(matched.dailyRate);
-    }
-  };
-
   const handleOpenAdd = () => {
     setSelectedPartyId(parties[0]?.id || '');
-    setSelectedPlateType(plates[0]?.plateType || '');
-    setDailyRate(plates[0]?.dailyRate || 1.50);
-    setQuantity(100);
-    setRentalDays(40);
+    setIssueDate(new Date().toISOString().split('T')[0]);
+    const firstPlate = plates[0];
+    setPlateRows([
+      {
+        id: `row-${Date.now()}-1`,
+        plateType: firstPlate?.plateType || '24×3',
+        quantity: 100,
+        dailyRate: firstPlate?.dailyRate || 1.50,
+        days: 40,
+      },
+    ]);
     setAmountPaid(0);
     setPaymentMode('Udhari');
     setValidationError('');
     setIsAddOpen(true);
   };
 
+  const handleAddPlateRow = () => {
+    // Find first plate type that is not yet added in the rows
+    const unusedPlate = plates.find(
+      (p) => !plateRows.some((r) => r.plateType === p.plateType)
+    );
+    const targetPlate = unusedPlate || plates[0];
+    const newRow: PlateRowItem = {
+      id: `row-${Date.now()}-${plateRows.length + 1}`,
+      plateType: targetPlate?.plateType || '21×3',
+      quantity: 50,
+      dailyRate: targetPlate?.dailyRate || 1.50,
+      days: plateRows[0]?.days || 40,
+    };
+    setPlateRows((prev) => [...prev, newRow]);
+  };
+
+  const handleRemovePlateRow = (id: string) => {
+    setPlateRows((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const handleUpdatePlateRow = (id: string, field: keyof PlateRowItem, value: any) => {
+    setPlateRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== id) return row;
+        const updated = { ...row, [field]: value };
+        if (field === 'plateType') {
+          const matched = plates.find((p) => p.plateType === value);
+          if (matched) {
+            updated.dailyRate = matched.dailyRate;
+          }
+        }
+        return updated;
+      })
+    );
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError('');
 
-    if (!selectedPartyId || !selectedPlateType || quantity <= 0 || rentalDays <= 0) {
-      setValidationError('Please select valid fields and quantity/days greater than zero.');
+    if (!selectedPartyId || plateRows.length === 0) {
+      setValidationError('Please select a customer party and at least one plate row.');
       return;
     }
 
-    // Check inventory stock limits
-    const matchedPlate = plates.find((p) => p.plateType === selectedPlateType);
-    const available = matchedPlate ? matchedPlate.available : 0;
-    if (quantity > available) {
-      setValidationError(`Only ${available} plates are currently available.`);
+    // Validate duplicate plate types
+    const selectedTypes = plateRows.map((r) => r.plateType);
+    const hasDuplicates = new Set(selectedTypes).size !== selectedTypes.length;
+    if (hasDuplicates) {
+      setValidationError('This plate type is already added. Duplicate plate sizes are not allowed.');
       return;
+    }
+
+    // Validate quantities and availability for every row
+    for (const row of plateRows) {
+      if (!row.plateType) {
+        setValidationError('Please choose a valid plate size for all rows.');
+        return;
+      }
+      if (row.quantity <= 0) {
+        setValidationError(`Please enter a quantity greater than 0 for size ${row.plateType}.`);
+        return;
+      }
+      if (row.days <= 0) {
+        setValidationError(`Please enter rental term days greater than 0 for size ${row.plateType}.`);
+        return;
+      }
+
+      const matchedPlate = plates.find((p) => p.plateType === row.plateType);
+      const available = matchedPlate ? matchedPlate.available : 0;
+      if (row.quantity > available) {
+        setValidationError(`Only ${available} plates are available for size ${row.plateType}.`);
+        return;
+      }
     }
 
     const party = parties.find((p) => p.id === selectedPartyId);
     if (!party) return;
 
+    const items: RentalItem[] = plateRows.map((r) => ({
+      plateType: r.plateType,
+      quantity: r.quantity,
+      dailyRate: r.dailyRate,
+      days: r.days,
+    }));
+
+    const totalQuantity = plateRows.reduce((sum, r) => sum + r.quantity, 0);
+    const plateTypeSummary =
+      plateRows.length === 1
+        ? plateRows[0].plateType
+        : plateRows.map((r) => `${r.plateType} (${r.quantity})`).join(', ');
+
     onAddRental({
       partyId: selectedPartyId,
       partyName: party.name,
-      plateType: selectedPlateType,
-      quantity,
-      dailyRate,
+      plateType: plateTypeSummary,
+      quantity: totalQuantity,
+      dailyRate: plateRows[0]?.dailyRate || 1.50,
       issueDate,
-      days: rentalDays,
+      days: plateRows[0]?.days || 40,
       paid: amountPaid,
       paymentMode,
+      items,
     });
 
     setIsAddOpen(false);
@@ -292,86 +374,159 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                 </div>
               </div>
 
-              {/* Row 2: Shuttering Plate Size, Quantity, Daily Rate, and Rental Days */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
-                    Shuttering Plate Size *
-                  </label>
-                  <select
-                    value={selectedPlateType}
-                    onChange={(e) => handlePlateChange(e.target.value)}
-                    required
-                    className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-3.5 py-3 rounded-xl text-sm font-semibold text-slate-800"
+              {/* Multi-Plate Rows Section */}
+              <div className="space-y-3">
+                {/* Column Headers for larger screens */}
+                <div className="hidden lg:grid grid-cols-12 gap-3 text-xs font-bold text-slate-600 uppercase tracking-wider px-1">
+                  <div className="col-span-4">Shuttering Plate Size *</div>
+                  <div className="col-span-3">Dispatch Quantity *</div>
+                  <div className="col-span-2">Daily Rate (₹/day) *</div>
+                  <div className="col-span-2">Rental Term (Days) *</div>
+                  <div className="col-span-1 text-center">Action</div>
+                </div>
+
+                {/* Rows List */}
+                <div className="space-y-3">
+                  {plateRows.map((row, index) => (
+                    <div
+                      key={row.id}
+                      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center bg-slate-50/70 p-3 sm:p-3.5 rounded-2xl border border-slate-200/70"
+                    >
+                      {/* Plate Size */}
+                      <div className="lg:col-span-4 space-y-1 sm:space-y-0">
+                        <label className="lg:hidden text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
+                          Plate Size *
+                        </label>
+                        <select
+                          value={row.plateType}
+                          onChange={(e) => handleUpdatePlateRow(row.id, 'plateType', e.target.value)}
+                          required
+                          className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
+                        >
+                          <option value="">-- Choose Width --</option>
+                          {plates.map((p) => {
+                            const isSelectedElsewhere = plateRows.some(
+                              (r) => r.id !== row.id && r.plateType === p.plateType
+                            );
+                            return (
+                              <option
+                                key={p.plateType}
+                                value={p.plateType}
+                                disabled={isSelectedElsewhere}
+                              >
+                                {p.plateType} ({p.available} avail.){isSelectedElsewhere ? ' - Already Added' : ''}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      {/* Quantity */}
+                      <div className="lg:col-span-3 space-y-1 sm:space-y-0">
+                        <label className="lg:hidden text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
+                          Dispatch Quantity *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          value={row.quantity || ''}
+                          onChange={(e) =>
+                            handleUpdatePlateRow(row.id, 'quantity', Math.max(0, parseInt(e.target.value) || 0))
+                          }
+                          placeholder="e.g. 100"
+                          className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
+                        />
+                      </div>
+
+                      {/* Daily Rate */}
+                      <div className="lg:col-span-2 space-y-1 sm:space-y-0">
+                        <label className="lg:hidden text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
+                          Daily Rate (₹/day) *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.05"
+                          min="0"
+                          required
+                          value={row.dailyRate}
+                          onChange={(e) =>
+                            handleUpdatePlateRow(row.id, 'dailyRate', Math.max(0, parseFloat(e.target.value) || 0))
+                          }
+                          className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
+                        />
+                      </div>
+
+                      {/* Rental Term */}
+                      <div className="lg:col-span-2 space-y-1 sm:space-y-0">
+                        <label className="lg:hidden text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
+                          Rental Term (Days) *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          value={row.days}
+                          onChange={(e) =>
+                            handleUpdatePlateRow(row.id, 'days', Math.max(1, parseInt(e.target.value) || 1))
+                          }
+                          className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
+                        />
+                      </div>
+
+                      {/* Delete button (only for index > 0) */}
+                      <div className="lg:col-span-1 flex items-center justify-center pt-1 sm:pt-0">
+                        {index > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePlateRow(row.id)}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                            title="Remove this plate"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <div className="hidden lg:block w-8" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* + Add Plate Button */}
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={handleAddPlateRow}
+                    disabled={plateRows.length >= plates.length}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-primary bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
                   >
-                    <option value="">-- Choose Width --</option>
-                    {plates.map((p) => (
-                      <option key={p.plateType} value={p.plateType}>
-                        {p.plateType} ({p.available} avail.)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
-                    Dispatch Quantity *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={quantity || ''}
-                    onChange={(e) => setQuantity(Math.max(0, parseInt(e.target.value) || 0))}
-                    placeholder="e.g. 100"
-                    className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-4 py-3 rounded-xl text-sm font-semibold text-slate-800"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
-                    Daily Rate (₹/day) *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.05"
-                    min="0"
-                    required
-                    value={dailyRate}
-                    onChange={(e) => setDailyRate(Math.max(0, parseFloat(e.target.value) || 0))}
-                    className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-4 py-3 rounded-xl text-sm font-semibold text-slate-800"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
-                    Rental Term (Days) *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={rentalDays}
-                    onChange={(e) => setRentalDays(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-4 py-3 rounded-xl text-sm font-semibold text-slate-800"
-                  />
+                    <Plus className="w-4 h-4" />
+                    <span>+ Add Plate</span>
+                  </button>
                 </div>
               </div>
 
               {/* Row 3: Total Rent & Financial Payment Summary Card */}
               <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-4">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-3 border-b border-slate-200/70">
-                  <div className="space-y-0.5 text-left">
+                  <div className="space-y-1 text-left">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                       Calculated Accumulated Rent
                     </span>
-                    <p className="text-[11px] text-slate-400 font-light">
-                      {quantity} plates × ₹{dailyRate.toFixed(2)}/plate/day × {rentalDays} days
-                    </p>
+                    <div className="space-y-0.5 text-[11px] text-slate-500 font-mono">
+                      {plateRows.map((r, idx) => (
+                        <div key={idx}>
+                          {r.quantity} plates ({r.plateType}) × ₹{r.dailyRate.toFixed(2)}/day × {r.days} days = ₹{(r.quantity * r.dailyRate * r.days).toLocaleString('en-IN')}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <span className="text-2xl font-black text-charcoal">
-                    ₹{calculatedTotalRent.toLocaleString('en-IN')}
-                  </span>
+                  <div className="text-right">
+                    <span className="text-2xl font-black text-charcoal">
+                      ₹{calculatedTotalRent.toLocaleString('en-IN')}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

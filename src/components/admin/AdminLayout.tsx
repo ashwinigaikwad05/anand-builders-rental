@@ -122,15 +122,25 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
       .reduce((sum, s) => sum + s.quantity, 0);
 
     // Calculate active plates currently with parties (rented minus returned)
-    const activeRentalsForSize = rentals.filter(
-      (r) => r.plateType === size && (r.status === 'active' || r.status === 'overdue')
+    const activeRentals = rentals.filter(
+      (r) => r.status === 'active' || r.status === 'overdue'
     );
     let withPartiesForSize = 0;
-    for (const rent of activeRentalsForSize) {
-      const returnedForRent = returns
-        .filter((ret) => ret.rentalId === rent.id)
-        .reduce((sum, ret) => sum + ret.returnedQuantity, 0);
-      withPartiesForSize += Math.max(0, rent.quantity - returnedForRent);
+    for (const rent of activeRentals) {
+      if (rent.items && rent.items.length > 0) {
+        const matchingItem = rent.items.find((it) => it.plateType === size);
+        if (matchingItem) {
+          const returnedForRent = returns
+            .filter((ret) => ret.rentalId === rent.id && (ret.plateType === size || !ret.plateType))
+            .reduce((sum, ret) => sum + ret.returnedQuantity, 0);
+          withPartiesForSize += Math.max(0, matchingItem.quantity - returnedForRent);
+        }
+      } else if (rent.plateType === size) {
+        const returnedForRent = returns
+          .filter((ret) => ret.rentalId === rent.id)
+          .reduce((sum, ret) => sum + ret.returnedQuantity, 0);
+        withPartiesForSize += Math.max(0, rent.quantity - returnedForRent);
+      }
     }
 
     const availableForSize = Math.max(0, totalForSize - withPartiesForSize);
@@ -254,7 +264,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
 
   // 3. Rentals
   const handleAddRental = (newRental: Omit<Rental, 'id' | 'totalRent' | 'pending' | 'status'>) => {
-    const totalRent = newRental.quantity * newRental.dailyRate * newRental.days;
+    const totalRent =
+      newRental.items && newRental.items.length > 0
+        ? newRental.items.reduce((sum, it) => sum + it.quantity * it.dailyRate * it.days, 0)
+        : newRental.quantity * newRental.dailyRate * newRental.days;
     const pending = totalRent - newRental.paid;
 
     const created: Rental = {
@@ -284,11 +297,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
     );
 
     // Append to Ledger
+    const itemsDescription =
+      newRental.items && newRental.items.length > 0
+        ? newRental.items.map((it) => `${it.quantity} Plates of ${it.plateType}`).join(', ')
+        : `${newRental.quantity} Plates of ${newRental.plateType}`;
+
     const ledEntry: LedgerEntry = {
       id: `led-${Date.now()}`,
       partyId: newRental.partyId,
       date: newRental.issueDate,
-      description: `Rental Issued: ${newRental.quantity} Plates of ${newRental.plateType} for ${newRental.days} days`,
+      description: `Rental Issued: ${itemsDescription} for ${newRental.days} days`,
       debit: totalRent,
       credit: 0,
       balance: (parties.find((p) => p.id === newRental.partyId)?.pending || 0) + pending,

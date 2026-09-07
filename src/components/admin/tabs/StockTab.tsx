@@ -62,18 +62,27 @@ export const StockTab: React.FC<StockTabProps> = ({
 
   // 1. Calculate With Parties count per plate size from active/overdue rentals and returns
   const calculateWithPartiesForSize = (size: string): number => {
-    // Find all rentals for this plate size that are active or overdue
+    // Find all rentals that are active or overdue
     const activeRentals = rentals.filter(
-      (r) => r.plateType === size && (r.status === 'active' || r.status === 'overdue')
+      (r) => r.status === 'active' || r.status === 'overdue'
     );
 
     let count = 0;
     for (const rent of activeRentals) {
-      const returnedForRental = returns
-        .filter((ret) => ret.rentalId === rent.id)
-        .reduce((sum, ret) => sum + ret.returnedQuantity, 0);
-      const remainingWithParty = Math.max(0, rent.quantity - returnedForRental);
-      count += remainingWithParty;
+      if (rent.items && rent.items.length > 0) {
+        const matchingItem = rent.items.find((it) => it.plateType === size);
+        if (matchingItem) {
+          const returnedForRental = returns
+            .filter((ret) => ret.rentalId === rent.id && (ret.plateType === size || !ret.plateType))
+            .reduce((sum, ret) => sum + ret.returnedQuantity, 0);
+          count += Math.max(0, matchingItem.quantity - returnedForRental);
+        }
+      } else if (rent.plateType === size) {
+        const returnedForRental = returns
+          .filter((ret) => ret.rentalId === rent.id)
+          .reduce((sum, ret) => sum + ret.returnedQuantity, 0);
+        count += Math.max(0, rent.quantity - returnedForRental);
+      }
     }
     return count;
   };

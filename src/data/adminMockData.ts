@@ -20,6 +20,13 @@ export interface PlateStock {
   status: 'available' | 'low_stock' | 'out_of_stock';
 }
 
+export interface RentalItem {
+  plateType: string;
+  quantity: number;
+  dailyRate: number;
+  days: number;
+}
+
 export interface Rental {
   id: string;
   partyId: string;
@@ -34,6 +41,7 @@ export interface Rental {
   pending: number;
   paymentMode: 'Account 1' | 'Account 2' | 'Cash' | 'Udhari';
   status: 'active' | 'returned' | 'overdue';
+  items?: RentalItem[];
 }
 
 export interface ReturnLog {
