@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -32,6 +32,18 @@ import { LedgerTab } from './tabs/LedgerTab';
 import { NotificationsTab } from './tabs/NotificationsTab';
 import { ReportsTab } from './tabs/ReportsTab';
 import { SettingsTab } from './tabs/SettingsTab';
+import { Toast } from './Toast';
+import type { ToastMessage } from './Toast';
+
+// Supabase & Types
+import {
+  fetchStockItems,
+  insertStockItem,
+  updateStockItem,
+  deleteStockItem,
+  STANDARD_PLATE_SIZES,
+} from '../../lib/supabase';
+import type { PlateSizeType, InventoryStockItem } from '../../lib/supabase';
 
 // Initial Mock data
 import {
@@ -54,7 +66,6 @@ import type {
   AdminNotification
 } from '../../data/adminMockData';
 
-
 interface AdminLayoutProps {
   onLogout: () => void;
 }
@@ -65,14 +76,140 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
 
   // --- STATEFUL DB CONCEPT ---
   const [parties, setParties] = useState<Party[]>(INITIAL_PARTIES);
-  const [plates, setPlates] = useState<PlateStock[]>(INITIAL_PLATES);
+  const [plateSettings, setPlateSettings] = useState<PlateStock[]>(INITIAL_PLATES);
   const [rentals, setRentals] = useState<Rental[]>(INITIAL_RENTALS);
   const [returns, setReturns] = useState<ReturnLog[]>(INITIAL_RETURNS);
   const [payments, setPayments] = useState<Payment[]>(INITIAL_PAYMENTS);
   const [ledger, setLedger] = useState<LedgerEntry[]>(INITIAL_LEDGER);
   const [notifications, setNotifications] = useState<AdminNotification[]>(INITIAL_NOTIFICATIONS);
 
+  // Live Supabase inventory stock items
+  const [stockItems, setStockItems] = useState<InventoryStockItem[]>([]);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const addToast = (type: 'success' | 'error' | 'info', message: string) => {
+    const id = `toast-${Date.now()}-${Math.random().toString().slice(2, 6)}`;
+    setToasts((prev) => [...prev, { id, type, message }]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // Load stock records from Supabase on mount
+  useEffect(() => {
+    let isMounted = true;
+    const loadStock = async () => {
+      try {
+        const items = await fetchStockItems();
+        if (isMounted) {
+          setStockItems(items);
+        }
+      } catch (err: any) {
+        console.error('Failed to load stock from Supabase:', err);
+      }
+    };
+    loadStock();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Compute live synchronized plates data derived from Supabase stock additions, rentals, and returns
+  const derivedPlates: PlateStock[] = STANDARD_PLATE_SIZES.map((size) => {
+    const totalForSize = stockItems
+      .filter((s) => s.plate_size === size)
+      .reduce((sum, s) => sum + s.quantity, 0);
+
+    // Calculate active plates currently with parties (rented minus returned)
+    const activeRentalsForSize = rentals.filter(
+      (r) => r.plateType === size && (r.status === 'active' || r.status === 'overdue')
+    );
+    let withPartiesForSize = 0;
+    for (const rent of activeRentalsForSize) {
+      const returnedForRent = returns
+        .filter((ret) => ret.rentalId === rent.id)
+        .reduce((sum, ret) => sum + ret.returnedQuantity, 0);
+      withPartiesForSize += Math.max(0, rent.quantity - returnedForRent);
+    }
+
+    const availableForSize = Math.max(0, totalForSize - withPartiesForSize);
+
+    // Preserve customized rate or manual status from plateSettings if any
+    const existingSetting = plateSettings.find((p) => p.plateType === size);
+    const dailyRate = existingSetting?.dailyRate ?? 1.5;
+
+    let status: 'available' | 'low_stock' | 'out_of_stock' = 'available';
+    if (existingSetting?.status === 'out_of_stock') {
+      status = 'out_of_stock';
+    } else if (totalForSize === 0 || availableForSize === 0) {
+      status = 'out_of_stock';
+    } else if (availableForSize / totalForSize < 0.2) {
+      status = 'low_stock';
+    }
+
+    return {
+      plateType: size,
+      dailyRate,
+      total: totalForSize,
+      withParties: withPartiesForSize,
+      available: availableForSize,
+      status,
+    };
+  });
+
   // --- OPERATIONS CALLBACKS ---
+
+  // Stock CRUD Operations (Admin website as single point of operation)
+  const handleAddStock = async (data: {
+    plate_size: PlateSizeType;
+    quantity: number;
+    received_date: string;
+    notes?: string;
+  }) => {
+    try {
+      const created = await insertStockItem(data);
+      setStockItems((prev) => [created, ...prev.filter((i) => i.id !== created.id)]);
+      addToast('success', `Added ${data.quantity} plates of size ${data.plate_size} to stock.`);
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to add stock batch.');
+      throw err;
+    }
+  };
+
+  const handleUpdateStock = async (
+    id: string,
+    data: {
+      plate_size: PlateSizeType;
+      quantity: number;
+      received_date: string;
+      notes?: string;
+    }
+  ) => {
+    try {
+      const updated = await updateStockItem(id, data);
+      setStockItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      addToast('success', `Updated stock record for size ${data.plate_size}.`);
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to update stock record.');
+      throw err;
+    }
+  };
+
+  const handleDeleteStock = async (id: string) => {
+    try {
+      const target = stockItems.find((s) => s.id === id);
+      await deleteStockItem(id);
+      setStockItems((prev) => prev.filter((item) => item.id !== id));
+      addToast(
+        'success',
+        `Deleted ${target ? `${target.quantity} plates of ${target.plate_size}` : 'stock entry'} from inventory.`
+      );
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to delete stock entry.');
+      throw err;
+    }
+  };
 
   // 1. Parties
   const handleAddParty = (newParty: Omit<Party, 'id' | 'platesWithParty' | 'totalRent' | 'paid' | 'pending' | 'status'>) => {
@@ -86,27 +223,33 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
       status: 'active',
     };
     setParties((prev) => [...prev, created]);
+    addToast('success', `Party "${created.name}" registered.`);
   };
 
   const handleEditParty = (updatedParty: Party) => {
     setParties((prev) => prev.map((p) => (p.id === updatedParty.id ? updatedParty : p)));
+    addToast('success', `Party "${updatedParty.name}" updated.`);
   };
 
   const handleDeleteParty = (partyId: string) => {
+    const target = parties.find((p) => p.id === partyId);
     setParties((prev) => prev.filter((p) => p.id !== partyId));
+    addToast('success', `Party "${target?.name || ''}" removed.`);
   };
 
-  // 2. Plate settings
+  // 2. Plate settings (Rate & Status)
   const handleUpdatePlateRate = (plateType: string, newRate: number) => {
-    setPlates((prev) =>
+    setPlateSettings((prev) =>
       prev.map((p) => (p.plateType === plateType ? { ...p, dailyRate: newRate } : p))
     );
+    addToast('success', `Updated daily rate for ${plateType} to ₹${newRate.toFixed(2)}/day.`);
   };
 
   const handleUpdatePlateStatus = (plateType: string, newStatus: 'available' | 'low_stock' | 'out_of_stock') => {
-    setPlates((prev) =>
+    setPlateSettings((prev) =>
       prev.map((p) => (p.plateType === plateType ? { ...p, status: newStatus } : p))
     );
+    addToast('info', `Set status of ${plateType} to ${newStatus}.`);
   };
 
   // 3. Rentals
@@ -124,19 +267,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
 
     // Update Rentals
     setRentals((prev) => [created, ...prev]);
-
-    // Update Plates stock
-    setPlates((prev) =>
-      prev.map((p) =>
-        p.plateType === newRental.plateType
-          ? {
-              ...p,
-              withParties: p.withParties + newRental.quantity,
-              available: Math.max(0, p.available - newRental.quantity),
-            }
-          : p
-      )
-    );
 
     // Update Party balance and items
     setParties((prev) =>
@@ -173,7 +303,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
         partyName: newRental.partyName,
         amount: newRental.paid,
         date: newRental.issueDate,
-        paymentMode: newRental.paymentMode === 'Udhari' ? 'Cash' : (newRental.paymentMode as any), // Fallback
+        paymentMode: newRental.paymentMode === 'Udhari' ? 'Cash' : (newRental.paymentMode as any),
         reference: `ADV-${Date.now().toString().slice(-4)}`,
         notes: 'Advance payment for rental dispatch sheet',
         status: 'verified',
@@ -191,10 +321,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
       };
       setLedger((prev) => [...prev, ledEntryPay]);
     }
+
+    addToast('success', `Dispatched ${newRental.quantity} plates of ${newRental.plateType} to ${newRental.partyName}.`);
   };
 
   const handleUpdateRentalStatus = (rentalId: string, status: 'active' | 'returned' | 'overdue') => {
     setRentals((prev) => prev.map((r) => (r.id === rentalId ? { ...r, status } : r)));
+    addToast('info', `Rental status updated to ${status}.`);
   };
 
   // 4. Returns
@@ -211,19 +344,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
     };
 
     setReturns((prev) => [created, ...prev]);
-
-    // Update plate stock
-    setPlates((prev) =>
-      prev.map((p) =>
-        p.plateType === matchedRental.plateType
-          ? {
-              ...p,
-              withParties: Math.max(0, p.withParties - newReturn.returnedQuantity),
-              available: p.available + newReturn.returnedQuantity,
-            }
-          : p
-      )
-    );
 
     // Update Party plates out count
     setParties((prev) =>
@@ -255,6 +375,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
       balance: parties.find((p) => p.id === newReturn.partyId)?.pending || 0,
     };
     setLedger((prev) => [...prev, ledEntry]);
+
+    addToast('success', `Received ${newReturn.returnedQuantity} plates of ${matchedRental.plateType} from ${matchedRental.partyName}.`);
   };
 
   // 5. Payments
@@ -302,11 +424,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
       id: `not-pay-${Date.now()}`,
       type: 'payment',
       title: 'Payment Confirmed',
-      message: `💸 Received ₹${newPayment.amount} from ${party.name} (${newPayment.paymentMode}).`,
+      message: `💸 Received ₹${newPayment.amount.toLocaleString('en-IN')} from ${party.name} (${newPayment.paymentMode}).`,
       date: newPayment.date,
       isRead: false,
     };
     setNotifications((prev) => [alertNot, ...prev]);
+    addToast('success', `Payment of ₹${newPayment.amount.toLocaleString('en-IN')} recorded.`);
   };
 
   // 6. Notifications Alerts
@@ -331,8 +454,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
         return (
           <DashboardTab
             parties={parties}
-            plates={plates}
+            plates={derivedPlates}
             rentals={rentals}
+            returns={returns}
             payments={payments}
             onTabChange={setActiveTab}
           />
@@ -352,19 +476,29 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
       case 'Plate Types':
         return (
           <PlateTypesTab
-            plates={plates}
+            plates={derivedPlates}
             onUpdateRate={handleUpdatePlateRate}
             onUpdateStatus={handleUpdatePlateStatus}
           />
         );
       case 'Plate Stock':
-        return <StockTab plates={plates} />;
+        return (
+          <StockTab
+            stockItems={stockItems}
+            rentals={rentals}
+            returns={returns}
+            plates={derivedPlates}
+            onAddStock={handleAddStock}
+            onUpdateStock={handleUpdateStock}
+            onDeleteStock={handleDeleteStock}
+          />
+        );
       case 'Rentals':
         return (
           <RentalsTab
             rentals={rentals}
             parties={parties}
-            plates={plates}
+            plates={derivedPlates}
             onAddRental={handleAddRental}
             onUpdateRentalStatus={handleUpdateRentalStatus}
           />
@@ -403,7 +537,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
         return (
           <ReportsTab
             parties={parties}
-            plates={plates}
+            plates={derivedPlates}
             rentals={rentals}
             returns={returns}
             payments={payments}
@@ -433,7 +567,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row w-full font-sans text-slate-800">
-      
       {/* 1. Mobile Top Header Bar */}
       <div className="md:hidden w-full bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between text-white sticky top-0 z-40">
         <div className="flex items-center gap-2">
@@ -489,16 +622,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
                     <Icon className="w-5 h-5 flex-shrink-0" />
                     <span>{item.name}</span>
                   </span>
-                  
+
                   {/* Badges indicators */}
                   {item.badgeCount !== undefined && item.badgeCount > 0 ? (
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none ${
-                      isActive ? 'bg-white text-primary' : 'bg-rose-500 text-white'
-                    }`}>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none ${
+                        isActive ? 'bg-white text-primary' : 'bg-rose-500 text-white'
+                      }`}
+                    >
                       {item.badgeCount}
                     </span>
                   ) : (
-                    !isActive && <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    !isActive && (
+                      <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )
                   )}
                 </button>
               );
@@ -539,21 +676,24 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
 
       {/* 3. Main content frame */}
       <div className="flex-grow flex flex-col overflow-hidden min-h-screen">
-        
         {/* Top Header Panel (Desktop only) */}
         <header className="hidden md:flex bg-white border-b border-slate-200/80 px-8 py-5 items-center justify-between sticky top-0 z-30">
           <div className="text-left">
             <h2 className="text-xl font-black text-charcoal">{activeTab} Controls</h2>
             <p className="text-[11px] text-slate-400 font-light">Anand Builders Administrative Console</p>
           </div>
-          
+
           <div className="flex items-center gap-6">
-            
             {/* Quick search input */}
             <div className="relative w-64">
               <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2.5}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
                 </svg>
               </span>
               <input
@@ -584,7 +724,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
                 AD
               </div>
             </div>
-            
           </div>
         </header>
 
@@ -594,6 +733,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
         </main>
       </div>
 
+      {/* Global Toast Notifications */}
+      <Toast toasts={toasts} onDismiss={removeToast} />
     </div>
   );
 };

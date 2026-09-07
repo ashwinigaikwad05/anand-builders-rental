@@ -72,8 +72,9 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
 
     // Check inventory stock limits
     const matchedPlate = plates.find((p) => p.plateType === selectedPlateType);
-    if (matchedPlate && matchedPlate.available < quantity) {
-      setValidationError(`Insufficient stock in yard. Only ${matchedPlate.available} plates available.`);
+    const available = matchedPlate ? matchedPlate.available : 0;
+    if (quantity > available) {
+      setValidationError(`Only ${available} plates are currently available.`);
       return;
     }
 

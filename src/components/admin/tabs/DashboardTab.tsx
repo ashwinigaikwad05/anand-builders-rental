@@ -1,11 +1,25 @@
 import React from 'react';
-import { Layers, ShieldCheck, UserCheck, DollarSign, ArrowUpRight, ArrowDownRight, ClipboardList } from 'lucide-react';
-import type { Party, PlateStock, Rental, Payment } from '../../../data/adminMockData';
+import {
+  Layers,
+  ShieldCheck,
+  UserCheck,
+  DollarSign,
+  ArrowUpRight,
+  ArrowDownRight,
+  ClipboardList,
+  Wallet,
+  Building2,
+  Banknote,
+  RefreshCw,
+  AlertTriangle
+} from 'lucide-react';
+import type { Party, PlateStock, Rental, Payment, ReturnLog } from '../../../data/adminMockData';
 
 interface DashboardTabProps {
   parties: Party[];
   plates: PlateStock[];
   rentals: Rental[];
+  returns?: ReturnLog[];
   payments: Payment[];
   onTabChange: (tabName: string) => void;
 }
@@ -14,29 +28,49 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   parties,
   plates,
   rentals,
+  returns = [],
   payments,
   onTabChange,
 }) => {
-  // Calculations
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // Core plate inventory calculations
   const totalPlates = plates.reduce((sum, p) => sum + p.total, 0);
   const availablePlates = plates.reduce((sum, p) => sum + p.available, 0);
   const platesWithParties = plates.reduce((sum, p) => sum + p.withParties, 0);
   const totalPendingAmount = parties.reduce((sum, p) => sum + p.pending, 0);
 
+  // Financial account balances calculated from actual payment transactions
+  const account1Total = payments
+    .filter((p) => p.paymentMode === 'Account 1')
+    .reduce((sum, p) => sum + p.amount, 0);
+  const account2Total = payments
+    .filter((p) => p.paymentMode === 'Account 2')
+    .reduce((sum, p) => sum + p.amount, 0);
+  const cashTotal = payments
+    .filter((p) => p.paymentMode === 'Cash')
+    .reduce((sum, p) => sum + p.amount, 0);
+
+  // Today's operational flows
+  const todayRentalsCount = rentals.filter((r) => r.issueDate === todayStr).length;
+  const todayReturnsCount = returns.filter((r) => r.returnDate === todayStr).length;
+
   const activeRentals = rentals.filter((r) => r.status === 'active' || r.status === 'overdue');
   const overdueRentals = rentals.filter((r) => r.status === 'overdue');
-  const recentPayments = [...payments].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
-
+  const recentPayments = [...payments]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 5);
 
   return (
     <div className="space-y-8 text-left">
-      
-      {/* Upper Widgets */}
+      {/* Upper Primary Stat Widgets */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Card 1: Total Inventory */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Shuttering Stock</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              Total Shuttering Stock
+            </span>
             <h3 className="text-3xl font-black text-charcoal">{totalPlates.toLocaleString()}</h3>
             <p className="text-[10px] text-slate-400 font-light">Inventory across all sizes</p>
           </div>
@@ -48,8 +82,12 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         {/* Card 2: Available Inventory */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Available in Yard</span>
-            <h3 className="text-3xl font-black text-emerald-600">{availablePlates.toLocaleString()}</h3>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              Available in Yard
+            </span>
+            <h3 className="text-3xl font-black text-emerald-600">
+              {availablePlates.toLocaleString()}
+            </h3>
             <p className="text-[10px] text-emerald-500 font-medium">Ready for dispatch</p>
           </div>
           <div className="p-3.5 bg-emerald-50 rounded-xl text-emerald-600">
@@ -60,8 +98,12 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         {/* Card 3: In Use Inventory */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Plates with Parties</span>
-            <h3 className="text-3xl font-black text-primary">{platesWithParties.toLocaleString()}</h3>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              Plates with Parties
+            </span>
+            <h3 className="text-3xl font-black text-primary">
+              {platesWithParties.toLocaleString()}
+            </h3>
             <p className="text-[10px] text-slate-400 font-light">Active construction sites</p>
           </div>
           <div className="p-3.5 bg-orange-50 rounded-xl text-primary">
@@ -72,8 +114,12 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         {/* Card 4: Outstanding Udhari */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending Udhari</span>
-            <h3 className="text-3xl font-black text-rose-600">₹{totalPendingAmount.toLocaleString('en-IN')}</h3>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              Pending Udhari
+            </span>
+            <h3 className="text-3xl font-black text-rose-600">
+              ₹{totalPendingAmount.toLocaleString('en-IN')}
+            </h3>
             <p className="text-[10px] text-rose-500 font-medium">Outstanding accounts receivable</p>
           </div>
           <div className="p-3.5 bg-rose-50 rounded-xl text-rose-600">
@@ -82,12 +128,55 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </div>
       </div>
 
+      {/* Secondary Account Balances & Daily Flow Metrics Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+            <Building2 className="w-3 h-3 text-blue-500" /> Account 1 (Bank)
+          </span>
+          <p className="text-lg font-black text-charcoal mt-1">₹{account1Total.toLocaleString('en-IN')}</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+            <Wallet className="w-3 h-3 text-purple-500" /> Account 2 (Digital)
+          </span>
+          <p className="text-lg font-black text-charcoal mt-1">₹{account2Total.toLocaleString('en-IN')}</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+            <Banknote className="w-3 h-3 text-emerald-500" /> Yard Cash
+          </span>
+          <p className="text-lg font-black text-emerald-600 mt-1">₹{cashTotal.toLocaleString('en-IN')}</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+            <ClipboardList className="w-3 h-3 text-primary" /> Today's Rentals
+          </span>
+          <p className="text-lg font-black text-primary mt-1">{todayRentalsCount}</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+            <RefreshCw className="w-3 h-3 text-blue-500" /> Today's Returns
+          </span>
+          <p className="text-lg font-black text-blue-600 mt-1">{todayReturnsCount}</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3 text-rose-500" /> Overdue Rentals
+          </span>
+          <p className="text-lg font-black text-rose-600 mt-1">{overdueRentals.length}</p>
+        </div>
+      </div>
+
       {/* Main Grid: Data Logs */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
         {/* Left Side: Recent Rentals and Overdue Alerts (7 Columns) */}
         <div className="lg:col-span-7 space-y-8">
-          
           {/* Active / Overdue Rentals */}
           <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
             <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
@@ -99,7 +188,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 {overdueRentals.length} Overdue
               </span>
             </div>
-            
+
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
@@ -119,11 +208,13 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                       <td className="px-6 py-4 font-bold text-slate-800">{rent.quantity}</td>
                       <td className="px-6 py-4 text-slate-500">{rent.issueDate}</td>
                       <td className="px-6 py-4">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          rent.status === 'overdue'
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200/50'
-                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200/50'
-                        }`}>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                            rent.status === 'overdue'
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200/50'
+                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200/50'
+                          }`}
+                        >
                           {rent.status === 'overdue' ? 'Overdue' : 'Active'}
                         </span>
                       </td>
@@ -141,27 +232,30 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </div>
           </div>
 
-          {/* Quick Custom Visualization of Inventory Distribution */}
+          {/* Quick Custom Visualization of Inventory Distribution (Safe from NaN%) */}
           <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm">
             <h4 className="text-base font-bold text-charcoal mb-6">Inventory Stock Allocation</h4>
             <div className="space-y-4">
               {plates.map((plate) => {
-                const inUsePercent = (plate.withParties / plate.total) * 100;
+                const inUsePercent =
+                  plate.total > 0 ? (plate.withParties / plate.total) * 100 : 0;
                 return (
                   <div key={plate.plateType} className="space-y-1">
                     <div className="flex justify-between text-xs font-semibold">
                       <span className="text-charcoal font-bold">Size: {plate.plateType}</span>
                       <span className="text-slate-500">
-                        {plate.withParties} / {plate.total} rented ({inUsePercent.toFixed(0)}%)
+                        {plate.total === 0
+                          ? '0 in stock (0% rented)'
+                          : `${plate.withParties} / ${plate.total} rented (${inUsePercent.toFixed(0)}%)`}
                       </span>
                     </div>
                     <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden flex">
                       <div
-                        style={{ width: `${inUsePercent}%` }}
+                        style={{ width: `${Math.min(100, Math.max(0, inUsePercent))}%` }}
                         className="bg-primary h-full transition-all duration-500"
                       />
                       <div
-                        style={{ width: `${100 - inUsePercent}%` }}
+                        style={{ width: `${Math.min(100, Math.max(0, 100 - inUsePercent))}%` }}
                         className="bg-emerald-500 h-full transition-all duration-500"
                       />
                     </div>
@@ -180,12 +274,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               </span>
             </div>
           </div>
-
         </div>
 
         {/* Right Side: Recent Payments and Account Stats (5 Columns) */}
         <div className="lg:col-span-5 space-y-8">
-          
           {/* Recent Payments Log */}
           <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
             <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
@@ -197,16 +289,23 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 View All
               </button>
             </div>
-            
+
             <div className="divide-y divide-slate-100">
               {recentPayments.map((pay) => (
-                <div key={pay.id} className="p-4 px-6 hover:bg-slate-50/50 transition-colors flex justify-between items-center text-left">
+                <div
+                  key={pay.id}
+                  className="p-4 px-6 hover:bg-slate-50/50 transition-colors flex justify-between items-center text-left"
+                >
                   <div className="space-y-0.5">
                     <p className="text-sm font-bold text-slate-800">{pay.partyName}</p>
-                    <p className="text-xs text-slate-400 font-light">{pay.date} • {pay.paymentMode}</p>
+                    <p className="text-xs text-slate-400 font-light">
+                      {pay.date} • {pay.paymentMode}
+                    </p>
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-black text-emerald-600">+ ₹{pay.amount.toLocaleString('en-IN')}</span>
+                    <span className="text-sm font-black text-emerald-600">
+                      + ₹{pay.amount.toLocaleString('en-IN')}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -218,7 +317,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </div>
           </div>
 
-          {/* Business Hours & Quick Actions */}
+          {/* Quick Actions */}
           <div className="bg-charcoal text-white p-6 rounded-3xl border border-slate-800/80 relative overflow-hidden shadow-lg">
             <div className="absolute inset-0 bg-[radial-gradient(#ffffff03_1px,transparent_1px)] [background-size:16px_16px] opacity-15" />
             <h4 className="text-base font-bold text-white relative z-10">Quick Actions</h4>
@@ -254,21 +353,18 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               </button>
 
               <button
-                onClick={() => onTabChange('Notifications')}
+                onClick={() => onTabChange('Plate Stock')}
                 className="bg-slate-900 border border-slate-800 hover:border-primary/50 text-left p-4 rounded-2xl hover:bg-slate-850 transition-all flex flex-col justify-between h-24"
               >
-                <span className="text-xs text-slate-400">Verify Alerts</span>
+                <span className="text-xs text-slate-400">Manage Stock</span>
                 <span className="font-bold text-sm text-white flex items-center gap-1">
-                  Alerts List <ArrowRightIcon className="w-4 h-4 text-primary" />
+                  Plate Stock <ArrowRightIcon className="w-4 h-4 text-primary" />
                 </span>
               </button>
             </div>
           </div>
-
         </div>
-
       </div>
-
     </div>
   );
 };

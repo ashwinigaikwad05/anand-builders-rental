@@ -82,7 +82,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
     if (selectedRental) {
       const remainingLimit = getRemainingToReturn(selectedRental);
       if (returnedQty > remainingLimit) {
-        setValidationError(`Cannot return more than remaining issued plates: ${remainingLimit} plates.`);
+        setValidationError(`Only ${remainingLimit} plates are currently with this party.`);
         return;
       }
 

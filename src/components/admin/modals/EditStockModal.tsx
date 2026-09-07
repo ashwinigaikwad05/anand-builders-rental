@@ -1,0 +1,232 @@
+import React, { useState, useEffect } from 'react';
+import { X, Edit2, AlertCircle, Loader2 } from 'lucide-react';
+import { STANDARD_PLATE_SIZES } from '../../../lib/supabase';
+import type { PlateSizeType, InventoryStockItem } from '../../../lib/supabase';
+
+interface EditStockModalProps {
+  isOpen: boolean;
+  item: InventoryStockItem | null;
+  onClose: () => void;
+  onUpdateStock: (
+    id: string,
+    data: {
+      plate_size: PlateSizeType;
+      quantity: number;
+      received_date: string;
+      notes?: string;
+    }
+  ) => Promise<void> | void;
+  // Stock validation map: plate_size -> { total: number, withParties: number }
+  stockStatsMap: Record<PlateSizeType, { total: number; withParties: number }>;
+}
+
+export const EditStockModal: React.FC<EditStockModalProps> = ({
+  isOpen,
+  item,
+  onClose,
+  onUpdateStock,
+  stockStatsMap,
+}) => {
+  const [plateSize, setPlateSize] = useState<PlateSizeType>('24×3');
+  const [quantity, setQuantity] = useState<string>('');
+  const [receivedDate, setReceivedDate] = useState<string>('');
+  const [notes, setNotes] = useState<string>('');
+  const [error, setError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (item) {
+      setPlateSize(item.plate_size);
+      setQuantity(item.quantity.toString());
+      setReceivedDate(item.received_date);
+      setNotes(item.notes || '');
+      setError('');
+    }
+  }, [item]);
+
+  if (!isOpen || !item) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    const parsedQty = parseInt(quantity, 10);
+    if (isNaN(parsedQty) || parsedQty <= 0) {
+      setError('Quantity must be a positive whole number greater than 0.');
+      return;
+    }
+
+    if (!receivedDate) {
+      setError('Please select a valid date.');
+      return;
+    }
+
+    // Safety validation against rented plates
+    if (plateSize === item.plate_size) {
+      const stats = stockStatsMap[plateSize] || { total: 0, withParties: 0 };
+      const netTotalAfterChange = stats.total - item.quantity + parsedQty;
+      if (netTotalAfterChange < stats.withParties) {
+        setError(
+          `Cannot reduce stock to ${parsedQty} plates. Currently ${stats.withParties} plates of size ${plateSize} are rented out to parties. Minimum required total is ${stats.withParties}.`
+        );
+        return;
+      }
+    } else {
+      // Plate size changed: Check old size total after removal
+      const oldStats = stockStatsMap[item.plate_size] || { total: 0, withParties: 0 };
+      const oldNetTotal = oldStats.total - item.quantity;
+      if (oldNetTotal < oldStats.withParties) {
+        setError(
+          `Cannot change size. Size ${item.plate_size} has ${oldStats.withParties} plates rented out. Removing this batch would leave only ${oldNetTotal} plates.`
+        );
+        return;
+      }
+    }
+
+    try {
+      setIsSubmitting(true);
+      await onUpdateStock(item.id, {
+        plate_size: plateSize,
+        quantity: parsedQty,
+        received_date: receivedDate,
+        notes: notes.trim() || undefined,
+      });
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update stock entry.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl border border-slate-200 max-w-lg w-full overflow-hidden shadow-2xl animate-scaleUp text-left">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/60">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-blue-50 rounded-xl text-blue-600">
+              <Edit2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-base font-bold text-charcoal">Edit Stock Record</h4>
+              <p className="text-[11px] text-slate-400 font-light">
+                Update batch parameters for this stock entry
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && (
+            <div className="bg-rose-500/10 border border-rose-500/20 text-rose-600 p-3.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Plate Size */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
+              Plate Size *
+            </label>
+            <select
+              value={plateSize}
+              onChange={(e) => setPlateSize(e.target.value as PlateSizeType)}
+              required
+              disabled={isSubmitting}
+              className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none px-4 py-3 rounded-xl text-sm font-semibold text-slate-800"
+            >
+              {STANDARD_PLATE_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  {size} Width Plate
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Quantity */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
+              Quantity (Plates Count) *
+            </label>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              required
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              disabled={isSubmitting}
+              className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none px-4 py-3 rounded-xl text-sm font-semibold text-slate-800"
+            />
+          </div>
+
+          {/* Received Date */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
+              Stock Received Date *
+            </label>
+            <input
+              type="date"
+              required
+              value={receivedDate}
+              onChange={(e) => setReceivedDate(e.target.value)}
+              disabled={isSubmitting}
+              className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none px-4 py-3 rounded-xl text-sm font-semibold text-slate-800"
+            />
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
+              Notes (Optional)
+            </label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={isSubmitting}
+              className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none px-4 py-2.5 rounded-xl text-sm font-medium text-slate-800 resize-none"
+            />
+          </div>
+
+          {/* Buttons */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-5 py-2.5 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-sm shadow-md hover:shadow-orange-500/20 transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <span>Save Changes</span>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
