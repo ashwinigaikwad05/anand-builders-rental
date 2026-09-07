@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, ShieldAlert, KeyRound, Mail } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface AdminLoginProps {
   onLoginSuccess: () => void;
@@ -12,7 +13,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -24,15 +25,35 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      if (supabase) {
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password,
+        });
+
+        if (!authError && data?.session) {
+          localStorage.setItem('admin_session', 'authenticated_2026');
+          setIsLoading(false);
+          onLoginSuccess();
+          return;
+        }
+      }
+
+      // Fallback verification for default admin credentials if Supabase Auth user is pending creation
       if (email.trim() === 'admin@anandplates.com' && password === 'anand@admin2026') {
         localStorage.setItem('admin_session', 'authenticated_2026');
+        setIsLoading(false);
         onLoginSuccess();
-      } else {
-        setError('Invalid Admin ID or password. Please try again.');
+        return;
       }
-    }, 1000);
+
+      setIsLoading(false);
+      setError('Invalid Admin credentials. Please check your email and password.');
+    } catch (err: any) {
+      setIsLoading(false);
+      setError(err?.message || 'Login failed. Please try again.');
+    }
   };
 
   return (

@@ -16,7 +16,8 @@ import {
   Menu,
   X,
   User,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 
 // Imports Tab Components
@@ -37,24 +38,39 @@ import type { ToastMessage } from './Toast';
 
 // Supabase & Types
 import {
+  fetchParties,
+  insertParty,
+  updateParty,
+  deleteParty,
+  fetchPlateTypes,
+  updatePlateTypeRate,
+  updatePlateTypeStatus,
   fetchStockItems,
   insertStockItem,
   updateStockItem,
   deleteStockItem,
+  fetchRentals,
+  insertRental,
+  updateRentalStatus,
+  fetchReturns,
+  insertReturn,
+  fetchPayments,
+  insertPayment,
+  fetchLedgerEntries,
+  insertLedgerEntry,
+  fetchNotifications,
+  insertNotification,
+  markNotificationRead,
+  markAllNotificationsRead,
+  deleteNotification,
   STANDARD_PLATE_SIZES,
 } from '../../lib/supabase';
-import type { PlateSizeType, InventoryStockItem } from '../../lib/supabase';
-
-// Initial Mock data
-import {
-  INITIAL_PARTIES,
-  INITIAL_PLATES,
-  INITIAL_RENTALS,
-  INITIAL_RETURNS,
-  INITIAL_PAYMENTS,
-  INITIAL_LEDGER,
-  INITIAL_NOTIFICATIONS
-} from '../../data/adminMockData';
+import type {
+  PlateSizeType,
+  InventoryStockItem,
+  PlateTypeRecord,
+  PartyRecord,
+} from '../../lib/supabase';
 
 import type {
   Party,
@@ -73,17 +89,16 @@ interface AdminLayoutProps {
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // --- STATEFUL DB CONCEPT ---
-  const [parties, setParties] = useState<Party[]>(INITIAL_PARTIES);
-  const [plateSettings, setPlateSettings] = useState<PlateStock[]>(INITIAL_PLATES);
-  const [rentals, setRentals] = useState<Rental[]>(INITIAL_RENTALS);
-  const [returns, setReturns] = useState<ReturnLog[]>(INITIAL_RETURNS);
-  const [payments, setPayments] = useState<Payment[]>(INITIAL_PAYMENTS);
-  const [ledger, setLedger] = useState<LedgerEntry[]>(INITIAL_LEDGER);
-  const [notifications, setNotifications] = useState<AdminNotification[]>(INITIAL_NOTIFICATIONS);
-
-  // Live Supabase inventory stock items
+  const [rawParties, setRawParties] = useState<PartyRecord[]>([]);
+  const [plateSettings, setPlateSettings] = useState<PlateTypeRecord[]>([]);
+  const [rentals, setRentals] = useState<Rental[]>([]);
+  const [returns, setReturns] = useState<ReturnLog[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [stockItems, setStockItems] = useState<InventoryStockItem[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -96,24 +111,149 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Load stock records from Supabase on mount
+  // Load all records from Supabase on mount
+  const loadAllData = async () => {
+    try {
+      setIsLoading(true);
+      const [
+        loadedParties,
+        loadedPlateTypes,
+        loadedStock,
+        loadedRentals,
+        loadedReturns,
+        loadedPayments,
+        loadedLedger,
+        loadedNotifications,
+      ] = await Promise.all([
+        fetchParties(),
+        fetchPlateTypes(),
+        fetchStockItems(),
+        fetchRentals(),
+        fetchReturns(),
+        fetchPayments(),
+        fetchLedgerEntries(),
+        fetchNotifications(),
+      ]);
+
+      setRawParties(loadedParties);
+      setPlateSettings(loadedPlateTypes);
+      setStockItems(loadedStock);
+
+      // Convert DB records to UI models
+      setRentals(
+        loadedRentals.map((r) => ({
+          id: r.id,
+          partyId: r.party_id,
+          partyName: r.party_name,
+          plateType: r.plate_type,
+          quantity: r.quantity,
+          dailyRate: r.daily_rate,
+          issueDate: r.issue_date,
+          days: r.days,
+          totalRent: r.total_rent,
+          paid: r.paid_amount,
+          pending: r.pending_amount,
+          paymentMode: r.payment_mode,
+          status: r.status,
+          items: r.items,
+        }))
+      );
+
+      setReturns(
+        loadedReturns.map((ret) => ({
+          id: ret.id,
+          rentalId: ret.rental_id || '',
+          partyId: ret.party_id,
+          partyName: ret.party_name,
+          plateType: ret.plate_type,
+          issuedQuantity: ret.issued_quantity,
+          returnedQuantity: ret.returned_quantity,
+          remainingQuantity: ret.remaining_quantity,
+          returnDate: ret.return_date,
+        }))
+      );
+
+      setPayments(
+        loadedPayments.map((p) => ({
+          id: p.id,
+          partyId: p.party_id,
+          partyName: p.party_name,
+          amount: p.amount,
+          date: p.payment_date,
+          paymentMode: p.payment_mode === 'Udhari' ? 'Cash' : p.payment_mode,
+          reference: p.reference || '',
+          notes: p.notes || '',
+          status: p.status,
+        }))
+      );
+
+      setLedger(
+        loadedLedger.map((l) => ({
+          id: l.id,
+          partyId: l.party_id,
+          date: l.date,
+          description: l.description,
+          debit: l.debit,
+          credit: l.credit,
+          balance: l.balance,
+        }))
+      );
+
+      setNotifications(
+        loadedNotifications.map((n) => ({
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          date: n.date,
+          isRead: n.is_read,
+        }))
+      );
+    } catch (err: any) {
+      console.error('Failed to load database state:', err);
+      addToast('error', 'Error loading application data from Supabase.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let isMounted = true;
-    const loadStock = async () => {
-      try {
-        const items = await fetchStockItems();
-        if (isMounted) {
-          setStockItems(items);
-        }
-      } catch (err: any) {
-        console.error('Failed to load stock from Supabase:', err);
-      }
-    };
-    loadStock();
-    return () => {
-      isMounted = false;
-    };
+    loadAllData();
   }, []);
+
+  // Compute live derived party metrics from database transactions
+  const parties: Party[] = rawParties.map((p) => {
+    const partyRentals = rentals.filter((r) => r.partyId === p.id);
+    const partyReturns = returns.filter((ret) => ret.partyId === p.id);
+    const partyPayments = payments.filter((pay) => pay.partyId === p.id);
+
+    const totalRent = partyRentals.reduce((sum, r) => sum + r.totalRent, 0);
+    const totalPaid = partyPayments.reduce((sum, pay) => sum + pay.amount, 0);
+    const pending = Math.max(0, totalRent - totalPaid);
+
+    // Active plates currently with this party
+    let platesWithParty = 0;
+    const activePartyRentals = partyRentals.filter((r) => r.status === 'active' || r.status === 'overdue');
+    for (const rent of activePartyRentals) {
+      const returnedForRent = partyReturns
+        .filter((ret) => ret.rentalId === rent.id)
+        .reduce((sum, ret) => sum + ret.returnedQuantity, 0);
+      platesWithParty += Math.max(0, rent.quantity - returnedForRent);
+    }
+
+    return {
+      id: p.id,
+      name: p.name,
+      mobile: p.mobile,
+      address: p.address || '',
+      notes: p.notes || '',
+      platesWithParty,
+      totalRent,
+      paid: totalPaid,
+      pending,
+      status: p.status,
+    };
+  });
 
   // Compute live synchronized plates data derived from Supabase stock additions, rentals, and returns
   const derivedPlates: PlateStock[] = STANDARD_PLATE_SIZES.map((size) => {
@@ -145,16 +285,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
 
     const availableForSize = Math.max(0, totalForSize - withPartiesForSize);
 
-    // Preserve customized rate or manual status from plateSettings if any
-    const existingSetting = plateSettings.find((p) => p.plateType === size);
-    const dailyRate = existingSetting?.dailyRate ?? 1.5;
+    // Rate from plateSettings if configured
+    const existingSetting = plateSettings.find((p) => p.plate_size === size);
+    const dailyRate = existingSetting?.daily_rate ?? 1.5;
 
     let status: 'available' | 'low_stock' | 'out_of_stock' = 'available';
     if (existingSetting?.status === 'out_of_stock') {
       status = 'out_of_stock';
     } else if (totalForSize === 0 || availableForSize === 0) {
       status = 'out_of_stock';
-    } else if (availableForSize / totalForSize < 0.2) {
+    } else if (totalForSize > 0 && availableForSize / totalForSize < 0.2) {
       status = 'low_stock';
     }
 
@@ -170,7 +310,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
 
   // --- OPERATIONS CALLBACKS ---
 
-  // Stock CRUD Operations (Admin website as single point of operation)
+  // Stock CRUD Operations
   const handleAddStock = async (data: {
     plate_size: PlateSizeType;
     quantity: number;
@@ -221,252 +361,401 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
     }
   };
 
-  // 1. Parties
-  const handleAddParty = (newParty: Omit<Party, 'id' | 'platesWithParty' | 'totalRent' | 'paid' | 'pending' | 'status'>) => {
-    const created: Party = {
-      ...newParty,
-      id: `party-${Date.now()}`,
-      platesWithParty: 0,
-      totalRent: 0,
-      paid: 0,
-      pending: 0,
-      status: 'active',
-    };
-    setParties((prev) => [...prev, created]);
-    addToast('success', `Party "${created.name}" registered.`);
+  // 1. Parties CRUD
+  const handleAddParty = async (newParty: { name: string; mobile: string; address?: string; notes?: string }) => {
+    try {
+      const created = await insertParty(newParty);
+      setRawParties((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
+      addToast('success', `Party "${created.name}" registered.`);
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to register party.');
+      throw err;
+    }
   };
 
-  const handleEditParty = (updatedParty: Party) => {
-    setParties((prev) => prev.map((p) => (p.id === updatedParty.id ? updatedParty : p)));
-    addToast('success', `Party "${updatedParty.name}" updated.`);
+  const handleEditParty = async (updatedParty: Party) => {
+    try {
+      const updated = await updateParty(updatedParty.id, {
+        name: updatedParty.name,
+        mobile: updatedParty.mobile,
+        address: updatedParty.address,
+        notes: updatedParty.notes,
+        status: updatedParty.status,
+      });
+      setRawParties((prev) => prev.map((p) => (p.id === updatedParty.id ? updated : p)));
+      addToast('success', `Party "${updatedParty.name}" updated.`);
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to update party.');
+      throw err;
+    }
   };
 
-  const handleDeleteParty = (partyId: string) => {
-    const target = parties.find((p) => p.id === partyId);
-    setParties((prev) => prev.filter((p) => p.id !== partyId));
-    addToast('success', `Party "${target?.name || ''}" removed.`);
+  const handleDeleteParty = async (partyId: string) => {
+    try {
+      const target = rawParties.find((p) => p.id === partyId);
+      await deleteParty(partyId);
+      setRawParties((prev) => prev.filter((p) => p.id !== partyId));
+      addToast('success', `Party "${target?.name || ''}" removed.`);
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to delete party.');
+      throw err;
+    }
   };
 
   // 2. Plate settings (Rate & Status)
-  const handleUpdatePlateRate = (plateType: string, newRate: number) => {
-    setPlateSettings((prev) =>
-      prev.map((p) => (p.plateType === plateType ? { ...p, dailyRate: newRate } : p))
-    );
-    addToast('success', `Updated daily rate for ${plateType} to ₹${newRate.toFixed(2)}/day.`);
+  const handleUpdatePlateRate = async (plateType: string, newRate: number) => {
+    try {
+      await updatePlateTypeRate(plateType as PlateSizeType, newRate);
+      setPlateSettings((prev) =>
+        prev.map((p) => (p.plate_size === plateType ? { ...p, daily_rate: newRate } : p))
+      );
+      addToast('success', `Updated daily rate for ${plateType} to ₹${newRate.toFixed(2)}/day.`);
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to update rate.');
+    }
   };
 
-  const handleUpdatePlateStatus = (plateType: string, newStatus: 'available' | 'low_stock' | 'out_of_stock') => {
-    setPlateSettings((prev) =>
-      prev.map((p) => (p.plateType === plateType ? { ...p, status: newStatus } : p))
-    );
-    addToast('info', `Set status of ${plateType} to ${newStatus}.`);
+  const handleUpdatePlateStatus = async (plateType: string, newStatus: 'available' | 'low_stock' | 'out_of_stock') => {
+    try {
+      await updatePlateTypeStatus(plateType as PlateSizeType, newStatus);
+      setPlateSettings((prev) =>
+        prev.map((p) => (p.plate_size === plateType ? { ...p, status: newStatus } : p))
+      );
+      addToast('info', `Set status of ${plateType} to ${newStatus}.`);
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to update plate status.');
+    }
   };
 
   // 3. Rentals
-  const handleAddRental = (newRental: Omit<Rental, 'id' | 'totalRent' | 'pending' | 'status'>) => {
-    const totalRent =
-      newRental.items && newRental.items.length > 0
-        ? newRental.items.reduce((sum, it) => sum + it.quantity * it.dailyRate * it.days, 0)
-        : newRental.quantity * newRental.dailyRate * newRental.days;
-    const pending = totalRent - newRental.paid;
+  const handleAddRental = async (newRental: Omit<Rental, 'id' | 'totalRent' | 'pending' | 'status'>) => {
+    try {
+      const totalRent =
+        newRental.items && newRental.items.length > 0
+          ? newRental.items.reduce((sum, it) => sum + it.quantity * it.dailyRate * it.days, 0)
+          : newRental.quantity * newRental.dailyRate * newRental.days;
+      const pending = Math.max(0, totalRent - newRental.paid);
 
-    const created: Rental = {
-      ...newRental,
-      id: `rent-${Date.now()}`,
-      totalRent,
-      pending,
-      status: 'active',
-    };
+      const inserted = await insertRental({
+        party_id: newRental.partyId,
+        party_name: newRental.partyName,
+        plate_type: newRental.plateType,
+        quantity: newRental.quantity,
+        daily_rate: newRental.dailyRate,
+        issue_date: newRental.issueDate,
+        days: newRental.days,
+        total_rent: totalRent,
+        paid_amount: newRental.paid,
+        pending_amount: pending,
+        payment_mode: newRental.paymentMode,
+        status: 'active',
+        items: (newRental.items as any) || [],
+      });
 
-    // Update Rentals
-    setRentals((prev) => [created, ...prev]);
-
-    // Update Party balance and items
-    setParties((prev) =>
-      prev.map((p) =>
-        p.id === newRental.partyId
-          ? {
-              ...p,
-              platesWithParty: p.platesWithParty + newRental.quantity,
-              totalRent: p.totalRent + totalRent,
-              paid: p.paid + newRental.paid,
-              pending: p.pending + pending,
-            }
-          : p
-      )
-    );
-
-    // Append to Ledger
-    const itemsDescription =
-      newRental.items && newRental.items.length > 0
-        ? newRental.items.map((it) => `${it.quantity} Plates of ${it.plateType}`).join(', ')
-        : `${newRental.quantity} Plates of ${newRental.plateType}`;
-
-    const ledEntry: LedgerEntry = {
-      id: `led-${Date.now()}`,
-      partyId: newRental.partyId,
-      date: newRental.issueDate,
-      description: `Rental Issued: ${itemsDescription} for ${newRental.days} days`,
-      debit: totalRent,
-      credit: 0,
-      balance: (parties.find((p) => p.id === newRental.partyId)?.pending || 0) + pending,
-    };
-    setLedger((prev) => [...prev, ledEntry]);
-
-    // If advance payment was made, add payment voucher log
-    if (newRental.paid > 0) {
-      const pay: Payment = {
-        id: `pay-advance-${Date.now()}`,
-        partyId: newRental.partyId,
-        partyName: newRental.partyName,
-        amount: newRental.paid,
-        date: newRental.issueDate,
-        paymentMode: newRental.paymentMode === 'Udhari' ? 'Cash' : (newRental.paymentMode as any),
-        reference: `ADV-${Date.now().toString().slice(-4)}`,
-        notes: 'Advance payment for rental dispatch sheet',
-        status: 'verified',
+      const createdRental: Rental = {
+        ...newRental,
+        id: inserted.id,
+        totalRent,
+        pending,
+        status: 'active',
       };
-      setPayments((prev) => [pay, ...prev]);
 
-      const ledEntryPay: LedgerEntry = {
-        id: `led-pay-${Date.now()}`,
-        partyId: newRental.partyId,
+      setRentals((prev) => [createdRental, ...prev]);
+
+      // Append to Ledger
+      const itemsDescription =
+        newRental.items && newRental.items.length > 0
+          ? newRental.items.map((it) => `${it.quantity} Plates of ${it.plateType}`).join(', ')
+          : `${newRental.quantity} Plates of ${newRental.plateType}`;
+
+      const currentPartyPending = parties.find((p) => p.id === newRental.partyId)?.pending || 0;
+      const ledEntry = await insertLedgerEntry({
+        party_id: newRental.partyId,
         date: newRental.issueDate,
-        description: `Advance Payment Received - ${pay.paymentMode} (Ref: ${pay.reference})`,
-        debit: 0,
-        credit: newRental.paid,
-        balance: ledEntry.balance - newRental.paid,
-      };
-      setLedger((prev) => [...prev, ledEntryPay]);
+        description: `Rental Issued: ${itemsDescription} for ${newRental.days} days`,
+        debit: totalRent,
+        credit: 0,
+        balance: currentPartyPending + pending,
+        reference_type: 'rental',
+        reference_id: inserted.id,
+      });
+
+      setLedger((prev) => [
+        {
+          id: ledEntry.id,
+          partyId: ledEntry.party_id,
+          date: ledEntry.date,
+          description: ledEntry.description,
+          debit: ledEntry.debit,
+          credit: ledEntry.credit,
+          balance: ledEntry.balance,
+        },
+        ...prev,
+      ]);
+
+      // If advance payment was made, add payment voucher log
+      if (newRental.paid > 0) {
+        const insertedPayment = await insertPayment({
+          party_id: newRental.partyId,
+          party_name: newRental.partyName,
+          rental_id: inserted.id,
+          amount: newRental.paid,
+          payment_date: newRental.issueDate,
+          payment_mode: newRental.paymentMode,
+          reference: `ADV-${Date.now().toString().slice(-4)}`,
+          notes: 'Advance payment for rental dispatch sheet',
+          status: 'verified',
+        });
+
+        const pay: Payment = {
+          id: insertedPayment.id,
+          partyId: newRental.partyId,
+          partyName: newRental.partyName,
+          amount: newRental.paid,
+          date: newRental.issueDate,
+          paymentMode: newRental.paymentMode === 'Udhari' ? 'Cash' : (newRental.paymentMode as any),
+          reference: insertedPayment.reference || '',
+          notes: 'Advance payment for rental dispatch sheet',
+          status: 'verified',
+        };
+        setPayments((prev) => [pay, ...prev]);
+
+        const ledEntryPay = await insertLedgerEntry({
+          party_id: newRental.partyId,
+          date: newRental.issueDate,
+          description: `Advance Payment Received - ${pay.paymentMode} (Ref: ${pay.reference})`,
+          debit: 0,
+          credit: newRental.paid,
+          balance: ledEntry.balance - newRental.paid,
+          reference_type: 'payment',
+          reference_id: insertedPayment.id,
+        });
+
+        setLedger((prev) => [
+          {
+            id: ledEntryPay.id,
+            partyId: ledEntryPay.party_id,
+            date: ledEntryPay.date,
+            description: ledEntryPay.description,
+            debit: ledEntryPay.debit,
+            credit: ledEntryPay.credit,
+            balance: ledEntryPay.balance,
+          },
+          ...prev,
+        ]);
+      }
+
+      addToast('success', `Dispatched ${newRental.quantity} plates of ${newRental.plateType} to ${newRental.partyName}.`);
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to dispatch rental.');
+      throw err;
     }
-
-    addToast('success', `Dispatched ${newRental.quantity} plates of ${newRental.plateType} to ${newRental.partyName}.`);
   };
 
-  const handleUpdateRentalStatus = (rentalId: string, status: 'active' | 'returned' | 'overdue') => {
-    setRentals((prev) => prev.map((r) => (r.id === rentalId ? { ...r, status } : r)));
-    addToast('info', `Rental status updated to ${status}.`);
+  const handleUpdateRentalStatus = async (rentalId: string, status: 'active' | 'returned' | 'overdue') => {
+    try {
+      await updateRentalStatus(rentalId, status);
+      setRentals((prev) => prev.map((r) => (r.id === rentalId ? { ...r, status } : r)));
+      addToast('info', `Rental status updated to ${status}.`);
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to update rental status.');
+    }
   };
 
   // 4. Returns
-  const handleAddReturn = (newReturn: Omit<ReturnLog, 'id' | 'partyName' | 'plateType' | 'issuedQuantity'>) => {
-    const matchedRental = rentals.find((r) => r.id === newReturn.rentalId);
-    if (!matchedRental) return;
+  const handleAddReturn = async (newReturn: Omit<ReturnLog, 'id' | 'partyName' | 'plateType' | 'issuedQuantity'>) => {
+    try {
+      const matchedRental = rentals.find((r) => r.id === newReturn.rentalId);
+      const party = rawParties.find((p) => p.id === newReturn.partyId);
+      if (!matchedRental || !party) return;
 
-    const created: ReturnLog = {
-      ...newReturn,
-      id: `ret-${Date.now()}`,
-      partyName: matchedRental.partyName,
-      plateType: matchedRental.plateType,
-      issuedQuantity: matchedRental.quantity,
-    };
+      const inserted = await insertReturn({
+        party_id: newReturn.partyId,
+        party_name: party.name,
+        rental_id: newReturn.rentalId,
+        plate_type: matchedRental.plateType,
+        issued_quantity: matchedRental.quantity,
+        returned_quantity: newReturn.returnedQuantity,
+        remaining_quantity: newReturn.remainingQuantity,
+        return_date: newReturn.returnDate,
+      });
 
-    setReturns((prev) => [created, ...prev]);
+      const created: ReturnLog = {
+        ...newReturn,
+        id: inserted.id,
+        partyName: party.name,
+        plateType: matchedRental.plateType,
+        issuedQuantity: matchedRental.quantity,
+      };
 
-    // Update Party plates out count
-    setParties((prev) =>
-      prev.map((p) =>
-        p.id === newReturn.partyId
-          ? {
-              ...p,
-              platesWithParty: Math.max(0, p.platesWithParty - newReturn.returnedQuantity),
-            }
-          : p
-      )
-    );
+      setReturns((prev) => [created, ...prev]);
 
-    // If remaining quantity becomes zero, mark rental agreement as fully returned
-    if (newReturn.remainingQuantity === 0) {
-      setRentals((prev) =>
-        prev.map((r) => (r.id === newReturn.rentalId ? { ...r, status: 'returned' } : r))
-      );
+      // If remaining quantity becomes zero, mark rental agreement as fully returned in DB
+      if (newReturn.remainingQuantity === 0) {
+        await updateRentalStatus(newReturn.rentalId, 'returned');
+        setRentals((prev) =>
+          prev.map((r) => (r.id === newReturn.rentalId ? { ...r, status: 'returned' } : r))
+        );
+      }
+
+      // Ledger Entry for Return Intake
+      const partyPending = parties.find((p) => p.id === newReturn.partyId)?.pending || 0;
+      const ledEntry = await insertLedgerEntry({
+        party_id: newReturn.partyId,
+        date: newReturn.returnDate,
+        description: `Material Return Intake: ${newReturn.returnedQuantity} Plates of ${matchedRental.plateType} returned`,
+        debit: 0,
+        credit: 0,
+        balance: partyPending,
+        reference_type: 'return',
+        reference_id: inserted.id,
+      });
+
+      setLedger((prev) => [
+        {
+          id: ledEntry.id,
+          partyId: ledEntry.party_id,
+          date: ledEntry.date,
+          description: ledEntry.description,
+          debit: ledEntry.debit,
+          credit: ledEntry.credit,
+          balance: ledEntry.balance,
+        },
+        ...prev,
+      ]);
+
+      addToast('success', `Received ${newReturn.returnedQuantity} plates of ${matchedRental.plateType} from ${party.name}.`);
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to record return.');
+      throw err;
     }
-
-    // Ledger Entry for Return Intake
-    const ledEntry: LedgerEntry = {
-      id: `led-ret-${Date.now()}`,
-      partyId: newReturn.partyId,
-      date: newReturn.returnDate,
-      description: `Material Return Intake: ${newReturn.returnedQuantity} Plates of ${matchedRental.plateType} returned`,
-      debit: 0,
-      credit: 0,
-      balance: parties.find((p) => p.id === newReturn.partyId)?.pending || 0,
-    };
-    setLedger((prev) => [...prev, ledEntry]);
-
-    addToast('success', `Received ${newReturn.returnedQuantity} plates of ${matchedRental.plateType} from ${matchedRental.partyName}.`);
   };
 
   // 5. Payments
-  const handleAddPayment = (newPayment: Omit<Payment, 'id' | 'partyName' | 'reference' | 'status'>) => {
-    const party = parties.find((p) => p.id === newPayment.partyId);
-    if (!party) return;
+  const handleAddPayment = async (newPayment: Omit<Payment, 'id' | 'partyName' | 'reference' | 'status'>) => {
+    try {
+      const party = rawParties.find((p) => p.id === newPayment.partyId);
+      if (!party) return;
 
-    const created: Payment = {
-      ...newPayment,
-      id: `pay-${Date.now()}`,
-      partyName: party.name,
-      reference: `PAY-${Date.now().toString().slice(-4)}`,
-      status: 'verified',
-    };
+      const inserted = await insertPayment({
+        party_id: newPayment.partyId,
+        party_name: party.name,
+        amount: newPayment.amount,
+        payment_date: newPayment.date,
+        payment_mode: newPayment.paymentMode,
+        reference: `PAY-${Date.now().toString().slice(-4)}`,
+        notes: newPayment.notes,
+        status: 'verified',
+      });
 
-    setPayments((prev) => [created, ...prev]);
+      const created: Payment = {
+        ...newPayment,
+        id: inserted.id,
+        partyName: party.name,
+        reference: inserted.reference || `PAY-${Date.now().toString().slice(-4)}`,
+        status: 'verified',
+      };
 
-    // Reduce Party outstanding balance
-    setParties((prev) =>
-      prev.map((p) =>
-        p.id === newPayment.partyId
-          ? {
-              ...p,
-              paid: p.paid + newPayment.amount,
-              pending: Math.max(0, p.pending - newPayment.amount),
-            }
-          : p
-      )
-    );
+      setPayments((prev) => [created, ...prev]);
 
-    // Ledger Voucher credit entry
-    const ledEntry: LedgerEntry = {
-      id: `led-pay-${Date.now()}`,
-      partyId: newPayment.partyId,
-      date: newPayment.date,
-      description: `Payment Received - ${newPayment.paymentMode} (Ref: ${created.reference})`,
-      debit: 0,
-      credit: newPayment.amount,
-      balance: Math.max(0, party.pending - newPayment.amount),
-    };
-    setLedger((prev) => [...prev, ledEntry]);
+      // Ledger Voucher credit entry
+      const partyData = parties.find((p) => p.id === newPayment.partyId);
+      const currentPending = partyData ? partyData.pending : 0;
+      const newPending = Math.max(0, currentPending - newPayment.amount);
 
-    // Append a notification confirming receipt
-    const alertNot: AdminNotification = {
-      id: `not-pay-${Date.now()}`,
-      type: 'payment',
-      title: 'Payment Confirmed',
-      message: `💸 Received ₹${newPayment.amount.toLocaleString('en-IN')} from ${party.name} (${newPayment.paymentMode}).`,
-      date: newPayment.date,
-      isRead: false,
-    };
-    setNotifications((prev) => [alertNot, ...prev]);
-    addToast('success', `Payment of ₹${newPayment.amount.toLocaleString('en-IN')} recorded.`);
+      const ledEntry = await insertLedgerEntry({
+        party_id: newPayment.partyId,
+        date: newPayment.date,
+        description: `Payment Received - ${newPayment.paymentMode} (Ref: ${created.reference})`,
+        debit: 0,
+        credit: newPayment.amount,
+        balance: newPending,
+        reference_type: 'payment',
+        reference_id: inserted.id,
+      });
+
+      setLedger((prev) => [
+        {
+          id: ledEntry.id,
+          partyId: ledEntry.party_id,
+          date: ledEntry.date,
+          description: ledEntry.description,
+          debit: ledEntry.debit,
+          credit: ledEntry.credit,
+          balance: ledEntry.balance,
+        },
+        ...prev,
+      ]);
+
+      // Notification
+      const insertedNot = await insertNotification({
+        party_id: newPayment.partyId,
+        type: 'payment',
+        title: 'Payment Confirmed',
+        message: `💸 Received ₹${newPayment.amount.toLocaleString('en-IN')} from ${party.name} (${newPayment.paymentMode}).`,
+        date: newPayment.date,
+      });
+
+      setNotifications((prev) => [
+        {
+          id: insertedNot.id,
+          type: insertedNot.type,
+          title: insertedNot.title,
+          message: insertedNot.message,
+          date: insertedNot.date,
+          isRead: insertedNot.is_read,
+        },
+        ...prev,
+      ]);
+
+      addToast('success', `Payment of ₹${newPayment.amount.toLocaleString('en-IN')} recorded.`);
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to record payment.');
+      throw err;
+    }
   };
 
   // 6. Notifications Alerts
-  const handleMarkRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+  const handleMarkRead = async (id: string) => {
+    try {
+      await markNotificationRead(id);
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+    } catch (err: any) {
+      console.error('Failed to mark notification read:', err);
+    }
   };
 
-  const handleClearNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  const handleClearNotification = async (id: string) => {
+    try {
+      await deleteNotification(id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    } catch (err: any) {
+      console.error('Failed to clear notification:', err);
+    }
   };
 
-  const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    } catch (err: any) {
+      console.error('Failed to mark all notifications read:', err);
+    }
   };
 
   const unreadAlertsCount = notifications.filter((n) => !n.isRead).length;
 
   // Render Page Content based on selected Active tab
   const renderTabContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+          <Loader2 className="w-10 h-10 text-primary animate-spin" />
+          <p className="text-sm text-slate-500 font-semibold">Loading data from Supabase...</p>
+        </div>
+      );
+    }
+
     switch (activeTab) {
       case 'Dashboard':
         return (
@@ -603,24 +892,24 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
         </button>
       </div>
 
-      {/* 2. Sidebar Container (Sticky on desktop, drawer overlay on mobile) */}
+      {/* 2. Desktop Navigation Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 bg-slate-900 text-slate-400 w-64 transform z-45 md:z-20 md:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col justify-between border-r border-slate-850 md:sticky md:top-0 md:h-screen ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-slate-900 text-slate-400 flex flex-col justify-between z-50 transition-transform duration-300 ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <div className="flex flex-col h-full overflow-y-auto">
-          {/* Logo Branding */}
-          <div className="hidden md:flex items-center gap-3 p-6 border-b border-slate-850">
+        <div className="flex flex-col h-full overflow-hidden">
+          {/* Brand header */}
+          <div className="p-6 border-b border-slate-850 flex items-center gap-3">
             <img src="/logo.png" alt="ANAND Logo" className="h-10 w-auto object-contain" />
-            <div className="text-left leading-none space-y-0.5">
-              <h1 className="text-white text-xs font-black tracking-wider uppercase">ANAND BUILDERS</h1>
-              <p className="text-primary text-[9px] font-bold">आनंद मटेरियल सप्लायर</p>
+            <div className="text-left">
+              <h1 className="text-white font-extrabold text-sm tracking-wide">ANAND PLATES</h1>
+              <p className="text-[10px] text-primary font-bold">आनंद बिल्डिंग मटेरियल</p>
             </div>
           </div>
 
-          {/* Navigation links */}
-          <nav className="flex-grow py-6 px-4 space-y-1 text-left">
+          {/* Navigation Menu Links */}
+          <nav className="flex-grow p-4 space-y-1 overflow-y-auto custom-scrollbar">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.name;
@@ -722,37 +1011,26 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
               />
             </div>
 
-            {/* Notification alert counter bell */}
+            {/* Quick Notifications bell icon button */}
             <button
               onClick={() => setActiveTab('Notifications')}
-              className="p-2 hover:bg-slate-50 text-slate-500 rounded-lg relative transition"
+              className="relative p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
             >
               <Bell className="w-5 h-5" />
               {unreadAlertsCount > 0 && (
-                <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
               )}
             </button>
-
-            {/* User credentials */}
-            <div className="flex items-center gap-2 border-l border-slate-200 pl-6 text-left">
-              <div className="text-right leading-none">
-                <span className="text-xs font-bold block text-slate-800">Admin Account</span>
-                <span className="text-[9px] text-primary font-bold">Manager Mode</span>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-xs text-slate-700">
-                AD
-              </div>
-            </div>
           </div>
         </header>
 
-        {/* Page Tab Core Body */}
-        <main className="flex-grow p-4 sm:p-6 lg:p-8 overflow-y-auto max-w-7xl w-full mx-auto">
+        {/* Tab Content Display Area */}
+        <main className="flex-grow p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto overflow-y-auto">
           {renderTabContent()}
         </main>
       </div>
 
-      {/* Global Toast Notifications */}
+      {/* Toast notifications container */}
       <Toast toasts={toasts} onDismiss={removeToast} />
     </div>
   );
