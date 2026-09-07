@@ -54,7 +54,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
     if (!party) return;
 
     if (amount > party.pending) {
-      setValidationError(`Amount exceeds customer outstanding balance (Udhari) of ₹${party.pending}.`);
+      setValidationError(`Amount exceeds customer outstanding dues of ₹${party.pending}.`);
       // We can allow overpayments if required, but in general showing a warning is very useful.
       // Let's make it a warning but allow it, or restrict it. Restricting or warning is fine. Let's show warning but allow to proceed (as customer might pay advance). Actually, outstanding can support advance, so we will warn but let it save.
     }

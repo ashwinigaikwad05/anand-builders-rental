@@ -132,7 +132,7 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
               <p className="text-[9px] text-slate-400 font-light">Accrued bill amount</p>
             </div>
             <div className="bg-slate-50 p-5 rounded-2xl border border-slate-150 text-left space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending Udhari Balance</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Outstanding Dues Balance</span>
               <h4 className={`text-2xl font-black ${selectedParty.pending > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                 ₹{selectedParty.pending.toLocaleString('en-IN')}
               </h4>
@@ -319,7 +319,7 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                     <th className="px-6 py-4">Plates Active</th>
                     <th className="px-6 py-4">Accum. Rent</th>
                     <th className="px-6 py-4">Paid</th>
-                    <th className="px-6 py-4">Udhari</th>
+                    <th className="px-6 py-4">Outstanding Dues</th>
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4 text-center">Actions</th>
                   </tr>

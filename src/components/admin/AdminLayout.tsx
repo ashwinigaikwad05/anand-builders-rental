@@ -538,6 +538,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
             onAddPayment={handleAddPayment}
           />
         );
+      case 'Outstanding Dues':
       case 'Udhari':
         return <UdhariTab parties={parties} payments={payments} />;
       case 'Ledger':
@@ -576,7 +577,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
     { name: 'Rentals', icon: ClipboardList },
     { name: 'Returns', icon: RefreshCw },
     { name: 'Payments', icon: DollarSign },
-    { name: 'Udhari', icon: AlertCircle },
+    { name: 'Outstanding Dues', icon: AlertCircle },
     { name: 'Ledger', icon: FileText },
     { name: 'Notifications', icon: Bell, badgeCount: unreadAlertsCount },
     { name: 'Reports', icon: BarChart3 },

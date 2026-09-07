@@ -553,7 +553,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       onChange={(e) => setPaymentMode(e.target.value as any)}
                       className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
                     >
-                      <option value="Udhari">Udhari / Outstanding</option>
+                      <option value="Udhari">Outstanding Dues</option>
                       <option value="Account 1">Account 1 (Bank)</option>
                       <option value="Account 2">Account 2 (Digital)</option>
                       <option value="Cash">Yard Drawer Cash</option>
@@ -562,7 +562,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                 </div>
 
                 <div className="flex justify-between items-center pt-3 border-t border-slate-200 text-xs font-bold">
-                  <span className="text-slate-500 uppercase tracking-wider">Outstanding Balance (Udhari):</span>
+                  <span className="text-slate-500 uppercase tracking-wider">Outstanding Dues:</span>
                   <span className={`text-base font-black ${calculatedPending > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                     ₹{calculatedPending.toLocaleString('en-IN')}
                   </span>

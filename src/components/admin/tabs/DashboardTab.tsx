@@ -97,11 +97,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </div>
         </div>
 
-        {/* Card 4: Outstanding Udhari */}
+        {/* Card 4: Outstanding Dues */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Pending Udhari
+              Outstanding Dues
             </span>
             <h3 className="text-3xl font-black text-rose-600">
               ₹{totalPendingAmount.toLocaleString('en-IN')}

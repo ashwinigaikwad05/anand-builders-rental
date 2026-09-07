@@ -94,7 +94,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
               <option value="rental">Rental Dispatch Report</option>
               <option value="return">Return Intake Report</option>
               <option value="payment">Received Payments Report</option>
-              <option value="udhari">Outstanding Udhari Report</option>
+              <option value="udhari">Outstanding Dues Report</option>
             </select>
           </div>
 
@@ -299,7 +299,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
                       <th className="px-6 py-4">Mobile</th>
                       <th className="px-6 py-4">Total Billed</th>
                       <th className="px-6 py-4">Total Paid</th>
-                      <th className="px-6 py-4">Outstanding Udhari</th>
+                      <th className="px-6 py-4">Outstanding Dues</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-light">

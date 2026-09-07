@@ -33,7 +33,7 @@ export const UdhariTab: React.FC<UdhariTabProps> = ({ parties, payments }) => {
         <div className="space-y-1">
           <span className="text-xs font-bold text-rose-500 uppercase tracking-wider">Total Outstanding Accounts Receivable</span>
           <h3 className="text-3xl font-black text-rose-600">₹{totalPending.toLocaleString('en-IN')}</h3>
-          <p className="text-[10px] text-rose-400 font-light">Outstanding udhari balance across active customers</p>
+          <p className="text-[10px] text-rose-400 font-light">Outstanding dues balance across active customers</p>
         </div>
         <div className="p-4 bg-rose-500/10 rounded-2xl text-rose-600">
           <AlertCircle className="w-8 h-8" />
@@ -63,7 +63,7 @@ export const UdhariTab: React.FC<UdhariTabProps> = ({ parties, payments }) => {
                 <th className="px-6 py-4">Customer Party</th>
                 <th className="px-6 py-4">Total Accrued Rent</th>
                 <th className="px-6 py-4">Paid Amount</th>
-                <th className="px-6 py-4">Outstanding Udhari</th>
+                <th className="px-6 py-4">Outstanding Dues</th>
                 <th className="px-6 py-4">Last Payment Date</th>
                 <th className="px-6 py-4 text-center">Status</th>
               </tr>
