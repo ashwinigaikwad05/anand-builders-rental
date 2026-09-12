@@ -1,16 +1,30 @@
 import React, { useState } from 'react';
 import { Plus, Search, Wallet, X, Check, Info } from 'lucide-react';
-import type { Party, Payment } from '../../../data/adminMockData';
+import type { Party, Payment, Rental, RentalCycle } from '../../../data/adminMockData';
 
 interface PaymentsTabProps {
   payments: Payment[];
   parties: Party[];
-  onAddPayment: (newPayment: Omit<Payment, 'id' | 'partyName' | 'reference' | 'status'>) => void;
+  rentals?: Rental[];
+  rentalCycles?: RentalCycle[];
+  onAddPayment: (newPayment: {
+    partyId: string;
+    amount: number;
+    date: string;
+    paymentMode: 'Account 1' | 'Account 2' | 'Cash';
+    rentalId?: string;
+    cycleId?: string;
+    cycleNumber?: number;
+    reference?: string;
+    notes?: string;
+  }) => void;
 }
 
 export const PaymentsTab: React.FC<PaymentsTabProps> = ({
   payments,
   parties,
+  rentals = [],
+  rentalCycles = [],
   onAddPayment,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -18,27 +32,50 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
 
   // Form states
   const [selectedPartyId, setSelectedPartyId] = useState('');
+  const [selectedCycleId, setSelectedCycleId] = useState('');
   const [amount, setAmount] = useState<number>(0);
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMode, setPaymentMode] = useState<'Account 1' | 'Account 2' | 'Cash'>('Cash');
+  const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
 
   const [validationError, setValidationError] = useState('');
 
+  const [modeFilter, setModeFilter] = useState<'All' | 'Account 1' | 'Account 2' | 'Cash'>('All');
+  const [partyFilter, setPartyFilter] = useState<string>('All');
 
+  const filteredPayments = payments.filter((p) => {
+    const matchesSearch =
+      p.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.paymentMode.toLowerCase().includes(searchTerm.toLowerCase());
 
-  const filteredPayments = payments.filter((p) =>
-    p.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.paymentMode.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesMode = modeFilter === 'All' || p.paymentMode === modeFilter;
+    const matchesParty = partyFilter === 'All' || p.partyId === partyFilter;
+
+    return matchesSearch && matchesMode && matchesParty;
+  });
+
+  // Fetch pending cycles for selected party
+  const partyPendingCycles = rentalCycles.filter(
+    (c) => c.partyId === selectedPartyId && c.pendingAmount > 0
   );
 
   const handleOpenAdd = () => {
-    setSelectedPartyId(parties[0]?.id || '');
+    const firstParty = parties[0];
+    setSelectedPartyId(firstParty?.id || '');
+    setSelectedCycleId('');
     setAmount(0);
-    setPaymentMode('Cash');
+    setPaymentMode('Account 1');
+    setReference('');
     setNotes('');
     setValidationError('');
     setIsAddOpen(true);
+  };
+
+  const handlePartyChange = (partyId: string) => {
+    setSelectedPartyId(partyId);
+    setSelectedCycleId('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -50,52 +87,86 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
       return;
     }
 
+    if (!paymentMode) {
+      setValidationError('Payment destination (Account 1 / Account 2 / Cash) is required.');
+      return;
+    }
+
     const party = parties.find((p) => p.id === selectedPartyId);
     if (!party) return;
 
-    if (amount > party.pending) {
-      setValidationError(`Amount exceeds customer outstanding dues of ₹${party.pending}.`);
-      // We can allow overpayments if required, but in general showing a warning is very useful.
-      // Let's make it a warning but allow it, or restrict it. Restricting or warning is fine. Let's show warning but allow to proceed (as customer might pay advance). Actually, outstanding can support advance, so we will warn but let it save.
-    }
+    const targetCycle = selectedCycleId
+      ? rentalCycles.find((c) => c.id === selectedCycleId)
+      : undefined;
 
     onAddPayment({
       partyId: selectedPartyId,
       amount,
       date: payDate,
       paymentMode,
-      notes,
+      rentalId: targetCycle?.rentalId,
+      cycleId: targetCycle?.id,
+      cycleNumber: targetCycle?.cycleNumber,
+      reference: reference.trim() || undefined,
+      notes: notes.trim() || undefined,
     });
 
     setIsAddOpen(false);
   };
 
   return (
-    <div className="space-y-8 text-left">
+    <div className="space-y-6 text-left">
+      {/* Search and Filters Bar */}
+      <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4">
+        {/* Search & Select Filters */}
+        <div className="flex flex-col sm:flex-row gap-3 flex-grow max-w-2xl">
+          <div className="relative flex-grow">
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <Search className="w-4 h-4" />
+            </span>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by party, voucher, mode..."
+              className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none pl-10 pr-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium"
+            />
+          </div>
 
-      {/* Search and Trigger */}
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
-        {/* Search */}
-        <div className="relative flex-grow max-w-md">
-          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-            <Search className="w-5 h-5" />
-          </span>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search Payments by Party or Mode..."
-            className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-primary focus:outline-none pl-11 pr-4 py-3 rounded-xl text-sm font-medium"
-          />
+          {/* Mode Filter */}
+          <select
+            value={modeFilter}
+            onChange={(e) => setModeFilter(e.target.value as any)}
+            className="bg-white border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700"
+          >
+            <option value="All">All Payment Accounts</option>
+            <option value="Account 1">Account 1 (Bank)</option>
+            <option value="Account 2">Account 2 (Digital)</option>
+            <option value="Cash">Cash</option>
+          </select>
+
+          {/* Party Filter */}
+          <select
+            value={partyFilter}
+            onChange={(e) => setPartyFilter(e.target.value)}
+            className="bg-white border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 max-w-[200px]"
+          >
+            <option value="All">All Parties</option>
+            {parties.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Trigger Button */}
         <button
           onClick={handleOpenAdd}
-          className="bg-primary hover:bg-primary-dark text-white font-bold px-5 py-3 rounded-xl shadow-md hover:shadow-orange-500/10 flex items-center justify-center gap-2 text-sm"
+          className="bg-primary hover:bg-primary-dark text-white font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-orange-500/10 flex items-center justify-center gap-2 text-sm transition-all flex-shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>Add Payment Receipt</span>
+          <span>Record Payment</span>
         </button>
       </div>
 
@@ -107,8 +178,9 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
               <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
                 <th className="px-6 py-4">Receipt Date</th>
                 <th className="px-6 py-4">Customer Party</th>
+                <th className="px-6 py-4">Cycle Target</th>
                 <th className="px-6 py-4">Amount</th>
-                <th className="px-6 py-4">Payment Mode</th>
+                <th className="px-6 py-4">Received In</th>
                 <th className="px-6 py-4">Ref. Voucher</th>
                 <th className="px-6 py-4 text-center">Status</th>
               </tr>
@@ -116,11 +188,34 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
             <tbody className="divide-y divide-slate-100 font-light">
               {filteredPayments.map((pay) => (
                 <tr key={pay.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4 text-slate-500 font-mono">{pay.date}</td>
+                  <td className="px-6 py-4 text-slate-500 font-mono text-xs">{pay.date}</td>
                   <td className="px-6 py-4 font-bold text-slate-800">{pay.partyName}</td>
-                  <td className="px-6 py-4 font-black text-emerald-600">₹{pay.amount.toLocaleString('en-IN')}</td>
-                  <td className="px-6 py-4 text-slate-500 font-medium">{pay.paymentMode}</td>
-                  <td className="px-6 py-4 text-slate-400 font-mono">{pay.reference}</td>
+                  <td className="px-6 py-4">
+                    {pay.cycleNumber ? (
+                      <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold px-2 py-0.5 rounded-lg">
+                        Cycle {pay.cycleNumber}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-400 font-medium">General Party Allocation</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 font-black text-emerald-600">
+                    ₹{pay.amount.toLocaleString('en-IN')}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
+                        pay.paymentMode === 'Account 1'
+                          ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                          : pay.paymentMode === 'Account 2'
+                          ? 'bg-purple-50 text-purple-700 border border-purple-100'
+                          : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                      }`}
+                    >
+                      {pay.paymentMode}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-slate-400 font-mono text-xs">{pay.reference || '—'}</td>
                   <td className="px-6 py-4">
                     <div className="flex justify-center">
                       <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 uppercase tracking-wider">
@@ -132,14 +227,14 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
               ))}
               {payments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-400 font-light italic">
-                    No payments yet.
+                  <td colSpan={7} className="px-6 py-10 text-center text-slate-400 font-light italic">
+                    No payments recorded yet.
                   </td>
                 </tr>
               ) : filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-400 font-light italic">
-                    No payment logs found matching query.
+                  <td colSpan={7} className="px-6 py-10 text-center text-slate-400 font-light italic">
+                    No payment logs found matching filter.
                   </td>
                 </tr>
               ) : null}
@@ -163,7 +258,6 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
             </div>
             
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              
               {validationError && (
                 <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 p-4 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2">
                   <Info className="w-4 h-4" /> {validationError}
@@ -175,18 +269,48 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                 <label className="text-xs font-bold text-slate-500 uppercase">Customer Party *</label>
                 <select
                   value={selectedPartyId}
-                  onChange={(e) => setSelectedPartyId(e.target.value)}
+                  onChange={(e) => handlePartyChange(e.target.value)}
                   required
                   className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-3 rounded-xl text-sm font-medium"
                 >
                   <option value="">-- Choose Party --</option>
                   {parties.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} (Outstanding: ₹{p.pending})
+                      {p.name} (Outstanding: ₹{p.pending.toLocaleString('en-IN')})
                     </option>
                   ))}
                 </select>
               </div>
+
+              {/* Cycle allocation option */}
+              {partyPendingCycles.length > 0 && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase">
+                    Allocate to Specific Cycle (Optional)
+                  </label>
+                  <select
+                    value={selectedCycleId}
+                    onChange={(e) => {
+                      setSelectedCycleId(e.target.value);
+                      const cyc = rentalCycles.find((c) => c.id === e.target.value);
+                      if (cyc && (!amount || amount === 0)) {
+                        setAmount(cyc.pendingAmount);
+                      }
+                    }}
+                    className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-800"
+                  >
+                    <option value="">General Balance (Auto-clears oldest pending cycle)</option>
+                    {partyPendingCycles.map((c) => {
+                      const rent = rentals.find((r) => r.id === c.rentalId);
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {rent ? `${rent.plateType} Width • ` : ''}Cycle {c.cycleNumber} ({c.startDate} to {c.expectedEndDate}) — Pending: ₹{c.pendingAmount.toLocaleString('en-IN')}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
 
               {/* Amount and Date */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -194,8 +318,9 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   <label className="text-xs font-bold text-slate-500 uppercase">Amount Received (₹) *</label>
                   <input
                     type="number"
+                    min="1"
                     required
-                    value={amount}
+                    value={amount || ''}
                     onChange={(e) => setAmount(Math.max(0, parseFloat(e.target.value) || 0))}
                     placeholder="e.g. 5000"
                     className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-3 rounded-xl text-sm font-medium"
@@ -213,29 +338,79 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                 </div>
               </div>
 
-              {/* Payment mode selection */}
+              {/* Payment Destination: Account 1 / Account 2 / Cash */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase">Payment Channel / Mode *</label>
-                <select
-                  value={paymentMode}
-                  onChange={(e) => setPaymentMode(e.target.value as any)}
-                  className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-3 rounded-xl text-sm font-medium"
-                >
-                  <option value="Cash">Cash (Yard Drawer)</option>
-                  <option value="Account 1">Account 1 (Bank Direct)</option>
-                  <option value="Account 2">Account 2 (UPI / Digital)</option>
-                </select>
+                <label className="text-xs font-bold text-slate-500 uppercase block">
+                  Received In (Payment Destination) *
+                </label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode('Account 1')}
+                    className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${
+                      paymentMode === 'Account 1'
+                        ? 'bg-blue-50 border-blue-500 text-blue-700 ring-2 ring-blue-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="text-sm">🏦</span>
+                    <span>Account 1</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Bank Direct</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode('Account 2')}
+                    className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${
+                      paymentMode === 'Account 2'
+                        ? 'bg-purple-50 border-purple-500 text-purple-700 ring-2 ring-purple-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="text-sm">📱</span>
+                    <span>Account 2</span>
+                    <span className="text-[10px] text-slate-400 font-normal">UPI / Digital</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode('Cash')}
+                    className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${
+                      paymentMode === 'Cash'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="text-sm">💵</span>
+                    <span>Cash</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Yard Drawer</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Reference ID input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase block">
+                  Transaction Reference ID (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  placeholder="e.g. UPI Ref / Cheque No / Voucher ID"
+                  className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-2.5 rounded-xl text-sm font-medium font-mono"
+                />
               </div>
 
               {/* Notes */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase">Reference Voucher / Notes</label>
+                <label className="text-xs font-bold text-slate-500 uppercase">Notes (Optional)</label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={2}
-                  placeholder="e.g. UPI Transaction ID or cheque number reference..."
-                  className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-3 rounded-xl text-sm font-medium"
+                  placeholder="e.g. Advance payment for site shuttering..."
+                  className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-2.5 rounded-xl text-sm font-medium resize-none"
                 />
               </div>
 
@@ -259,7 +434,6 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
           </div>
         </div>
       )}
-
     </div>
   );
 };

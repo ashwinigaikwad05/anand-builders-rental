@@ -54,6 +54,29 @@ export interface RentalItemRecord {
   days: number;
 }
 
+export interface RentalCycleRecord {
+  id: string;
+  rental_id: string;
+  party_id: string;
+  cycle_number: number;
+  start_date: string;
+  expected_end_date: string;
+  actual_end_date?: string | null;
+  days: number;
+  extra_days: number;
+  daily_rate: number;
+  quantity: number;
+  base_rent: number;
+  extra_amount: number;
+  total_amount: number;
+  paid_amount: number;
+  pending_amount: number;
+  status: 'active' | 'completed';
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface RentalRecord {
   id: string;
   party_id: string;
@@ -73,6 +96,9 @@ export interface RentalRecord {
   status: 'active' | 'returned' | 'overdue';
   notes?: string | null;
   items?: RentalItemRecord[];
+  current_cycle_number?: number;
+  current_cycle_start_date?: string;
+  current_cycle_end_date?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -96,6 +122,8 @@ export interface PaymentRecord {
   party_id: string;
   party_name: string;
   rental_id?: string | null;
+  cycle_id?: string | null;
+  cycle_number?: number | null;
   amount: number;
   payment_date: string;
   payment_mode: 'Account 1' | 'Account 2' | 'Cash' | 'Udhari';
@@ -134,13 +162,21 @@ export interface NotificationRecord {
 // ------------------------------------------------------------------------------
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseAnonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+const isPlaceholderKey = (key?: string) =>
+  !key ||
+  key === 'your-anon-public-key' ||
+  key === 'your-publishable-key' ||
+  key.startsWith('sb_anon_') ||
+  key.includes('placeholder');
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
   supabaseAnonKey &&
   supabaseUrl !== 'https://your-project-id.supabase.co' &&
-  supabaseAnonKey !== 'your-anon-public-key'
+  !isPlaceholderKey(supabaseAnonKey)
 );
 
 export const supabase: SupabaseClient | null = isSupabaseConfigured
@@ -469,8 +505,260 @@ export async function deleteStockItem(id: string): Promise<boolean> {
 }
 
 // ------------------------------------------------------------------------------
-// 4. RENTALS API
+// CALENDAR DURATION & 40-DAY CYCLE CALCULATION HELPERS
 // ------------------------------------------------------------------------------
+
+/**
+ * Add calendar days to a YYYY-MM-DD date string safely.
+ */
+export function addDaysToDate(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().split('T')[0];
+}
+
+/**
+ * Calculate actual calendar duration between two dates (inclusive of start date).
+ * Example: 2026-08-01 to 2026-08-01 = 1 day.
+ * 2026-08-01 to 2026-09-09 = 40 days.
+ */
+export function calculateCalendarDays(startDateStr: string, endDateStr: string): number {
+  if (!startDateStr || !endDateStr) return 0;
+  const [sy, sm, sd] = startDateStr.split('-').map(Number);
+  const [ey, em, ed] = endDateStr.split('-').map(Number);
+  const startUtc = Date.UTC(sy, sm - 1, sd);
+  const endUtc = Date.UTC(ey, em - 1, ed);
+  const diffMs = endUtc - startUtc;
+  if (diffMs < 0) return 0;
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
+}
+
+/**
+ * Given cycle start date (Day 1) and standard cycle length (40 days),
+ * returns the 40th calendar day.
+ * Example: Start = 2026-08-01 -> 40th day = 2026-09-09.
+ */
+export function calculateExpectedCycleEndDate(startDateStr: string, cycleDays = 40): string {
+  return addDaysToDate(startDateStr, cycleDays - 1);
+}
+
+/**
+ * Calculates extra days and finances for a 40-day rental cycle up to an evaluation date.
+ * If actual elapsed days <= 40: extraDays = 0, extraAmount = 0.
+ * If actual elapsed days > 40: extraDays = elapsed - 40, extraAmount = quantity * dailyRate * extraDays.
+ */
+export function calculateCycleFinances(
+  cycle: {
+    startDate: string;
+    actualEndDate?: string | null;
+    quantity: number;
+    dailyRate: number;
+    baseRent: number;
+    paidAmount: number;
+    items?: Array<{ quantity: number; dailyRate: number; plateType?: string }>;
+  },
+  asOfDateStr = new Date().toISOString().split('T')[0]
+) {
+  const effectiveEndDate = cycle.actualEndDate || asOfDateStr;
+  const elapsedDays = calculateCalendarDays(cycle.startDate, effectiveEndDate);
+  const standardDays = Math.min(elapsedDays, 40);
+  const extraDays = Math.max(0, elapsedDays - 40);
+
+  let extraAmount = 0;
+  if (extraDays > 0) {
+    if (cycle.items && cycle.items.length > 0) {
+      extraAmount = cycle.items.reduce(
+        (sum, it) => sum + it.quantity * it.dailyRate * extraDays,
+        0
+      );
+    } else {
+      extraAmount = cycle.quantity * cycle.dailyRate * extraDays;
+    }
+  }
+
+  const totalAmount = cycle.baseRent + extraAmount;
+  const pendingAmount = Math.max(0, totalAmount - cycle.paidAmount);
+
+  return {
+    elapsedDays,
+    standardDays,
+    extraDays,
+    extraAmount,
+    totalAmount,
+    pendingAmount,
+  };
+}
+
+/**
+ * Renewal Date Rules:
+ * A) If renewal is confirmed BEFORE the current 40-day cycle ends:
+ *    New Cycle Start Date = Current Cycle Expected End Date + 1 day.
+ * B) If renewal is confirmed ON the cycle end date:
+ *    New Cycle Start Date = Next Day.
+ * C) If renewal is confirmed AFTER the 40-day cycle has ended:
+ *    First finalize previous cycle using the actual renewal confirmation date (calculate extra days).
+ *    Then start the new 40-day cycle from the renewal confirmation date.
+ */
+export function determineRenewalStartDate(
+  currentExpectedEndDateStr: string,
+  confirmationDateStr = new Date().toISOString().split('T')[0]
+): {
+  newStartDate: string;
+  isOverdueRenewal: boolean;
+} {
+  if (confirmationDateStr > currentExpectedEndDateStr) {
+    return {
+      newStartDate: confirmationDateStr,
+      isOverdueRenewal: true,
+    };
+  } else {
+    return {
+      newStartDate: addDaysToDate(currentExpectedEndDateStr, 1),
+      isOverdueRenewal: false,
+    };
+  }
+}
+
+// ------------------------------------------------------------------------------
+// 4. RENTALS & RENTAL CYCLES API
+// ------------------------------------------------------------------------------
+
+export async function fetchRentalCycles(): Promise<RentalCycleRecord[]> {
+  if (supabase) {
+    const { data, error } = await supabase
+      .from('rental_cycles')
+      .select('*')
+      .order('start_date', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Failed to fetch rental cycles from Supabase:', error.message);
+      return getLocal<RentalCycleRecord>('rental_cycles');
+    }
+    if (data) {
+      setLocal('rental_cycles', data);
+      return data as RentalCycleRecord[];
+    }
+  }
+  return getLocal<RentalCycleRecord>('rental_cycles');
+}
+
+export async function insertRentalCycle(cycle: {
+  rental_id: string;
+  party_id: string;
+  cycle_number: number;
+  start_date: string;
+  expected_end_date: string;
+  actual_end_date?: string | null;
+  days?: number;
+  extra_days?: number;
+  daily_rate: number;
+  quantity: number;
+  base_rent: number;
+  extra_amount?: number;
+  total_amount: number;
+  paid_amount?: number;
+  pending_amount: number;
+  status?: 'active' | 'completed';
+  notes?: string | null;
+}): Promise<RentalCycleRecord> {
+  const newRecord: RentalCycleRecord = {
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `cyc-${Date.now()}-${Math.random().toString().slice(2, 6)}`,
+    rental_id: cycle.rental_id,
+    party_id: cycle.party_id,
+    cycle_number: cycle.cycle_number,
+    start_date: cycle.start_date,
+    expected_end_date: cycle.expected_end_date,
+    actual_end_date: cycle.actual_end_date || null,
+    days: cycle.days || 40,
+    extra_days: cycle.extra_days || 0,
+    daily_rate: Number(cycle.daily_rate),
+    quantity: Math.floor(Number(cycle.quantity)),
+    base_rent: Number(cycle.base_rent),
+    extra_amount: Number(cycle.extra_amount || 0),
+    total_amount: Number(cycle.total_amount),
+    paid_amount: Number(cycle.paid_amount || 0),
+    pending_amount: Number(cycle.pending_amount),
+    status: cycle.status || 'active',
+    notes: cycle.notes?.trim() || null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (supabase) {
+    const { data, error } = await supabase
+      .from('rental_cycles')
+      .insert([
+        {
+          rental_id: newRecord.rental_id,
+          party_id: newRecord.party_id,
+          cycle_number: newRecord.cycle_number,
+          start_date: newRecord.start_date,
+          expected_end_date: newRecord.expected_end_date,
+          actual_end_date: newRecord.actual_end_date,
+          days: newRecord.days,
+          extra_days: newRecord.extra_days,
+          daily_rate: newRecord.daily_rate,
+          quantity: newRecord.quantity,
+          base_rent: newRecord.base_rent,
+          extra_amount: newRecord.extra_amount,
+          total_amount: newRecord.total_amount,
+          paid_amount: newRecord.paid_amount,
+          pending_amount: newRecord.pending_amount,
+          status: newRecord.status,
+          notes: newRecord.notes,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.warn('insertRentalCycle Supabase error:', error.message);
+    } else if (data) {
+      const local = getLocal<RentalCycleRecord>('rental_cycles');
+      setLocal('rental_cycles', [data as RentalCycleRecord, ...local.filter((c) => c.id !== data.id)]);
+      return data as RentalCycleRecord;
+    }
+  }
+
+  const local = getLocal<RentalCycleRecord>('rental_cycles');
+  setLocal('rental_cycles', [newRecord, ...local]);
+  return newRecord;
+}
+
+export async function updateRentalCycle(
+  id: string,
+  updates: Partial<RentalCycleRecord>
+): Promise<RentalCycleRecord> {
+  const cleanUpdates = {
+    ...updates,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (supabase) {
+    const { data, error } = await supabase
+      .from('rental_cycles')
+      .update(cleanUpdates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.warn('updateRentalCycle Supabase error:', error.message);
+    } else if (data) {
+      const local = getLocal<RentalCycleRecord>('rental_cycles');
+      setLocal('rental_cycles', local.map((c) => (c.id === id ? (data as RentalCycleRecord) : c)));
+      return data as RentalCycleRecord;
+    }
+  }
+
+  const local = getLocal<RentalCycleRecord>('rental_cycles');
+  const existing = local.find((c) => c.id === id);
+  const updated = { ...existing, ...cleanUpdates, id } as RentalCycleRecord;
+  setLocal('rental_cycles', local.map((c) => (c.id === id ? updated : c)));
+  return updated;
+}
 
 export async function fetchRentals(): Promise<RentalRecord[]> {
   if (supabase) {
@@ -508,6 +796,8 @@ export async function insertRental(rental: {
   notes?: string;
   items?: RentalItemRecord[];
 }): Promise<RentalRecord> {
+  const expectedEndDate = calculateExpectedCycleEndDate(rental.issue_date, rental.days || 40);
+
   const newRecord: RentalRecord = {
     id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `rent-${Date.now()}`,
     party_id: rental.party_id,
@@ -516,6 +806,7 @@ export async function insertRental(rental: {
     quantity: Math.floor(Number(rental.quantity)),
     daily_rate: Number(rental.daily_rate),
     issue_date: rental.issue_date,
+    expected_return_date: expectedEndDate,
     days: Math.floor(Number(rental.days)),
     total_rent: Number(rental.total_rent),
     paid_amount: Number(rental.paid_amount),
@@ -525,6 +816,9 @@ export async function insertRental(rental: {
     status: rental.status || 'active',
     notes: rental.notes?.trim() || null,
     items: rental.items || [],
+    current_cycle_number: 1,
+    current_cycle_start_date: rental.issue_date,
+    current_cycle_end_date: expectedEndDate,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -540,6 +834,7 @@ export async function insertRental(rental: {
           quantity: newRecord.quantity,
           daily_rate: newRecord.daily_rate,
           issue_date: newRecord.issue_date,
+          expected_return_date: newRecord.expected_return_date,
           days: newRecord.days,
           total_rent: newRecord.total_rent,
           paid_amount: newRecord.paid_amount,
@@ -549,23 +844,65 @@ export async function insertRental(rental: {
           status: newRecord.status,
           notes: newRecord.notes,
           items: newRecord.items,
+          current_cycle_number: 1,
+          current_cycle_start_date: newRecord.issue_date,
+          current_cycle_end_date: expectedEndDate,
         },
       ])
       .select()
       .single();
 
     if (error) {
-      throw new Error(error.message);
-    }
-    if (data) {
+      console.warn('insertRental Supabase insert error:', error.message);
+    } else if (data) {
       const local = getLocal<RentalRecord>('rentals');
       setLocal('rentals', [data as RentalRecord, ...local.filter((r) => r.id !== data.id)]);
+
+      // Create Cycle 1 record in rental_cycles
+      await insertRentalCycle({
+        rental_id: data.id,
+        party_id: data.party_id,
+        cycle_number: 1,
+        start_date: data.issue_date,
+        expected_end_date: expectedEndDate,
+        days: data.days || 40,
+        extra_days: 0,
+        daily_rate: data.daily_rate,
+        quantity: data.quantity,
+        base_rent: data.total_rent,
+        extra_amount: 0,
+        total_amount: data.total_rent,
+        paid_amount: data.paid_amount,
+        pending_amount: data.pending_amount,
+        status: 'active',
+      });
+
       return data as RentalRecord;
     }
   }
 
   const local = getLocal<RentalRecord>('rentals');
   setLocal('rentals', [newRecord, ...local]);
+
+  // Fallback local Cycle 1 record
+  await insertRentalCycle({
+    rental_id: newRecord.id,
+    party_id: newRecord.party_id,
+    cycle_number: 1,
+    start_date: newRecord.issue_date,
+    expected_end_date: expectedEndDate,
+    days: newRecord.days || 40,
+    extra_days: 0,
+    daily_rate: newRecord.daily_rate,
+    quantity: newRecord.quantity,
+    base_rent: newRecord.total_rent,
+    extra_amount: 0,
+    total_amount: newRecord.total_rent,
+    paid_amount: newRecord.paid_amount,
+    pending_amount: newRecord.pending_amount,
+    status: 'active',
+  });
+
   return newRecord;
 }
 
@@ -580,11 +917,48 @@ export async function updateRentalStatus(
       .eq('id', id);
 
     if (error) {
-      throw new Error(error.message);
+      console.warn('updateRentalStatus error:', error.message);
     }
   }
   const local = getLocal<RentalRecord>('rentals');
   setLocal('rentals', local.map((r) => (r.id === id ? { ...r, status } : r)));
+}
+
+export async function updateRentalCyclePointer(
+  rentalId: string,
+  cycleNumber: number,
+  cycleStartDate: string,
+  cycleEndDate: string
+): Promise<void> {
+  if (supabase) {
+    const { error } = await supabase
+      .from('rentals')
+      .update({
+        current_cycle_number: cycleNumber,
+        current_cycle_start_date: cycleStartDate,
+        current_cycle_end_date: cycleEndDate,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', rentalId);
+
+    if (error) {
+      console.warn('updateRentalCyclePointer error:', error.message);
+    }
+  }
+  const local = getLocal<RentalRecord>('rentals');
+  setLocal(
+    'rentals',
+    local.map((r) =>
+      r.id === rentalId
+        ? {
+            ...r,
+            current_cycle_number: cycleNumber,
+            current_cycle_start_date: cycleStartDate,
+            current_cycle_end_date: cycleEndDate,
+          }
+        : r
+    )
+  );
 }
 
 // ------------------------------------------------------------------------------
@@ -698,6 +1072,8 @@ export async function insertPayment(payment: {
   party_id: string;
   party_name: string;
   rental_id?: string;
+  cycle_id?: string;
+  cycle_number?: number;
   amount: number;
   payment_date: string;
   payment_mode: 'Account 1' | 'Account 2' | 'Cash' | 'Udhari';
@@ -710,6 +1086,8 @@ export async function insertPayment(payment: {
     party_id: payment.party_id,
     party_name: payment.party_name,
     rental_id: payment.rental_id || null,
+    cycle_id: payment.cycle_id || null,
+    cycle_number: payment.cycle_number || null,
     amount: Number(payment.amount),
     payment_date: payment.payment_date,
     payment_mode: payment.payment_mode,
@@ -739,9 +1117,8 @@ export async function insertPayment(payment: {
       .single();
 
     if (error) {
-      throw new Error(error.message);
-    }
-    if (data) {
+      console.warn('insertPayment Supabase error:', error.message);
+    } else if (data) {
       const local = getLocal<PaymentRecord>('payments');
       setLocal('payments', [data as PaymentRecord, ...local.filter((p) => p.id !== data.id)]);
       return data as PaymentRecord;

@@ -2,22 +2,31 @@ import React, { useState } from 'react';
 import { Save, Award, User, Settings } from 'lucide-react';
 
 export const SettingsTab: React.FC = () => {
-  const [businessName, setBusinessName] = useState('ANAND BUILDERS & DEVELOPERS');
-  const [businessNameMr, setBusinessNameMr] = useState('आनंद बिल्डिंग मटेरियल सप्लायर');
-  const [address, setAddress] = useState('[Business Address – To Be Confirmed]');
-  const [phones, setPhones] = useState('7020914957, 9881985058, 9021519582');
+  const [businessName, setBusinessName] = useState(() => localStorage.getItem('anand_business_name') || 'ANAND BUILDERS & DEVELOPERS');
+  const [businessNameMr, setBusinessNameMr] = useState(() => localStorage.getItem('anand_business_name_mr') || 'आनंद बिल्डिंग मटेरियल सप्लायर');
+  const [address, setAddress] = useState(() => localStorage.getItem('anand_business_address') || 'Near Old Bus Stand, Solapur Road');
+  const [phones, setPhones] = useState(() => localStorage.getItem('anand_business_phones') || '7020914957, 9881985058, 9021519582');
 
-  const [defaultRate, setDefaultRate] = useState<number>(1.50);
-  const [rentalCycle, setRentalCycle] = useState<number>(40);
+  const [defaultRate, setDefaultRate] = useState<number>(() => parseFloat(localStorage.getItem('anand_default_rate') || '1.50'));
+  const [rentalCycle, setRentalCycle] = useState<number>(() => parseInt(localStorage.getItem('anand_rental_cycle') || '40'));
 
-  const [account1Name, setAccount1Name] = useState('Account 1 (Bank Direct)');
-  const [account2Name, setAccount2Name] = useState('Account 2 (UPI / Digital)');
-  const [cashAccountName, setCashAccountName] = useState('Cash (Yard Drawer)');
+  const [account1Name, setAccount1Name] = useState(() => localStorage.getItem('anand_acc1_name') || 'Account 1 (Bank Direct)');
+  const [account2Name, setAccount2Name] = useState(() => localStorage.getItem('anand_acc2_name') || 'Account 2 (UPI / Digital)');
+  const [cashAccountName, setCashAccountName] = useState(() => localStorage.getItem('anand_cash_name') || 'Cash (Yard Drawer)');
 
   const [isSaved, setIsSaved] = useState(false);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    localStorage.setItem('anand_business_name', businessName);
+    localStorage.setItem('anand_business_name_mr', businessNameMr);
+    localStorage.setItem('anand_business_address', address);
+    localStorage.setItem('anand_business_phones', phones);
+    localStorage.setItem('anand_default_rate', defaultRate.toString());
+    localStorage.setItem('anand_rental_cycle', rentalCycle.toString());
+    localStorage.setItem('anand_acc1_name', account1Name);
+    localStorage.setItem('anand_acc2_name', account2Name);
+    localStorage.setItem('anand_cash_name', cashAccountName);
     setIsSaved(true);
     setTimeout(() => {
       setIsSaved(false);
@@ -36,7 +45,7 @@ export const SettingsTab: React.FC = () => {
         
         {isSaved && (
           <div className="bg-emerald-50 border border-emerald-250 text-emerald-800 p-4 rounded-xl text-sm font-semibold">
-            System settings saved successfully! (Mock Action)
+            System settings saved successfully!
           </div>
         )}
 

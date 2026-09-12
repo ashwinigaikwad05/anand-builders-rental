@@ -15,19 +15,56 @@ import { Footer } from './components/Footer';
 import { AdminLogin } from './components/admin/AdminLogin';
 import { AdminLayout } from './components/admin/AdminLayout';
 
+import { supabase } from './lib/supabase';
+
 function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(
-    localStorage.getItem('admin_session') === 'authenticated_2026'
-  );
-  
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
 
+  // Initialize and listen to Supabase Auth state
+  useEffect(() => {
+    let isMounted = true;
+
+    async function checkAuthSession() {
+      try {
+        if (supabase) {
+          const { data } = await supabase.auth.getSession();
+          if (isMounted) {
+            setIsAdminAuthenticated(Boolean(data?.session));
+          }
+        }
+      } catch (err) {
+        console.error('Error verifying auth session:', err);
+      } finally {
+        if (isMounted) {
+          setIsAuthChecking(false);
+        }
+      }
+    }
+
+    checkAuthSession();
+
+    if (supabase) {
+      const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (isMounted) {
+          setIsAdminAuthenticated(Boolean(session));
+        }
+      });
+
+      return () => {
+        isMounted = false;
+        authListener.subscription.unsubscribe();
+      };
+    } else {
+      setIsAuthChecking(false);
+    }
+  }, []);
 
   // Handle URL change detection (Back/Forward navigation)
   useEffect(() => {
     const handleLocationChange = () => {
       setCurrentPath(window.location.pathname);
-      setIsAdminAuthenticated(localStorage.getItem('admin_session') === 'authenticated_2026');
     };
     window.addEventListener('popstate', handleLocationChange);
     return () => window.removeEventListener('popstate', handleLocationChange);
@@ -36,7 +73,6 @@ function App() {
   const navigateTo = (path: string) => {
     window.history.pushState(null, '', path);
     setCurrentPath(path);
-    setIsAdminAuthenticated(localStorage.getItem('admin_session') === 'authenticated_2026');
   };
 
   const handleLoginSuccess = () => {
@@ -44,10 +80,17 @@ function App() {
     navigateTo('/admin/dashboard');
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('admin_session');
-    setIsAdminAuthenticated(false);
-    navigateTo('/admin/login');
+  const handleLogout = async () => {
+    try {
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+    } catch (err) {
+      console.error('Error signing out:', err);
+    } finally {
+      setIsAdminAuthenticated(false);
+      navigateTo('/admin/login');
+    }
   };
 
   // Public site scroll helper
@@ -79,11 +122,19 @@ function App() {
   const isUrlAdmin = currentPath.startsWith('/admin');
 
   if (isUrlAdmin) {
+    if (isAuthChecking) {
+      return (
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
+          <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs text-slate-400 font-medium tracking-wide">Authenticating Admin Session...</p>
+        </div>
+      );
+    }
+
     if (!isAdminAuthenticated) {
       // Force render Login if not authenticated
       if (currentPath !== '/admin/login') {
         window.history.replaceState(null, '', '/admin/login');
-        // Do not trigger state update directly during render, wait for useEffect or let it slide
       }
       return <AdminLogin onLoginSuccess={handleLoginSuccess} />;
     } else {

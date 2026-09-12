@@ -115,6 +115,9 @@ CREATE TABLE IF NOT EXISTS rentals (
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'returned', 'overdue')),
   notes TEXT,
   items JSONB DEFAULT '[]'::jsonb,
+  current_cycle_number INTEGER NOT NULL DEFAULT 1,
+  current_cycle_start_date DATE DEFAULT CURRENT_DATE,
+  current_cycle_end_date DATE DEFAULT CURRENT_DATE + INTERVAL '39 days',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -126,6 +129,45 @@ CREATE INDEX IF NOT EXISTS idx_rentals_issue_date ON rentals(issue_date DESC);
 DROP TRIGGER IF EXISTS set_rentals_updated_at ON rentals;
 CREATE TRIGGER set_rentals_updated_at
 BEFORE UPDATE ON rentals
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- ------------------------------------------------------------------------------
+-- 6.1 RENTAL CYCLES TABLE
+-- 40-day cycle financial isolation, renewal tracking & extra days records
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS rental_cycles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  rental_id UUID NOT NULL REFERENCES rentals(id) ON DELETE CASCADE,
+  party_id UUID NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
+  cycle_number INTEGER NOT NULL DEFAULT 1,
+  start_date DATE NOT NULL,
+  expected_end_date DATE NOT NULL,
+  actual_end_date DATE,
+  days INTEGER NOT NULL DEFAULT 40,
+  extra_days INTEGER NOT NULL DEFAULT 0,
+  daily_rate NUMERIC(10,2) NOT NULL DEFAULT 1.50,
+  quantity INTEGER NOT NULL DEFAULT 0,
+  base_rent NUMERIC(12,2) NOT NULL DEFAULT 0,
+  extra_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+  total_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+  paid_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+  pending_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed')),
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rental_cycles_rental_id ON rental_cycles(rental_id);
+CREATE INDEX IF NOT EXISTS idx_rental_cycles_party_id ON rental_cycles(party_id);
+CREATE INDEX IF NOT EXISTS idx_rental_cycles_status ON rental_cycles(status);
+CREATE INDEX IF NOT EXISTS idx_rental_cycles_start_date ON rental_cycles(start_date);
+CREATE INDEX IF NOT EXISTS idx_rental_cycles_expected_end_date ON rental_cycles(expected_end_date);
+
+DROP TRIGGER IF EXISTS set_rental_cycles_updated_at ON rental_cycles;
+CREATE TRIGGER set_rental_cycles_updated_at
+BEFORE UPDATE ON rental_cycles
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
@@ -222,6 +264,7 @@ ALTER TABLE returns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ledger_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rental_cycles ENABLE ROW LEVEL SECURITY;
 
 -- 11.1 PLATE TYPES (Public Read for Landing Page & Pricing Calculator)
 DROP POLICY IF EXISTS "Public read for plate_types" ON plate_types;
@@ -267,11 +310,16 @@ DROP POLICY IF EXISTS "Admin notifications policy" ON notifications;
 CREATE POLICY "Admin notifications policy" ON notifications
   FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
 
+-- 11.9 RENTAL CYCLES
+DROP POLICY IF EXISTS "Admin rental_cycles policy" ON rental_cycles;
+CREATE POLICY "Admin rental_cycles policy" ON rental_cycles
+  FOR ALL TO authenticated, anon USING (true) WITH CHECK (true);
+
 -- Real-time publication subscriptions
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE parties, plate_types, inventory_stock, rentals, returns, payments, ledger_entries, notifications;
+    ALTER PUBLICATION supabase_realtime ADD TABLE parties, plate_types, inventory_stock, rentals, rental_cycles, returns, payments, ledger_entries, notifications;
   END IF;
 EXCEPTION
   WHEN duplicate_object THEN NULL;

@@ -27,6 +27,27 @@ export interface RentalItem {
   days: number;
 }
 
+export interface RentalCycle {
+  id: string;
+  rentalId: string;
+  partyId: string;
+  cycleNumber: number;
+  startDate: string;
+  expectedEndDate: string;
+  actualEndDate?: string | null;
+  days: number;
+  extraDays: number;
+  dailyRate: number;
+  quantity: number;
+  baseRent: number;
+  extraAmount: number;
+  totalAmount: number;
+  paidAmount: number;
+  pendingAmount: number;
+  status: 'active' | 'completed';
+  notes?: string | null;
+}
+
 export interface Rental {
   id: string;
   partyId: string;
@@ -42,6 +63,10 @@ export interface Rental {
   paymentMode: 'Account 1' | 'Account 2' | 'Cash' | 'Udhari';
   status: 'active' | 'returned' | 'overdue';
   items?: RentalItem[];
+  currentCycleNumber?: number;
+  currentCycleStartDate?: string;
+  currentCycleEndDate?: string;
+  cycles?: RentalCycle[];
 }
 
 export interface ReturnLog {
@@ -60,6 +85,9 @@ export interface Payment {
   id: string;
   partyId: string;
   partyName: string;
+  rentalId?: string | null;
+  cycleId?: string | null;
+  cycleNumber?: number | null;
   amount: number;
   date: string;
   paymentMode: 'Account 1' | 'Account 2' | 'Cash';
