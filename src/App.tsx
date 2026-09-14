@@ -22,43 +22,64 @@ function App() {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
 
-  // Initialize and listen to Supabase Auth state
+  // Initialize and listen to Supabase Auth state safely
   useEffect(() => {
-    let isMounted = true;
+    let isCancelled = false;
 
-    async function checkAuthSession() {
+    // 1. Subscribe to Auth state changes
+    let authSubscription: { unsubscribe: () => void } | null = null;
+    if (supabase) {
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        if (isCancelled) return;
+        if (session) {
+          setIsAdminAuthenticated(true);
+        } else if (event === 'SIGNED_OUT') {
+          setIsAdminAuthenticated(false);
+        }
+      });
+      authSubscription = data.subscription;
+    }
+
+    // 2. Perform initial session check via getSession()
+    async function checkInitialSession() {
       try {
         if (supabase) {
-          const { data } = await supabase.auth.getSession();
-          if (isMounted) {
-            setIsAdminAuthenticated(Boolean(data?.session));
+          const { data, error } = await supabase.auth.getSession();
+          if (!isCancelled) {
+            if (error) {
+              console.warn('Error fetching Supabase session:', error.message);
+              setIsAdminAuthenticated(false);
+            } else {
+              setIsAdminAuthenticated(Boolean(data?.session));
+            }
+          }
+        } else {
+          // Fallback resilience mode if Supabase is not configured
+          const localAuth = localStorage.getItem('anand_admin_authenticated');
+          if (!isCancelled) {
+            setIsAdminAuthenticated(localAuth === 'true');
           }
         }
       } catch (err) {
         console.error('Error verifying auth session:', err);
+        if (!isCancelled) {
+          setIsAdminAuthenticated(false);
+        }
       } finally {
-        if (isMounted) {
+        if (!isCancelled) {
           setIsAuthChecking(false);
         }
       }
     }
 
-    checkAuthSession();
+    checkInitialSession();
 
-    if (supabase) {
-      const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (isMounted) {
-          setIsAdminAuthenticated(Boolean(session));
-        }
-      });
-
-      return () => {
-        isMounted = false;
-        authListener.subscription.unsubscribe();
-      };
-    } else {
-      setIsAuthChecking(false);
-    }
+    return () => {
+      isCancelled = true;
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
+    };
   }, []);
 
   // Handle URL change detection (Back/Forward navigation)
@@ -77,6 +98,9 @@ function App() {
 
   const handleLoginSuccess = () => {
     setIsAdminAuthenticated(true);
+    if (!supabase) {
+      localStorage.setItem('anand_admin_authenticated', 'true');
+    }
     navigateTo('/admin/dashboard');
   };
 
@@ -84,6 +108,8 @@ function App() {
     try {
       if (supabase) {
         await supabase.auth.signOut();
+      } else {
+        localStorage.removeItem('anand_admin_authenticated');
       }
     } catch (err) {
       console.error('Error signing out:', err);
@@ -138,11 +164,17 @@ function App() {
       }
       return <AdminLogin onLoginSuccess={handleLoginSuccess} />;
     } else {
-      // Logged in. If path is login, push to dashboard
-      if (currentPath === '/admin/login') {
+      // Logged in. If path is login or bare /admin, route to dashboard
+      if (currentPath === '/admin/login' || currentPath === '/admin' || currentPath === '/admin/') {
         window.history.replaceState(null, '', '/admin/dashboard');
       }
-      return <AdminLayout onLogout={handleLogout} />;
+      return (
+        <AdminLayout
+          currentPath={currentPath}
+          onNavigate={navigateTo}
+          onLogout={handleLogout}
+        />
+      );
     }
   }
 

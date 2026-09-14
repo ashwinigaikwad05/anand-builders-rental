@@ -92,12 +92,64 @@ import type {
   AdminNotification,
 } from '../../data/adminMockData';
 
+export function getTabFromPath(path: string): string {
+  const cleanPath = (path || (typeof window !== 'undefined' ? window.location.pathname : '')).toLowerCase().replace(/\/$/, '');
+  if (cleanPath.endsWith('/parties')) return 'Parties';
+  if (cleanPath.endsWith('/plate-types')) return 'Plate Types';
+  if (cleanPath.endsWith('/plate-stock')) return 'Plate Stock';
+  if (cleanPath.endsWith('/rentals')) return 'Rentals';
+  if (cleanPath.endsWith('/returns')) return 'Returns';
+  if (cleanPath.endsWith('/payments')) return 'Payments';
+  if (cleanPath.endsWith('/outstanding-dues') || cleanPath.endsWith('/udhari')) return 'Outstanding Dues';
+  if (cleanPath.endsWith('/ledger')) return 'Ledger';
+  if (cleanPath.endsWith('/notifications')) return 'Notifications';
+  if (cleanPath.endsWith('/reports')) return 'Reports';
+  if (cleanPath.endsWith('/settings')) return 'Settings';
+  return 'Dashboard';
+}
+
+export function getPathFromTab(tab: string): string {
+  switch (tab) {
+    case 'Parties': return '/admin/parties';
+    case 'Plate Types': return '/admin/plate-types';
+    case 'Plate Stock': return '/admin/plate-stock';
+    case 'Rentals': return '/admin/rentals';
+    case 'Returns': return '/admin/returns';
+    case 'Payments': return '/admin/payments';
+    case 'Outstanding Dues':
+    case 'Udhari': return '/admin/outstanding-dues';
+    case 'Ledger': return '/admin/ledger';
+    case 'Notifications': return '/admin/notifications';
+    case 'Reports': return '/admin/reports';
+    case 'Settings': return '/admin/settings';
+    default: return '/admin/dashboard';
+  }
+}
+
 interface AdminLayoutProps {
+  currentPath?: string;
+  onNavigate?: (path: string) => void;
   onLogout: () => void;
 }
 
-export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState('Dashboard');
+export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigate, onLogout }) => {
+  const [activeTab, setActiveTab] = useState(() => getTabFromPath(currentPath || (typeof window !== 'undefined' ? window.location.pathname : '')));
+
+  useEffect(() => {
+    if (currentPath) {
+      setActiveTab(getTabFromPath(currentPath));
+    }
+  }, [currentPath]);
+
+  const handleTabChange = (tabName: string) => {
+    setActiveTab(tabName);
+    const targetPath = getPathFromTab(tabName);
+    if (onNavigate) {
+      onNavigate(targetPath);
+    } else if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', targetPath);
+    }
+  };
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [preselectedRentalId, setPreselectedRentalId] = useState<string | null>(null);
@@ -1517,7 +1569,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
                 <button
                   key={item.name}
                   onClick={() => {
-                    setActiveTab(item.name);
+                    handleTabChange(item.name);
                     setIsSidebarOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ${
@@ -1613,7 +1665,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
 
             {/* Quick Notifications bell icon button */}
             <button
-              onClick={() => setActiveTab('Notifications')}
+              onClick={() => handleTabChange('Notifications')}
               className="relative p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
             >
               <Bell className="w-5 h-5" />
