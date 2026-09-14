@@ -46,6 +46,7 @@ export interface RentalCycle {
   pendingAmount: number;
   status: 'active' | 'completed';
   notes?: string | null;
+  items?: RentalItem[];
 }
 
 export interface Rental {

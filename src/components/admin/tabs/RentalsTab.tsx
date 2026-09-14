@@ -9,15 +9,14 @@ import {
   Trash2,
   History,
   RotateCw,
-  CheckCircle2,
-  Sparkles,
 } from 'lucide-react';
 import type { Party, PlateStock, Rental, RentalItem, RentalCycle } from '../../../data/adminMockData';
 import {
   calculateCycleFinances,
-  determineRenewalStartDate,
   calculateExpectedCycleEndDate,
 } from '../../../lib/supabase';
+
+import { RenewRentalModal } from '../modals/RenewRentalModal';
 
 interface PlateRowItem {
   id: string;
@@ -35,7 +34,7 @@ interface RentalsTabProps {
   onAddRental: (newRental: Omit<Rental, 'id' | 'totalRent' | 'pending' | 'status'>) => void;
   onUpdateRentalStatus: (rentalId: string, status: 'active' | 'returned' | 'overdue') => void;
   onInitiateReturn?: (rental: Rental) => void;
-  onRenewRental?: (rentalId: string, renewalConfirmationDate?: string) => Promise<void>;
+  onRenewRental?: (rentalId: string, renewalConfirmationDate?: string, newItems?: RentalItem[]) => Promise<void>;
 }
 
 export const RentalsTab: React.FC<RentalsTabProps> = ({
@@ -57,8 +56,6 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   // Modals
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [renewTarget, setRenewTarget] = useState<Rental | null>(null);
-  const [renewDate, setRenewDate] = useState<string>(todayStr);
-  const [isRenewing, setIsRenewing] = useState(false);
   const [historyTarget, setHistoryTarget] = useState<Rental | null>(null);
 
   // Form states for Add Rental
@@ -283,27 +280,18 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
       items,
     });
 
+    // Reset filters so the newly dispatched rental is guaranteed to be visible
+    setSearchTerm('');
+    setStatusFilter('All');
+    setPartyFilter('All');
+    setPlateFilter('All');
+
     setIsAddOpen(false);
   };
 
   // Open Renew Modal
   const handleOpenRenewModal = (rental: Rental) => {
     setRenewTarget(rental);
-    setRenewDate(todayStr);
-  };
-
-  // Confirm Renewal execution
-  const handleConfirmRenew = async () => {
-    if (!renewTarget || !onRenewRental) return;
-    try {
-      setIsRenewing(true);
-      await onRenewRental(renewTarget.id, renewDate);
-      setRenewTarget(null);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsRenewing(false);
-    }
   };
 
   return (
@@ -573,191 +561,19 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
       </div>
 
       {/* RENEW CYCLE MODAL (Rule 1A/B/C) */}
-      {renewTarget && (() => {
-        const activeCycle = getActiveCycleForRental(renewTarget);
-        const { newStartDate, isOverdueRenewal } = determineRenewalStartDate(
-          activeCycle.expectedEndDate,
-          renewDate
-        );
-        const newExpectedEndDate = calculateExpectedCycleEndDate(newStartDate, 40);
-
-        // Previous cycle extra days calculations
-        const finalizedEndDate = isOverdueRenewal ? renewDate : activeCycle.expectedEndDate;
-        const prevFinances = calculateCycleFinances(
-          {
-            startDate: activeCycle.startDate,
-            actualEndDate: finalizedEndDate,
-            quantity: activeCycle.quantity,
-            dailyRate: activeCycle.dailyRate,
-            baseRent: activeCycle.baseRent,
-            paidAmount: activeCycle.paidAmount,
-            items: renewTarget.items,
-          },
-          finalizedEndDate
-        );
-
-        // New Cycle 40-Day Base Rent
-        const newCycleBaseRent =
-          renewTarget.items && renewTarget.items.length > 0
-            ? renewTarget.items.reduce((sum, it) => sum + it.quantity * it.dailyRate * 40, 0)
-            : renewTarget.quantity * renewTarget.dailyRate * 40;
-
-        return (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl border border-slate-200 max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl animate-scaleUp text-left">
-              {/* Modal Header */}
-              <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-indigo-50/50 flex-shrink-0">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl">
-                    <RotateCw className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-base font-bold text-charcoal">
-                      Renew 40-Day Rental Cycle
-                    </h4>
-                    <p className="text-[11px] text-slate-500 font-light">
-                      Start Cycle {activeCycle.cycleNumber + 1} for {renewTarget.partyName}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setRenewTarget(null)}
-                  disabled={isRenewing}
-                  className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Modal Content */}
-              <div className="p-6 space-y-5 overflow-y-auto flex-grow">
-                {/* Notice Box: Physical Stock Invariant */}
-                <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-2xl text-xs space-y-1">
-                  <div className="font-bold flex items-center gap-1.5">
-                    <Info className="w-4 h-4 text-blue-600" />
-                    <span>Physical Stock Remains On-Site</span>
-                  </div>
-                  <p className="text-blue-700 leading-relaxed font-light">
-                    The {renewTarget.quantity} plates of {renewTarget.plateType} remain with{' '}
-                    <strong>{renewTarget.partyName}</strong>. Inventory stock counts will remain unchanged.
-                  </p>
-                </div>
-
-                {/* Renewal Confirmation Date Picker */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                    Renewal Confirmation Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={renewDate}
-                    onChange={(e) => setRenewDate(e.target.value)}
-                    className="w-full bg-white border border-slate-200 focus:border-indigo-600 focus:outline-none px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
-                  />
-                  <p className="text-[11px] text-slate-400">
-                    Rule: If renewed before/on cycle end ({activeCycle.expectedEndDate}), new cycle starts next day ({determineRenewalStartDate(activeCycle.expectedEndDate, renewDate).newStartDate}). If after, starts on confirmation date.
-                  </p>
-                </div>
-
-                {/* Previous Cycle Finalization Card */}
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
-                  <div className="flex justify-between items-center text-xs font-bold text-slate-700 pb-2 border-b border-slate-200">
-                    <span>Cycle {activeCycle.cycleNumber} Finalization</span>
-                    <span className="text-slate-500 font-mono">
-                      {activeCycle.startDate} to {finalizedEndDate}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase">Elapsed Term</span>
-                      <span className="font-bold text-slate-700">{prevFinances.elapsedDays} Days</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase">Extra Days</span>
-                      <span className={`font-bold ${prevFinances.extraDays > 0 ? 'text-amber-600' : 'text-slate-700'}`}>
-                        {prevFinances.extraDays} Days
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase">Base Rent (40d)</span>
-                      <span className="font-bold text-slate-700">₹{activeCycle.baseRent.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase">Extra Charge</span>
-                      <span className={`font-bold ${prevFinances.extraAmount > 0 ? 'text-amber-600' : 'text-slate-700'}`}>
-                        ₹{prevFinances.extraAmount.toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-2 border-t border-slate-200 text-xs font-bold">
-                    <span className="text-slate-500">Cycle {activeCycle.cycleNumber} Pending Balance:</span>
-                    <span className={`text-sm ${prevFinances.pendingAmount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                      ₹{prevFinances.pendingAmount.toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Next Cycle (Cycle N+1) Plan */}
-                <div className="bg-indigo-50/70 p-4 rounded-2xl border border-indigo-200 space-y-3">
-                  <div className="flex justify-between items-center text-xs font-bold text-indigo-900 pb-2 border-b border-indigo-200/80">
-                    <span className="flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-indigo-600" />
-                      <span>New Cycle {activeCycle.cycleNumber + 1} (40 Standard Days)</span>
-                    </span>
-                    <span className="text-indigo-700 font-mono text-xs">
-                      {newStartDate} → {newExpectedEndDate}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                    <div>
-                      <span className="text-indigo-600/80 block text-[10px] uppercase">Selected Start Date</span>
-                      <span className="font-bold text-indigo-950 font-mono">{newStartDate}</span>
-                    </div>
-                    <div>
-                      <span className="text-indigo-600/80 block text-[10px] uppercase">Expected 40d End Date</span>
-                      <span className="font-bold text-indigo-950 font-mono">{newExpectedEndDate}</span>
-                    </div>
-                    <div>
-                      <span className="text-indigo-600/80 block text-[10px] uppercase">New 40-Day Base Rent</span>
-                      <span className="font-black text-indigo-950 text-sm">₹{newCycleBaseRent.toLocaleString('en-IN')}</span>
-                    </div>
-                  </div>
-
-                  <div className="text-[11px] text-indigo-700 bg-white/60 p-2.5 rounded-xl border border-indigo-100 flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-indigo-600 flex-shrink-0" />
-                    <span>Cycle {activeCycle.cycleNumber + 1} will start with ₹0 paid and ₹{newCycleBaseRent.toLocaleString('en-IN')} pending. Financial tracking remains isolated.</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setRenewTarget(null)}
-                  disabled={isRenewing}
-                  className="px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold rounded-xl text-sm transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmRenew}
-                  disabled={isRenewing}
-                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm shadow-md hover:shadow-indigo-500/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  <RotateCw className={`w-4 h-4 ${isRenewing ? 'animate-spin' : ''}`} />
-                  <span>{isRenewing ? 'Processing Renewal...' : 'Confirm 40-Day Renewal'}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {renewTarget && (
+        <RenewRentalModal
+          rental={renewTarget}
+          activeCycle={getActiveCycleForRental(renewTarget)}
+          plates={plates}
+          onClose={() => setRenewTarget(null)}
+          onConfirm={async (rentalId, renewalDate, newItems) => {
+            if (onRenewRental) {
+              await onRenewRental(rentalId, renewalDate, newItems);
+            }
+          }}
+        />
+      )}
 
       {/* CYCLE HISTORY MODAL */}
       {historyTarget && (() => {

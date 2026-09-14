@@ -66,12 +66,13 @@ import {
   fetchRentalCycles,
   insertRentalCycle,
   updateRentalCycle,
-  updateRentalCyclePointer,
+  updateRentalCyclePointerAndItems,
   calculateExpectedCycleEndDate,
   calculateCycleFinances,
   determineRenewalStartDate,
   STANDARD_PLATE_SIZES,
   supabase,
+  type RentalItemRecord,
 } from '../../lib/supabase';
 import type {
   PlateSizeType,
@@ -176,6 +177,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
         pendingAmount: c.pending_amount,
         status: c.status,
         notes: c.notes,
+        items: (c.items as any) || [],
       }));
 
       // Ensure every existing rental has at least a Cycle 1
@@ -200,6 +202,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
             paidAmount: r.paid_amount,
             pendingAmount: r.pending_amount,
             status: r.status === 'returned' ? 'completed' : 'active',
+            items: r.items,
           });
         }
       }
@@ -745,7 +748,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
   // Renewal Handler: Starts a new 40-day cycle without modifying inventory stock
   const handleRenewRental = async (
     rentalId: string,
-    renewalConfirmationDate = new Date().toISOString().split('T')[0]
+    renewalConfirmationDate = new Date().toISOString().split('T')[0],
+    newItems?: RentalItemRecord[]
   ) => {
     try {
       const rental = rentals.find((r) => r.id === rentalId);
@@ -801,15 +805,37 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
         status: 'completed',
       });
 
-      // 2. Start new fresh 40-day cycle (Cycle N+1)
+      // 2. Determine plate configuration for new cycle
+      const finalNewItems: RentalItemRecord[] =
+        newItems && newItems.length > 0
+          ? newItems
+          : rental.items && rental.items.length > 0
+          ? rental.items
+          : [
+              {
+                plateType: rental.plateType,
+                quantity: rental.quantity,
+                dailyRate: rental.dailyRate,
+                days: 40,
+              },
+            ];
+
+      const newQuantity = finalNewItems.reduce((sum, it) => sum + Number(it.quantity || 0), 0);
+      const newDailyRate = finalNewItems[0]?.dailyRate || rental.dailyRate || 1.5;
+      const newPlateTypeSummary =
+        finalNewItems.length === 1
+          ? finalNewItems[0].plateType
+          : finalNewItems.map((it) => `${it.plateType} (${it.quantity})`).join(', ');
+
+      const newBaseRent = finalNewItems.reduce(
+        (sum, it) => sum + Number(it.quantity || 0) * Number(it.dailyRate || 1.5) * 40,
+        0
+      );
+
       const newCycleNumber = activeCycle.cycleNumber + 1;
       const newExpectedEndDate = calculateExpectedCycleEndDate(newStartDate, 40);
 
-      const newBaseRent =
-        rental.items && rental.items.length > 0
-          ? rental.items.reduce((sum, it) => sum + it.quantity * it.dailyRate * 40, 0)
-          : rental.quantity * rental.dailyRate * 40;
-
+      // 3. Start new fresh 40-day cycle (Cycle N+1) with isolated financials
       const createdNewCycle = await insertRentalCycle({
         rental_id: rental.id,
         party_id: rental.partyId,
@@ -818,14 +844,15 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
         expected_end_date: newExpectedEndDate,
         days: 40,
         extra_days: 0,
-        daily_rate: rental.dailyRate,
-        quantity: rental.quantity,
+        daily_rate: newDailyRate,
+        quantity: newQuantity,
         base_rent: newBaseRent,
         extra_amount: 0,
         total_amount: newBaseRent,
         paid_amount: 0, // Isolated zero paid amount for new cycle
         pending_amount: newBaseRent,
         status: 'active',
+        items: finalNewItems,
       });
 
       // Update local cycle state
@@ -853,27 +880,32 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
           expectedEndDate: newExpectedEndDate,
           days: 40,
           extraDays: 0,
-          dailyRate: rental.dailyRate,
-          quantity: rental.quantity,
+          dailyRate: newDailyRate,
+          quantity: newQuantity,
           baseRent: newBaseRent,
           extraAmount: 0,
           totalAmount: newBaseRent,
           paidAmount: 0,
           pendingAmount: newBaseRent,
           status: 'active' as const,
+          items: finalNewItems,
         },
       ];
       setRentalCycles(updatedCycleList);
 
-      // 3. Update rentals table pointer (stock remains 100% invariant)
-      await updateRentalCyclePointer(
+      // 4. Update rentals table pointer and plate items
+      await updateRentalCyclePointerAndItems(
         rental.id,
         newCycleNumber,
         newStartDate,
-        newExpectedEndDate
+        newExpectedEndDate,
+        newPlateTypeSummary,
+        newQuantity,
+        newDailyRate,
+        finalNewItems
       );
 
-      // 4. Update rentals state with new active cycle
+      // 5. Update rentals state with new active cycle
       setRentals((prev) =>
         prev.map((r) =>
           r.id === rental.id
@@ -882,13 +914,17 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
                 currentCycleNumber: newCycleNumber,
                 currentCycleStartDate: newStartDate,
                 currentCycleEndDate: newExpectedEndDate,
+                plateType: newPlateTypeSummary,
+                quantity: newQuantity,
+                dailyRate: newDailyRate,
+                items: finalNewItems,
                 cycles: updatedCycleList.filter((c) => c.rentalId === r.id),
               }
             : r
         )
       );
 
-      // 5. Ledger postings
+      // 6. Ledger postings
       const currentPartyPending =
         parties.find((p) => p.id === rental.partyId)?.pending || 0;
 
@@ -922,7 +958,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onLogout }) => {
       const ledRenewal = await insertLedgerEntry({
         party_id: rental.partyId,
         date: newStartDate,
-        description: `Rental Renewed (Cycle ${newCycleNumber}): ${rental.plateType} for 40 days`,
+        description: `Rental Renewed (Cycle ${newCycleNumber}): ${newPlateTypeSummary} (${newQuantity} Plates) for 40 days`,
         debit: newBaseRent,
         credit: 0,
         balance:

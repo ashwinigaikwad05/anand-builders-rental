@@ -48,7 +48,7 @@ export interface PartyRecord {
 }
 
 export interface RentalItemRecord {
-  plateType: PlateSizeType;
+  plateType: string;
   quantity: number;
   dailyRate: number;
   days: number;
@@ -73,6 +73,7 @@ export interface RentalCycleRecord {
   pending_amount: number;
   status: 'active' | 'completed';
   notes?: string | null;
+  items?: RentalItemRecord[];
   created_at?: string;
   updated_at?: string;
 }
@@ -662,6 +663,7 @@ export async function insertRentalCycle(cycle: {
   pending_amount: number;
   status?: 'active' | 'completed';
   notes?: string | null;
+  items?: RentalItemRecord[];
 }): Promise<RentalCycleRecord> {
   const newRecord: RentalCycleRecord = {
     id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `cyc-${Date.now()}-${Math.random().toString().slice(2, 6)}`,
@@ -682,6 +684,7 @@ export async function insertRentalCycle(cycle: {
     pending_amount: Number(cycle.pending_amount),
     status: cycle.status || 'active',
     notes: cycle.notes?.trim() || null,
+    items: cycle.items || [],
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -708,6 +711,7 @@ export async function insertRentalCycle(cycle: {
           pending_amount: newRecord.pending_amount,
           status: newRecord.status,
           notes: newRecord.notes,
+          items: newRecord.items,
         },
       ])
       .select()
@@ -854,6 +858,7 @@ export async function insertRental(rental: {
 
     if (error) {
       console.warn('insertRental Supabase insert error:', error.message);
+      throw new Error(error.message);
     } else if (data) {
       const local = getLocal<RentalRecord>('rentals');
       setLocal('rentals', [data as RentalRecord, ...local.filter((r) => r.id !== data.id)]);
@@ -875,6 +880,7 @@ export async function insertRental(rental: {
         paid_amount: data.paid_amount,
         pending_amount: data.pending_amount,
         status: 'active',
+        items: data.items,
       });
 
       return data as RentalRecord;
@@ -955,6 +961,55 @@ export async function updateRentalCyclePointer(
             current_cycle_number: cycleNumber,
             current_cycle_start_date: cycleStartDate,
             current_cycle_end_date: cycleEndDate,
+          }
+        : r
+    )
+  );
+}
+
+export async function updateRentalCyclePointerAndItems(
+  rentalId: string,
+  cycleNumber: number,
+  cycleStartDate: string,
+  cycleEndDate: string,
+  plateType: string,
+  quantity: number,
+  dailyRate: number,
+  items: RentalItemRecord[]
+): Promise<void> {
+  if (supabase) {
+    const { error } = await supabase
+      .from('rentals')
+      .update({
+        current_cycle_number: cycleNumber,
+        current_cycle_start_date: cycleStartDate,
+        current_cycle_end_date: cycleEndDate,
+        plate_type: plateType,
+        quantity: quantity,
+        daily_rate: dailyRate,
+        items: items,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', rentalId);
+
+    if (error) {
+      console.warn('updateRentalCyclePointerAndItems error:', error.message);
+    }
+  }
+  const local = getLocal<RentalRecord>('rentals');
+  setLocal(
+    'rentals',
+    local.map((r) =>
+      r.id === rentalId
+        ? {
+            ...r,
+            current_cycle_number: cycleNumber,
+            current_cycle_start_date: cycleStartDate,
+            current_cycle_end_date: cycleEndDate,
+            plateType: plateType,
+            quantity: quantity,
+            dailyRate: dailyRate,
+            items: items,
           }
         : r
     )
