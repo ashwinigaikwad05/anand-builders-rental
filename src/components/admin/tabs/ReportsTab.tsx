@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, RefreshCw, Printer, Download } from 'lucide-react';
+import { FileText, Printer } from 'lucide-react';
 import type { Party, PlateStock, Rental, ReturnLog, Payment } from '../../../data/adminMockData';
 
 interface ReportsTabProps {
@@ -22,8 +22,6 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
   const [selectedPlateType, setSelectedPlateType] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-
-  const [isPreviewVisible, setIsPreviewVisible] = useState(true);
 
   const handleReset = () => {
     setSelectedPartyId('');
@@ -162,171 +160,154 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
           >
             Reset Filters
           </button>
-          
-          <button
-            onClick={() => setIsPreviewVisible(true)}
-            className="text-xs bg-primary hover:bg-primary-dark text-white font-bold px-5 py-2.5 rounded-xl transition shadow-md flex items-center gap-1"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Generate Preview</span>
-          </button>
         </div>
       </div>
 
       {/* Reports preview */}
-      {isPreviewVisible && (
-        <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden animate-fadeIn">
+      <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden animate-fadeIn">
+        
+        {/* Header block */}
+        <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h4 className="text-sm font-bold text-charcoal uppercase tracking-wider">
+              {reportType} Report Preview
+            </h4>
+            <p className="text-[10px] text-slate-400 font-light mt-0.5">
+              Matches {filteredData.length} records. Filter parameters loaded.
+            </p>
+          </div>
           
-          {/* Header block */}
-          <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h4 className="text-sm font-bold text-charcoal uppercase tracking-wider">
-                {reportType} Report Preview
-              </h4>
-              <p className="text-[10px] text-slate-400 font-light mt-0.5">
-                Matches {filteredData.length} records. Filter parameters loaded.
-              </p>
-            </div>
-            
-            <div className="flex gap-2">
-              <button
-                onClick={() => alert('Print preview loaded. (Demo Trigger)')}
-                className="p-2 hover:bg-slate-100 text-slate-500 rounded-lg border border-slate-200"
-                title="Print Report"
-              >
-                <Printer className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => alert('Report spreadsheet downloaded! (Demo Trigger)')}
-                className="text-xs bg-slate-900 hover:bg-slate-800 text-white font-bold px-3 py-1.5 rounded-lg border border-slate-850 hover:border-slate-800 transition flex items-center gap-1.5"
-              >
-                <Download className="w-3.5 h-3.5 text-primary" />
-                <span>Export Excel</span>
-              </button>
-            </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => alert('Print preview loaded. (Demo Trigger)')}
+              className="p-2 hover:bg-slate-100 text-slate-500 rounded-lg border border-slate-200"
+              title="Print Report"
+            >
+              <Printer className="w-4 h-4" />
+            </button>
           </div>
-
-          {/* Table display */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              
-              {/* Type 1: Rental report columns */}
-              {reportType === 'rental' && (
-                <>
-                  <thead>
-                    <tr className="bg-slate-50 text-slate-400 text-xs font-bold border-b border-slate-100 uppercase tracking-wider">
-                      <th className="px-6 py-4">Issue Date</th>
-                      <th className="px-6 py-4">Party Name</th>
-                      <th className="px-6 py-4">Plate Size</th>
-                      <th className="px-6 py-4">Quantity</th>
-                      <th className="px-6 py-4">Rent Accrued</th>
-                      <th className="px-6 py-4">Paid</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-light">
-                    {(filteredData as Rental[]).map((r) => (
-                      <tr key={r.id}>
-                        <td className="px-6 py-4 text-slate-500 font-mono">{r.issueDate}</td>
-                        <td className="px-6 py-4 font-bold text-slate-850">{r.partyName}</td>
-                        <td className="px-6 py-4 text-slate-500 font-mono">{r.plateType}</td>
-                        <td className="px-6 py-4 font-bold">{r.quantity}</td>
-                        <td className="px-6 py-4 font-semibold text-slate-800">₹{r.totalRent}</td>
-                        <td className="px-6 py-4 text-emerald-600 font-semibold">₹{r.paid}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </>
-              )}
-
-              {/* Type 2: Return report columns */}
-              {reportType === 'return' && (
-                <>
-                  <thead>
-                    <tr className="bg-slate-50 text-slate-400 text-xs font-bold border-b border-slate-100 uppercase tracking-wider">
-                      <th className="px-6 py-4">Return Date</th>
-                      <th className="px-6 py-4">Party Name</th>
-                      <th className="px-6 py-4">Plate Size</th>
-                      <th className="px-6 py-4">Returned Qty</th>
-                      <th className="px-6 py-4">Remaining</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-light">
-                    {(filteredData as ReturnLog[]).map((r) => (
-                      <tr key={r.id}>
-                        <td className="px-6 py-4 text-slate-500 font-mono">{r.returnDate}</td>
-                        <td className="px-6 py-4 font-bold text-slate-850">{r.partyName}</td>
-                        <td className="px-6 py-4 text-slate-500 font-mono">{r.plateType}</td>
-                        <td className="px-6 py-4 text-emerald-600 font-bold">+{r.returnedQuantity}</td>
-                        <td className="px-6 py-4 text-slate-400">{r.remainingQuantity}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </>
-              )}
-
-              {/* Type 3: Payment report columns */}
-              {reportType === 'payment' && (
-                <>
-                  <thead>
-                    <tr className="bg-slate-50 text-slate-400 text-xs font-bold border-b border-slate-100 uppercase tracking-wider">
-                      <th className="px-6 py-4">Receipt Date</th>
-                      <th className="px-6 py-4">Party Name</th>
-                      <th className="px-6 py-4">Amount</th>
-                      <th className="px-6 py-4">Channel Mode</th>
-                      <th className="px-6 py-4">Voucher Reference</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-light">
-                    {(filteredData as Payment[]).map((p) => (
-                      <tr key={p.id}>
-                        <td className="px-6 py-4 text-slate-500 font-mono">{p.date}</td>
-                        <td className="px-6 py-4 font-bold text-slate-850">{p.partyName}</td>
-                        <td className="px-6 py-4 text-emerald-600 font-black">₹{p.amount}</td>
-                        <td className="px-6 py-4 font-medium">{p.paymentMode}</td>
-                        <td className="px-6 py-4 text-slate-400 font-mono">{p.reference}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </>
-              )}
-
-              {/* Type 4: Udhari report columns */}
-              {reportType === 'udhari' && (
-                <>
-                  <thead>
-                    <tr className="bg-slate-50 text-slate-400 text-xs font-bold border-b border-slate-100 uppercase tracking-wider">
-                      <th className="px-6 py-4">Party Name</th>
-                      <th className="px-6 py-4">Mobile</th>
-                      <th className="px-6 py-4">Total Billed</th>
-                      <th className="px-6 py-4">Total Paid</th>
-                      <th className="px-6 py-4">Outstanding Dues</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-light">
-                    {(filteredData as Party[]).map((p) => (
-                      <tr key={p.id}>
-                        <td className="px-6 py-4 font-bold text-slate-855">{p.name}</td>
-                        <td className="px-6 py-4 font-mono text-slate-500">{p.mobile}</td>
-                        <td className="px-6 py-4">₹{p.totalRent}</td>
-                        <td className="px-6 py-4 text-emerald-600">₹{p.paid}</td>
-                        <td className="px-6 py-4 text-rose-600 font-black">₹{p.pending}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </>
-              )}
-
-            </table>
-            
-            {filteredData.length === 0 && (
-              <div className="p-12 text-center text-slate-400 italic">
-                No matching logs found in select criteria.
-              </div>
-            )}
-          </div>
-
         </div>
-      )}
+
+        {/* Table display */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            
+            {/* Type 1: Rental report columns */}
+            {reportType === 'rental' && (
+              <>
+                <thead>
+                  <tr className="bg-slate-50 text-slate-400 text-xs font-bold border-b border-slate-100 uppercase tracking-wider">
+                    <th className="px-6 py-4">Issue Date</th>
+                    <th className="px-6 py-4">Party Name</th>
+                    <th className="px-6 py-4">Plate Size</th>
+                    <th className="px-6 py-4">Quantity</th>
+                    <th className="px-6 py-4">Rent Accrued</th>
+                    <th className="px-6 py-4">Paid</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-light">
+                  {(filteredData as Rental[]).map((r) => (
+                    <tr key={r.id}>
+                      <td className="px-6 py-4 text-slate-500 font-mono">{r.issueDate}</td>
+                      <td className="px-6 py-4 font-bold text-slate-850">{r.partyName}</td>
+                      <td className="px-6 py-4 text-slate-500 font-mono">{r.plateType}</td>
+                      <td className="px-6 py-4 font-bold">{r.quantity}</td>
+                      <td className="px-6 py-4 font-semibold text-slate-800">₹{r.totalRent}</td>
+                      <td className="px-6 py-4 text-emerald-600 font-semibold">₹{r.paid}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </>
+            )}
+
+            {/* Type 2: Return report columns */}
+            {reportType === 'return' && (
+              <>
+                <thead>
+                  <tr className="bg-slate-50 text-slate-400 text-xs font-bold border-b border-slate-100 uppercase tracking-wider">
+                    <th className="px-6 py-4">Return Date</th>
+                    <th className="px-6 py-4">Party Name</th>
+                    <th className="px-6 py-4">Plate Size</th>
+                    <th className="px-6 py-4">Returned Qty</th>
+                    <th className="px-6 py-4">Remaining</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-light">
+                  {(filteredData as ReturnLog[]).map((r) => (
+                    <tr key={r.id}>
+                      <td className="px-6 py-4 text-slate-500 font-mono">{r.returnDate}</td>
+                      <td className="px-6 py-4 font-bold text-slate-850">{r.partyName}</td>
+                      <td className="px-6 py-4 text-slate-500 font-mono">{r.plateType}</td>
+                      <td className="px-6 py-4 text-emerald-600 font-bold">+{r.returnedQuantity}</td>
+                      <td className="px-6 py-4 text-slate-400">{r.remainingQuantity}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </>
+            )}
+
+            {/* Type 3: Payment report columns */}
+            {reportType === 'payment' && (
+              <>
+                <thead>
+                  <tr className="bg-slate-50 text-slate-400 text-xs font-bold border-b border-slate-100 uppercase tracking-wider">
+                    <th className="px-6 py-4">Receipt Date</th>
+                    <th className="px-6 py-4">Party Name</th>
+                    <th className="px-6 py-4">Amount</th>
+                    <th className="px-6 py-4">Channel Mode</th>
+                    <th className="px-6 py-4">Voucher Reference</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-light">
+                  {(filteredData as Payment[]).map((p) => (
+                    <tr key={p.id}>
+                      <td className="px-6 py-4 text-slate-500 font-mono">{p.date}</td>
+                      <td className="px-6 py-4 font-bold text-slate-850">{p.partyName}</td>
+                      <td className="px-6 py-4 text-emerald-600 font-black">₹{p.amount}</td>
+                      <td className="px-6 py-4 font-medium">{p.paymentMode}</td>
+                      <td className="px-6 py-4 text-slate-400 font-mono">{p.reference}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </>
+            )}
+
+            {/* Type 4: Udhari report columns */}
+            {reportType === 'udhari' && (
+              <>
+                <thead>
+                  <tr className="bg-slate-50 text-slate-400 text-xs font-bold border-b border-slate-100 uppercase tracking-wider">
+                    <th className="px-6 py-4">Party Name</th>
+                    <th className="px-6 py-4">Mobile</th>
+                    <th className="px-6 py-4">Total Billed</th>
+                    <th className="px-6 py-4">Total Paid</th>
+                    <th className="px-6 py-4">Outstanding Dues</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-light">
+                  {(filteredData as Party[]).map((p) => (
+                    <tr key={p.id}>
+                      <td className="px-6 py-4 font-bold text-slate-855">{p.name}</td>
+                      <td className="px-6 py-4 font-mono text-slate-500">{p.mobile}</td>
+                      <td className="px-6 py-4">₹{p.totalRent}</td>
+                      <td className="px-6 py-4 text-emerald-600">₹{p.paid}</td>
+                      <td className="px-6 py-4 text-rose-600 font-black">₹{p.pending}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </>
+            )}
+
+          </table>
+          
+          {filteredData.length === 0 && (
+            <div className="p-12 text-center text-slate-400 italic">
+              No matching logs found in select criteria.
+            </div>
+          )}
+        </div>
+
+      </div>
 
     </div>
   );

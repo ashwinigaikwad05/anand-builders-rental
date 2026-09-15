@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Edit2, Play, Square, Save, X, Info } from 'lucide-react';
+import { Edit2, Play, Square, Save, X } from 'lucide-react';
 import type { PlateStock } from '../../../data/adminMockData';
 
 interface PlateTypesTabProps {
@@ -143,13 +143,6 @@ export const PlateTypesTab: React.FC<PlateTypesTabProps> = ({
 
           </div>
         ))}
-      </div>
-
-      <div className="p-4 bg-orange-50/50 border border-orange-100 text-xs sm:text-sm text-slate-600 rounded-2xl flex items-start gap-3 max-w-xl">
-        <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-        <p className="leading-relaxed font-light">
-          <strong>Frontend Settings:</strong> Changing pricing rates here will dynamically affect calculations in the **New Rental Form** and the **Dashboard Estimates**. When connected to Supabase in the next phase, these changes will persist securely in the database.
-        </p>
       </div>
 
     </div>

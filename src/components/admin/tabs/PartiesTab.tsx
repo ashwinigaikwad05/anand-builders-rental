@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
-import { Search, UserPlus, Phone, MapPin, Eye, Edit2, Trash2, X, ArrowLeft } from 'lucide-react';
-import type { Party, Rental, Payment, LedgerEntry } from '../../../data/adminMockData';
+import { Search, UserPlus, Phone, MapPin, Eye, Edit2, Trash2, X, ArrowLeft, Star, Award, MessageSquare } from 'lucide-react';
+import type { Party, Rental, Payment, LedgerEntry, RentalCycle, ReturnLog } from '../../../data/adminMockData';
+import { calculatePartyBehaviour } from '../../../lib/partyBehaviour';
+import { getCleanPhoneNumber, buildGeneralPartyWhatsAppUrl } from '../../../utils/alertMessaging';
 
 interface PartiesTabProps {
   parties: Party[];
   rentals: Rental[];
   payments: Payment[];
   ledger: LedgerEntry[];
+  rentalCycles?: RentalCycle[];
+  returns?: ReturnLog[];
   onAddParty: (newParty: Omit<Party, 'id' | 'platesWithParty' | 'totalRent' | 'paid' | 'pending' | 'status'>) => void;
   onEditParty: (party: Party) => void;
   onDeleteParty: (partyId: string) => void;
@@ -17,6 +21,8 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
   rentals,
   payments,
   ledger,
+  rentalCycles = [],
+  returns = [],
   onAddParty,
   onEditParty,
   onDeleteParty,
@@ -90,27 +96,57 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
   const partyPayments = payments.filter((p) => p.partyId === selectedParty?.id);
   const partyLedger = ledger.filter((l) => l.partyId === selectedParty?.id);
 
+  // Selected party behavior rating
+  const selectedPartyBehaviour = selectedParty
+    ? calculatePartyBehaviour(selectedParty, rentalCycles, returns, payments)
+    : null;
+
   return (
     <div className="space-y-6 text-left relative">
       {isDetailOpen && selectedParty ? (
         /* Party Profile / Details View */
         <div className="bg-white rounded-3xl border border-slate-200/60 p-6 sm:p-8 space-y-8 animate-fadeIn">
           
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b border-slate-100">
-            <button
-              onClick={() => setIsDetailOpen(false)}
-              className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-primary transition-all uppercase tracking-wider"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back to Parties
-            </button>
-            <div className="space-y-1">
+          {/* Header with Call & WhatsApp Buttons */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-100">
+            <div className="space-y-2">
+              <button
+                onClick={() => setIsDetailOpen(false)}
+                className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-primary transition-all uppercase tracking-wider mb-1"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back to Parties
+              </button>
               <h3 className="text-2xl font-black text-charcoal">{selectedParty.name}</h3>
-              <p className="text-slate-400 text-xs flex items-center gap-1 font-light">
-                <Phone className="w-3.5 h-3.5 text-slate-400" /> +91 {selectedParty.mobile}
-              </p>
+              
+              {/* Mobile Number & Call/WhatsApp Action Strip */}
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <span className="text-slate-600 font-mono text-sm font-semibold flex items-center gap-1.5 bg-slate-100 px-3 py-1 rounded-xl">
+                  <Phone className="w-3.5 h-3.5 text-slate-500" /> +91 {selectedParty.mobile}
+                </span>
+
+                <a
+                  href={getCleanPhoneNumber(selectedParty.mobile).telLink}
+                  className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-sm"
+                  title={`Call +91 ${selectedParty.mobile}`}
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>Call</span>
+                </a>
+
+                <a
+                  href={buildGeneralPartyWhatsAppUrl(selectedParty.mobile, selectedParty.name)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-sm"
+                  title={`Open WhatsApp chat with +91 ${selectedParty.mobile}`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>WhatsApp</span>
+                </a>
+              </div>
             </div>
-            <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
+
+            <span className={`text-xs font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider ${
               selectedParty.status === 'active'
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                 : 'bg-slate-50 text-slate-500 border border-slate-200'
@@ -119,8 +155,8 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
             </span>
           </div>
 
-          {/* Cards metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          {/* Cards metrics + Behaviour Box */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-slate-50 p-5 rounded-2xl border border-slate-150 text-left space-y-1">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Current Shuttering Material Out</span>
               <h4 className="text-2xl font-black text-primary">{selectedParty.platesWithParty} Plates</h4>
@@ -138,6 +174,54 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
               </h4>
               <p className="text-[9px] text-slate-400 font-light">Balance outstanding due</p>
             </div>
+
+            {/* Performance & Behaviour Score Card */}
+            {selectedPartyBehaviour && (
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5 rounded-2xl border border-slate-700 text-left space-y-2 relative overflow-hidden">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                    <Award className="w-3.5 h-3.5 text-amber-400" /> Behaviour Rating
+                  </span>
+                  <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${selectedPartyBehaviour.badgeColorClass}`}>
+                    {selectedPartyBehaviour.ratingText}
+                  </span>
+                </div>
+
+                {selectedPartyBehaviour.isInsufficientHistory ? (
+                  <p className="text-xs text-slate-300 font-medium pt-1">Not enough history</p>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1 text-amber-400 text-lg tracking-widest font-black">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`w-4 h-4 ${
+                            star <= selectedPartyBehaviour.starsCount
+                              ? 'fill-amber-400 text-amber-400'
+                              : 'text-slate-600'
+                          }`}
+                        />
+                      ))}
+                      <span className="text-xs text-slate-300 font-bold ml-1.5">
+                        ({selectedPartyBehaviour.starsCount}/5)
+                      </span>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-700/80 space-y-1">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Performance Breakdown:</p>
+                      <ul className="text-[11px] text-slate-200 space-y-0.5 font-light">
+                        {selectedPartyBehaviour.reasons.map((reason, idx) => (
+                          <li key={idx} className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                            <span>{reason}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Core profile sections */}
@@ -316,6 +400,7 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                   <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
                     <th className="px-6 py-4">Party Name</th>
                     <th className="px-6 py-4">Mobile</th>
+                    <th className="px-6 py-4">Behaviour Rating</th>
                     <th className="px-6 py-4">Plates Active</th>
                     <th className="px-6 py-4">Accum. Rent</th>
                     <th className="px-6 py-4">Paid</th>
@@ -325,61 +410,135 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-light">
-                  {filteredParties.map((party) => (
-                    <tr key={party.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-4 font-bold text-slate-800">{party.name}</td>
-                      <td className="px-6 py-4 text-slate-500 font-mono">{party.mobile}</td>
-                      <td className="px-6 py-4 font-bold text-slate-800">{party.platesWithParty}</td>
-                      <td className="px-6 py-4 text-slate-600">₹{party.totalRent}</td>
-                      <td className="px-6 py-4 text-emerald-600 font-bold">₹{party.paid}</td>
-                      <td className={`px-6 py-4 font-bold ${party.pending > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
-                        ₹{party.pending}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          party.status === 'active'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                            : 'bg-slate-50 text-slate-500 border border-slate-100'
-                        }`}>
-                          {party.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-center gap-3">
-                          <button
-                            onClick={() => handleViewDetail(party)}
-                            className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-primary rounded transition-all"
-                            title="View Profile Statement"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleOpenEdit(party)}
-                            className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded transition-all"
-                            title="Edit Details"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => onDeleteParty(party.id)}
-                            className="p-1.5 hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded transition-all"
-                            title="Delete Party"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredParties.map((party) => {
+                    const behaviour = calculatePartyBehaviour(party, rentalCycles, returns, payments);
+                    const { telLink } = getCleanPhoneNumber(party.mobile);
+                    const waUrl = buildGeneralPartyWhatsAppUrl(party.mobile, party.name);
+
+                    return (
+                      <tr key={party.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 font-bold text-slate-800">{party.name}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-600 font-mono">{party.mobile}</span>
+                            <div className="flex items-center gap-1">
+                              <a
+                                href={telLink}
+                                className="p-1 text-emerald-700 hover:bg-emerald-50 rounded transition"
+                                title={`Call +91 ${party.mobile}`}
+                              >
+                                <Phone className="w-3.5 h-3.5" />
+                              </a>
+                              <a
+                                href={waUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1 text-emerald-600 hover:bg-emerald-50 rounded transition"
+                                title={`WhatsApp +91 ${party.mobile}`}
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Behaviour Rating Badge & Stars */}
+                        <td className="px-6 py-4">
+                          {behaviour.isInsufficientHistory ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
+                              Not enough history
+                            </span>
+                          ) : (
+                            <div className="space-y-0.5">
+                              <span
+                                className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border inline-block ${behaviour.badgeColorClass}`}
+                              >
+                                {behaviour.ratingText}
+                              </span>
+                              <div className="flex items-center text-amber-400 text-xs font-black">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    className={`w-3 h-3 ${
+                                      star <= behaviour.starsCount
+                                        ? 'fill-amber-400 text-amber-400'
+                                        : 'text-slate-300'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="px-6 py-4 font-bold text-slate-800">{party.platesWithParty}</td>
+                        <td className="px-6 py-4 text-slate-600">₹{party.totalRent}</td>
+                        <td className="px-6 py-4 text-emerald-600 font-bold">₹{party.paid}</td>
+                        <td className={`px-6 py-4 font-bold ${party.pending > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                          ₹{party.pending}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                            party.status === 'active'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                              : 'bg-slate-50 text-slate-500 border border-slate-100'
+                          }`}>
+                            {party.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <a
+                              href={telLink}
+                              className="p-1.5 hover:bg-emerald-50 text-emerald-700 rounded transition-all"
+                              title="Call Party"
+                            >
+                              <Phone className="w-4 h-4" />
+                            </a>
+                            <a
+                              href={waUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 hover:bg-emerald-50 text-emerald-600 rounded transition-all"
+                              title="WhatsApp Party"
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                            </a>
+                            <button
+                              onClick={() => handleViewDetail(party)}
+                              className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-primary rounded transition-all"
+                              title="View Profile Statement"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleOpenEdit(party)}
+                              className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded transition-all"
+                              title="Edit Details"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => onDeleteParty(party.id)}
+                              className="p-1.5 hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded transition-all"
+                              title="Delete Party"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {parties.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-10 text-center text-slate-400 font-light italic">
+                      <td colSpan={9} className="px-6 py-10 text-center text-slate-400 font-light italic">
                         No parties added yet.
                       </td>
                     </tr>
                   ) : filteredParties.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-10 text-center text-slate-400 font-light italic">
+                      <td colSpan={9} className="px-6 py-10 text-center text-slate-400 font-light italic">
                         No parties found matching query.
                       </td>
                     </tr>
