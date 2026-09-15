@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import type { Party, LedgerEntry } from '../../../data/adminMockData';
 
 interface LedgerTabProps {
@@ -107,16 +107,6 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({ parties, ledger }) => {
       <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
           <h4 className="text-sm font-bold text-charcoal">Account Statement Ledger Logs</h4>
-          
-          {selectedParty && (
-            <button
-              onClick={() => alert('Statement PDF generated! (Demo Trigger)')}
-              className="text-xs bg-slate-900 hover:bg-slate-800 text-white font-bold px-3 py-1.5 rounded-lg border border-slate-850 hover:border-slate-800 transition flex items-center gap-1.5"
-            >
-              <Download className="w-3.5 h-3.5 text-primary" />
-              <span>Download PDF Statement</span>
-            </button>
-          )}
         </div>
 
         <div className="overflow-x-auto">
