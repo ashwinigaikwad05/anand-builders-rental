@@ -930,6 +930,34 @@ export async function updateRentalStatus(
   setLocal('rentals', local.map((r) => (r.id === id ? { ...r, status } : r)));
 }
 
+export async function updateRentalOnReturn(
+  id: string,
+  totalRent: number,
+  returnDate: string
+): Promise<void> {
+  const cleanUpdates = {
+    status: 'returned' as const,
+    total_rent: totalRent,
+    paid_amount: totalRent,
+    pending_amount: 0,
+    actual_return_date: returnDate,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (supabase) {
+    const { error } = await supabase
+      .from('rentals')
+      .update(cleanUpdates)
+      .eq('id', id);
+
+    if (error) {
+      console.warn('updateRentalOnReturn error:', error.message);
+    }
+  }
+  const local = getLocal<RentalRecord>('rentals');
+  setLocal('rentals', local.map((r) => (r.id === id ? { ...r, ...cleanUpdates } : r)));
+}
+
 export async function updateRentalCyclePointer(
   rentalId: string,
   cycleNumber: number,

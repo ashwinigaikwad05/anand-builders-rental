@@ -52,6 +52,7 @@ import {
   fetchRentals,
   insertRental,
   updateRentalStatus,
+  updateRentalOnReturn,
   fetchReturns,
   insertReturn,
   fetchPayments,
@@ -1081,13 +1082,15 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
 
       setReturns((prev) => [created, ...prev]);
 
-      // If remaining quantity becomes zero, mark rental agreement as fully returned in DB
+      // If remaining quantity becomes zero, mark rental agreement as fully returned in DB and financially settle the cycle balance to ₹0
       if (newReturn.remainingQuantity === 0) {
         // Finalize the active cycle for this rental
         const existingCycles = rentalCycles.filter((c) => c.rentalId === newReturn.rentalId);
         const activeCycle =
           existingCycles.find((c) => c.status === 'active') ||
           existingCycles[existingCycles.length - 1];
+
+        let finalCycleTotal = matchedRental.totalRent;
 
         if (activeCycle) {
           const activeFinances = calculateCycleFinances(
@@ -1103,13 +1106,19 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             newReturn.returnDate
           );
 
+          finalCycleTotal = activeFinances.totalAmount;
+
+          // Financial settlement/waiver on full return:
+          // - set paid_amount equal to total_amount so pending_amount becomes 0
+          // - set status to 'completed'
           await updateRentalCycle(activeCycle.id, {
             actual_end_date: newReturn.returnDate,
             days: activeFinances.elapsedDays,
             extra_days: activeFinances.extraDays,
             extra_amount: activeFinances.extraAmount,
             total_amount: activeFinances.totalAmount,
-            pending_amount: activeFinances.pendingAmount,
+            paid_amount: activeFinances.totalAmount,
+            pending_amount: 0,
             status: 'completed',
           });
 
@@ -1123,7 +1132,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
                     extraDays: activeFinances.extraDays,
                     extraAmount: activeFinances.extraAmount,
                     totalAmount: activeFinances.totalAmount,
-                    pendingAmount: activeFinances.pendingAmount,
+                    paidAmount: activeFinances.totalAmount,
+                    pendingAmount: 0,
                     status: 'completed' as const,
                   }
                 : c
@@ -1159,21 +1169,46 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           }
         }
 
-        await updateRentalStatus(newReturn.rentalId, 'returned');
+        await updateRentalOnReturn(newReturn.rentalId, finalCycleTotal, newReturn.returnDate);
         setRentals((prev) =>
-          prev.map((r) => (r.id === newReturn.rentalId ? { ...r, status: 'returned' } : r))
+          prev.map((r) =>
+            r.id === newReturn.rentalId
+              ? {
+                  ...r,
+                  status: 'returned',
+                  totalRent: finalCycleTotal,
+                  paid: finalCycleTotal,
+                  pending: 0,
+                }
+              : r
+          )
         );
       }
 
-      // Ledger Entry for Return Intake
-      const partyPending = parties.find((p) => p.id === newReturn.partyId)?.pending || 0;
+      // Ledger Entry for Return Intake (recorded with updated party pending balance after cycle settlement)
+      const partyCyclesAfter = rentalCycles.map((c) => {
+        const isThisRentalReturn = c.rentalId === newReturn.rentalId && (c.status === 'active' || (newReturn.remainingQuantity === 0 && c.status === 'completed'));
+        if (newReturn.remainingQuantity === 0 && isThisRentalReturn) {
+          return { ...c, pendingAmount: 0 };
+        }
+        return c;
+      }).filter((c) => c.partyId === newReturn.partyId);
+
+      const partyPendingAfter = partyCyclesAfter.reduce((sum, c) => {
+        if (c.status === 'active') {
+          const fin = calculateCycleFinances(c, newReturn.returnDate);
+          return sum + fin.pendingAmount;
+        }
+        return sum + c.pendingAmount;
+      }, 0);
+
       const ledEntry = await insertLedgerEntry({
         party_id: newReturn.partyId,
         date: newReturn.returnDate,
-        description: `Material Return Intake: ${newReturn.returnedQuantity} Plates of ${matchedRental.plateType} returned`,
+        description: `Material Return Intake: ${newReturn.returnedQuantity} Plates of ${matchedRental.plateType} returned${newReturn.remainingQuantity === 0 ? ' (Cycle Settled)' : ''}`,
         debit: 0,
         credit: 0,
-        balance: partyPending,
+        balance: partyPendingAfter,
         reference_type: 'return',
         reference_id: inserted.id,
       });

@@ -117,7 +117,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   // Helper to get live financial figures for the active cycle
   const getLiveCycleData = (rental: Rental) => {
     const activeCycle = getActiveCycleForRental(rental);
-    if (rental.status === 'returned') {
+    if (rental.status === 'returned' || activeCycle.status === 'completed') {
       return {
         activeCycle,
         finances: {
