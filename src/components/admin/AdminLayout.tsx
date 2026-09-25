@@ -1012,7 +1012,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       date?: string;
       reference?: string;
       notes?: string;
-    }
+    },
+    penalty = 0
   ) => {
     try {
       const rental = rentals.find((r) => r.id === rentalId);
@@ -1061,12 +1062,31 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       );
 
       // Allocation of payment collected at renewal time
+      const penaltyAmount = penalty && penalty > 0 ? Number(penalty) : 0;
       const paymentAmount = payment && payment.amount > 0 ? Number(payment.amount) : 0;
-      const prevDue = Math.max(0, previousFinances.pendingAmount);
-      const prevPaidFromPayment = Math.min(paymentAmount, prevDue);
-      const newCycleAdvance = Math.max(0, paymentAmount - prevPaidFromPayment);
 
-      const finalPrevCyclePaid = (activeCycle.paidAmount || 0) + prevPaidFromPayment;
+      // Calculate all previous cycles pending dues
+      const earlierCycles = existingCycles.filter(
+        (c) => c.id !== activeCycle.id && c.cycleNumber < activeCycle.cycleNumber
+      );
+      const earlierDues = earlierCycles.reduce((sum, c) => {
+        const d = typeof c.pendingAmount === 'number'
+          ? c.pendingAmount
+          : Math.max(0, (c.totalAmount || c.baseRent || 0) - (c.paidAmount || 0));
+        return sum + Math.max(0, d);
+      }, 0);
+      const activePrevDue = Math.max(0, previousFinances.pendingAmount);
+      const allPrevDue = earlierDues + activePrevDue;
+
+      // Payment allocations
+      const prevPaidFromPayment = Math.min(paymentAmount, allPrevDue);
+      const remainingAfterPrev = Math.max(0, paymentAmount - prevPaidFromPayment);
+      const penaltyPaidFromPayment = Math.min(remainingAfterPrev, penaltyAmount);
+      const newCycleAdvance = Math.max(0, remainingAfterPrev - penaltyPaidFromPayment);
+
+      const activeCyclePayment = Math.min(prevPaidFromPayment, activePrevDue);
+
+      const finalPrevCyclePaid = (activeCycle.paidAmount || 0) + activeCyclePayment;
       const finalPrevCyclePending = Math.max(0, previousFinances.totalAmount - finalPrevCyclePaid);
 
       // 1. Finalize previous cycle (with updated paid/pending if payment was made)
@@ -1203,7 +1223,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
                 dailyRate: newDailyRate,
                 items: finalNewItems,
                 paid: r.paid + paymentAmount,
-                pending: Math.max(0, r.pending - paymentAmount),
+                pending: Math.max(0, (r.pending || 0) + newBaseRent + previousFinances.extraAmount + penaltyAmount - paymentAmount),
                 cycles: updatedCycleList.filter((c) => c.rentalId === r.id),
               }
             : r
@@ -1240,6 +1260,32 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         ]);
       }
 
+      // If penalty was added on renewal, debit it
+      if (penaltyAmount > 0) {
+        const ledPenalty = await insertLedgerEntry({
+          party_id: rental.partyId,
+          date: renewalConfirmationDate,
+          description: `Penalty / Late Fee on Renewal (Rental #${rental.billNumber || rental.id.slice(-4)})`,
+          debit: penaltyAmount,
+          credit: 0,
+          balance: currentPartyPending + (previousFinances.extraAmount || 0) + penaltyAmount,
+          reference_type: 'rental_penalty',
+          reference_id: activeCycle.id,
+        });
+        setLedger((prev) => [
+          {
+            id: ledPenalty.id,
+            partyId: ledPenalty.party_id,
+            date: ledPenalty.date,
+            description: ledPenalty.description,
+            debit: ledPenalty.debit,
+            credit: ledPenalty.credit,
+            balance: ledPenalty.balance,
+          },
+          ...prev,
+        ]);
+      }
+
       // Debit for new cycle standard rent
       const ledRenewal = await insertLedgerEntry({
         party_id: rental.partyId,
@@ -1250,7 +1296,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         balance:
           currentPartyPending +
           newBaseRent +
-          (previousFinances.extraAmount > 0 ? previousFinances.extraAmount : 0),
+          (previousFinances.extraAmount > 0 ? previousFinances.extraAmount : 0) +
+          penaltyAmount,
         reference_type: 'rental_renewal',
         reference_id: createdNewCycle.id,
       });
@@ -1330,6 +1377,64 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           ]);
         }
 
+        // Penalty payment record
+        if (penaltyPaidFromPayment > 0) {
+          const ref = payment.reference?.trim()
+            ? `${payment.reference.trim()}-PEN`
+            : `REN-PEN-CYC${activeCycle.cycleNumber}-${Date.now().toString().slice(-4)}`;
+          const notes = `Penalty / Fine payment collected on Renewal`;
+          const insPen = await insertPayment({
+            party_id: rental.partyId,
+            party_name: rental.partyName,
+            rental_id: rental.id,
+            cycle_id: activeCycle.id,
+            cycle_number: activeCycle.cycleNumber,
+            amount: penaltyPaidFromPayment,
+            payment_date: payDate,
+            payment_mode: payMode,
+            reference: ref,
+            notes,
+            status: 'verified',
+          });
+          newPaymentsCreated.push({
+            id: insPen.id,
+            partyId: rental.partyId,
+            partyName: rental.partyName,
+            rentalId: rental.id,
+            cycleId: activeCycle.id,
+            cycleNumber: activeCycle.cycleNumber,
+            amount: penaltyPaidFromPayment,
+            date: payDate,
+            paymentMode: payMode,
+            reference: insPen.reference || ref,
+            notes,
+            status: 'verified',
+          });
+
+          const ledPenPayment = await insertLedgerEntry({
+            party_id: rental.partyId,
+            date: payDate,
+            description: `Payment Received - Penalty Settlement - ${payMode} (Ref: ${insPen.reference || ref})`,
+            debit: 0,
+            credit: penaltyPaidFromPayment,
+            balance: Math.max(0, currentPartyPending - penaltyPaidFromPayment),
+            reference_type: 'payment',
+            reference_id: insPen.id,
+          });
+          setLedger((prev) => [
+            {
+              id: ledPenPayment.id,
+              partyId: ledPenPayment.party_id,
+              date: ledPenPayment.date,
+              description: ledPenPayment.description,
+              debit: ledPenPayment.debit,
+              credit: ledPenPayment.credit,
+              balance: ledPenPayment.balance,
+            },
+            ...prev,
+          ]);
+        }
+
         // New cycle advance payment record
         if (newCycleAdvance > 0) {
           const ref = payment.reference?.trim()
@@ -1393,6 +1498,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           setPayments((prev) => [...newPaymentsCreated, ...prev]);
         }
       }
+
 
       if (payment && payment.amount > 0) {
         addToast(

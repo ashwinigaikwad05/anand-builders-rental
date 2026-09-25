@@ -58,7 +58,8 @@ interface DashboardTabProps {
       date?: string;
       reference?: string;
       notes?: string;
-    }
+    },
+    penalty?: number
   ) => Promise<void>;
   onInitiateReturn?: (rental: Rental) => void;
   appLanguage?: AppLanguage;
@@ -993,11 +994,13 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         <RenewRentalModal
           rental={renewTarget}
           activeCycle={getActiveCycle(renewTarget)}
+          rentalCycles={rentalCycles ? rentalCycles.filter((c) => c.rentalId === renewTarget.id) : (renewTarget.cycles || [])}
+          party={parties.find((p) => p.id === renewTarget.partyId)}
           plates={plates}
           onClose={() => setRenewTarget(null)}
-          onConfirm={async (rentalId, renewalDate, newItems, renewDays, payment) => {
+          onConfirm={async (rentalId, renewalDate, newItems, renewDays, payment, penalty) => {
             if (onRenewRental) {
-              await onRenewRental(rentalId, renewalDate, newItems, renewDays, payment);
+              await onRenewRental(rentalId, renewalDate, newItems, renewDays, payment, penalty);
             }
           }}
         />

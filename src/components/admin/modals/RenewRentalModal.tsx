@@ -10,7 +10,7 @@ import {
   CheckCircle2,
   IndianRupee,
 } from 'lucide-react';
-import type { Rental, RentalCycle, PlateStock, RentalItem } from '../../../data/adminMockData';
+import type { Rental, RentalCycle, PlateStock, RentalItem, Party } from '../../../data/adminMockData';
 import {
   calculateCycleFinances,
   determineRenewalStartDate,
@@ -31,13 +31,16 @@ interface RenewRentalModalProps {
   rental: Rental;
   activeCycle: RentalCycle;
   plates: PlateStock[];
+  rentalCycles?: RentalCycle[];
+  party?: Party;
   onClose: () => void;
   onConfirm: (
     rentalId: string,
     renewalConfirmationDate: string,
     newItems: RentalItem[],
     renewDays: number,
-    payment?: RenewPaymentPayload
+    payment?: RenewPaymentPayload,
+    penalty?: number
   ) => Promise<void>;
 }
 
@@ -45,6 +48,8 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
   rental,
   activeCycle,
   plates,
+  rentalCycles = [],
+  party,
   onClose,
   onConfirm,
 }) => {
@@ -59,6 +64,7 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
 
   // Payment Collection States (Accept money on renewal)
   const [collectedPayment, setCollectedPayment] = useState<number>(0);
+  const [penaltyAmount, setPenaltyAmount] = useState<number>(0);
   const [paymentMode, setPaymentMode] = useState<'Cash' | 'Account 1' | 'Account 2'>('Cash');
   const [paymentDate, setPaymentDate] = useState<string>(todayStr);
   const [paymentReference, setPaymentReference] = useState<string>('');
@@ -264,9 +270,10 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
               paymentMode,
               date: paymentDate || renewDate,
               reference: paymentReference.trim() || undefined,
-              notes: paymentNotes.trim() || undefined,
+              notes: (paymentNotes.trim() ? `${paymentNotes.trim()}` : 'Renewal payment') + (penaltyAmount > 0 ? ` (Incl. Penalty ₹${penaltyAmount})` : ''),
             }
-          : undefined
+          : undefined,
+        penaltyAmount > 0 ? penaltyAmount : undefined
       );
       onClose();
     } catch (err: any) {
@@ -276,12 +283,46 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
     }
   };
 
-  const prevDue = Math.max(0, prevFinances.pendingAmount);
-  const totalAccountDue = prevDue + newCycleBaseRent;
-  const prevCyclePaymentAllocation = Math.min(collectedPayment || 0, prevDue);
-  const newCycleAdvanceAllocation = Math.max(0, (collectedPayment || 0) - prevCyclePaymentAllocation);
-  const prevCycleRemainingDue = Math.max(0, prevDue - prevCyclePaymentAllocation);
-  const newCycleRemainingDue = Math.max(0, newCycleBaseRent - newCycleAdvanceAllocation);
+  // 1. Calculate pending due from all earlier completed cycles (Cycle 1 to Cycle N-1)
+  const allRelatedCycles = rentalCycles && rentalCycles.length > 0
+    ? rentalCycles
+    : (rental.cycles || []);
+
+  const earlierCycles = allRelatedCycles.filter(
+    (c) => c.id !== activeCycle.id && c.cycleNumber < activeCycle.cycleNumber
+  );
+
+  const earlierCyclesDue = earlierCycles.reduce((sum, c) => {
+    const cycDue = typeof c.pendingAmount === 'number'
+      ? c.pendingAmount
+      : Math.max(0, (c.totalAmount || c.baseRent || 0) - (c.paidAmount || 0));
+    return sum + Math.max(0, cycDue);
+  }, 0);
+
+  const activeCycleDue = Math.max(0, prevFinances.pendingAmount);
+  const calculatedAllPrevDue = earlierCyclesDue + activeCycleDue;
+
+  // Previous all-time pending bill of this rental for collecting
+  const allPreviousPendingDue = Math.max(
+    calculatedAllPrevDue,
+    Math.max(0, (rental.pending || 0) + (prevFinances.extraAmount || 0)),
+    party && party.id === rental.partyId && party.pending > 0 && (!rentalCycles || rentalCycles.length <= 1)
+      ? party.pending
+      : 0
+  );
+
+  // Total Account Due = Previous All-time Pending + New Cycle Rent + Penalty
+  const totalAccountDue = allPreviousPendingDue + newCycleBaseRent + (penaltyAmount || 0);
+
+  // Payment allocations order: 1. Previous All Dues -> 2. Penalty -> 3. New Cycle Advance
+  const prevCyclePaymentAllocation = Math.min(collectedPayment || 0, allPreviousPendingDue);
+  const remainingAfterPrev = Math.max(0, (collectedPayment || 0) - prevCyclePaymentAllocation);
+  const penaltyPaymentAllocation = Math.min(remainingAfterPrev, penaltyAmount || 0);
+  const newCycleAdvanceAllocation = Math.max(0, remainingAfterPrev - penaltyPaymentAllocation);
+
+  const remainingPrevDue = Math.max(0, allPreviousPendingDue - prevCyclePaymentAllocation);
+  const remainingPenalty = Math.max(0, (penaltyAmount || 0) - penaltyPaymentAllocation);
+  const remainingNewCycleDue = Math.max(0, newCycleBaseRent - newCycleAdvanceAllocation);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
@@ -302,7 +343,8 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-medium">
-                Customer: <span className="font-bold text-slate-700">{rental.partyName}</span> (ID: #{rental.id.slice(-5).toUpperCase()})
+                Customer: <span className="font-bold text-slate-700">{party?.name || rental.partyName}</span>
+                {party?.mobile ? <span className="text-slate-400 font-normal"> ({party.mobile})</span> : null} (ID: #{rental.id.slice(-5).toUpperCase()})
               </p>
             </div>
           </div>
@@ -642,29 +684,81 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
               </span>
             </div>
 
-            {/* Dues Breakdown Pills */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-              <div className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs">
-                <span className="text-[10px] text-slate-500 font-semibold uppercase block">
-                  Cycle {activeCycle.cycleNumber} Due (मागील बाकी)
-                </span>
-                <span className={`font-mono text-sm font-bold ${prevDue > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
-                  ₹{prevDue.toLocaleString('en-IN')}
+            {/* Dues Breakdown & Penalty Pills */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+              {/* Box 1: Previous All-Time Pending Dues */}
+              <div className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs flex flex-col justify-between">
+                <div>
+                  <span className="text-[10px] text-slate-500 font-bold uppercase block truncate" title="सर्व मागील येणे बाकी">
+                    Prev Pending Dues (सर्व बाकी)
+                  </span>
+                  <span className="text-[9px] text-slate-400 block truncate">
+                    {earlierCyclesDue > 0 ? `Cyc ${activeCycle.cycleNumber}: ₹${activeCycleDue} • Earlier: ₹${earlierCyclesDue}` : `Cycle ${activeCycle.cycleNumber} Balance`}
+                  </span>
+                </div>
+                <span className={`font-mono text-sm sm:text-base font-black mt-1 ${allPreviousPendingDue > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                  ₹{allPreviousPendingDue.toLocaleString('en-IN')}
                 </span>
               </div>
-              <div className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs">
-                <span className="text-[10px] text-slate-500 font-semibold uppercase block">
-                  Cycle {activeCycle.cycleNumber + 1} Rent (नवीन भाडे)
-                </span>
-                <span className="font-mono text-sm font-bold text-indigo-900">
+
+              {/* Box 2: New Cycle Rent */}
+              <div className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs flex flex-col justify-between">
+                <div>
+                  <span className="text-[10px] text-slate-500 font-bold uppercase block truncate">
+                    Cycle {activeCycle.cycleNumber + 1} Rent (नवीन भाडे)
+                  </span>
+                  <span className="text-[9px] text-indigo-600 font-medium block">
+                    {renewDays} Days Term
+                  </span>
+                </div>
+                <span className="font-mono text-sm sm:text-base font-black text-indigo-900 mt-1">
                   ₹{newCycleBaseRent.toLocaleString('en-IN')}
                 </span>
               </div>
-              <div className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs">
-                <span className="text-[10px] text-slate-500 font-semibold uppercase block">
-                  Total Payable (एकूण रक्कम)
-                </span>
-                <span className="font-mono text-sm font-black text-slate-900">
+
+              {/* Box 3: Penalty Simple Box (दंड / लेट फी) */}
+              <div className="bg-amber-50/90 p-2.5 rounded-xl border border-amber-200/90 shadow-2xs flex flex-col justify-between ring-1 ring-amber-300/60">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] text-amber-900 font-extrabold uppercase block">
+                    Penalty / दंड (₹)
+                  </span>
+                  {penaltyAmount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPenaltyAmount(0)}
+                      className="text-[9px] text-amber-700 hover:text-amber-950 font-bold underline cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="relative mt-1">
+                  <span className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-amber-700 font-bold text-xs">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={penaltyAmount || ''}
+                    onChange={(e) => setPenaltyAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                    placeholder="0"
+                    className="w-full bg-white border border-amber-300 focus:border-amber-600 focus:ring-1 focus:ring-amber-500 focus:outline-none pl-5 pr-2 py-1 rounded-lg text-sm font-black text-amber-950 font-mono shadow-2xs"
+                  />
+                </div>
+              </div>
+
+              {/* Box 4: Total Payable */}
+              <div className="bg-white p-2.5 rounded-xl border border-slate-300 shadow-2xs flex flex-col justify-between bg-gradient-to-br from-white to-slate-50">
+                <div>
+                  <span className="text-[10px] text-slate-700 font-black uppercase block truncate">
+                    Total Payable (एकूण देय)
+                  </span>
+                  <span className="text-[9px] text-slate-400 block truncate">
+                    Prev + Rent{penaltyAmount > 0 ? ' + Penalty' : ''}
+                  </span>
+                </div>
+                <span className="font-mono text-sm sm:text-base font-black text-slate-950 mt-1">
                   ₹{totalAccountDue.toLocaleString('en-IN')}
                 </span>
               </div>
@@ -677,13 +771,13 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
                   Payment Amount Collected Now (₹)
                 </label>
                 <div className="flex flex-wrap gap-1.5">
-                  {prevDue > 0 && (
+                  {allPreviousPendingDue > 0 && (
                     <button
                       type="button"
-                      onClick={() => setCollectedPayment(prevDue)}
-                      className="text-[10px] bg-emerald-200/80 hover:bg-emerald-300 text-emerald-950 font-bold px-2 py-0.5 rounded cursor-pointer transition-all"
+                      onClick={() => setCollectedPayment(allPreviousPendingDue)}
+                      className="text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-950 font-bold px-2 py-0.5 rounded cursor-pointer transition-all border border-rose-200"
                     >
-                      Pay Prev Due (₹{prevDue.toLocaleString('en-IN')})
+                      Pay Prev Due (₹{allPreviousPendingDue.toLocaleString('en-IN')})
                     </button>
                   )}
                   {newCycleBaseRent > 0 && (
@@ -693,6 +787,15 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
                       className="text-[10px] bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-bold px-2 py-0.5 rounded cursor-pointer transition-all"
                     >
                       Pay New Rent (₹{newCycleBaseRent.toLocaleString('en-IN')})
+                    </button>
+                  )}
+                  {penaltyAmount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setCollectedPayment(newCycleBaseRent + penaltyAmount)}
+                      className="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold px-2 py-0.5 rounded cursor-pointer transition-all border border-amber-200"
+                    >
+                      Rent + Penalty (₹{(newCycleBaseRent + penaltyAmount).toLocaleString('en-IN')})
                     </button>
                   )}
                   <button
@@ -789,17 +892,40 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
                 {/* Settlement Distribution Summary */}
                 <div className="p-3 bg-white rounded-xl border border-emerald-200 space-y-1.5 text-[11px]">
                   <div className="flex justify-between items-center text-slate-700">
-                    <span>Applied to Cycle {activeCycle.cycleNumber} (Previous Due):</span>
+                    <span>Applied to Previous All Dues (मागील येणे बाकी):</span>
                     <span className="font-bold font-mono text-emerald-800">
                       ₹{prevCyclePaymentAllocation.toLocaleString('en-IN')}{' '}
-                      {prevCycleRemainingDue === 0 ? '(Fully Settled ✓)' : `(Remaining: ₹${prevCycleRemainingDue.toLocaleString('en-IN')})`}
+                      {remainingPrevDue === 0 && allPreviousPendingDue > 0 ? (
+                        <span className="text-emerald-600 font-bold">(Fully Cleared ✓)</span>
+                      ) : remainingPrevDue > 0 ? (
+                        <span className="text-rose-600">(Remaining: ₹{remainingPrevDue.toLocaleString('en-IN')})</span>
+                      ) : (
+                        <span className="text-slate-400 font-normal">(No Prior Due)</span>
+                      )}
                     </span>
                   </div>
+                  {penaltyAmount > 0 && (
+                    <div className="flex justify-between items-center text-amber-900">
+                      <span>Applied to Penalty (दंड भरणा):</span>
+                      <span className="font-bold font-mono">
+                        ₹{penaltyPaymentAllocation.toLocaleString('en-IN')}{' '}
+                        {remainingPenalty === 0 ? (
+                          <span className="text-emerald-600 font-bold">(Cleared ✓)</span>
+                        ) : (
+                          <span className="text-rose-600">(Remaining: ₹{remainingPenalty.toLocaleString('en-IN')})</span>
+                        )}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center text-slate-700">
-                    <span>Applied to Cycle {activeCycle.cycleNumber + 1} (New Cycle Advance):</span>
+                    <span>Applied to Cycle {activeCycle.cycleNumber + 1} (नवीन भाडे जमा):</span>
                     <span className="font-bold font-mono text-indigo-800">
                       ₹{newCycleAdvanceAllocation.toLocaleString('en-IN')}{' '}
-                      {newCycleRemainingDue === 0 ? '(Fully Paid ✓)' : `(Pending: ₹${newCycleRemainingDue.toLocaleString('en-IN')})`}
+                      {remainingNewCycleDue === 0 ? (
+                        <span className="text-emerald-600 font-bold">(Fully Paid ✓)</span>
+                      ) : (
+                        <span className="text-indigo-600">(Pending: ₹{remainingNewCycleDue.toLocaleString('en-IN')})</span>
+                      )}
                     </span>
                   </div>
                 </div>

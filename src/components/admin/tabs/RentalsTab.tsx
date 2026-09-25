@@ -49,7 +49,8 @@ interface RentalsTabProps {
       date?: string;
       reference?: string;
       notes?: string;
-    }
+    },
+    penalty?: number
   ) => Promise<void>;
 }
 
@@ -678,11 +679,13 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
         <RenewRentalModal
           rental={renewTarget}
           activeCycle={getActiveCycleForRental(renewTarget)}
+          rentalCycles={getCyclesForRental(renewTarget)}
+          party={parties.find((p) => p.id === renewTarget.partyId)}
           plates={plates}
           onClose={() => setRenewTarget(null)}
-          onConfirm={async (rentalId, renewalDate, newItems, renewDays, payment) => {
+          onConfirm={async (rentalId, renewalDate, newItems, renewDays, payment, penalty) => {
             if (onRenewRental) {
-              await onRenewRental(rentalId, renewalDate, newItems, renewDays, payment);
+              await onRenewRental(rentalId, renewalDate, newItems, renewDays, payment, penalty);
             }
           }}
         />
