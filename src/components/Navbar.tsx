@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, PhoneCall } from 'lucide-react';
+import { Menu, X, PhoneCall, ShieldCheck } from 'lucide-react';
 
 interface NavbarProps {
   onQuoteClick: () => void;
@@ -81,8 +81,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onQuoteClick, onNavigate }) => {
             </button>
           </div>
 
-          {/* Get a Quote Button */}
-          <div className="hidden md:flex items-center">
+          {/* Action Buttons */}
+          <div className="hidden md:flex items-center gap-3">
+            <a
+              href="/admin"
+              className="text-xs font-bold text-slate-300 hover:text-white px-3 py-2 rounded-lg hover:bg-slate-800/80 transition flex items-center gap-1.5"
+              title="Admin Control Portal"
+            >
+              <ShieldCheck className="w-4 h-4 text-primary" />
+              <span>Admin</span>
+            </a>
+
             <button
               onClick={onQuoteClick}
               className="bg-primary hover:bg-primary-dark text-white font-semibold px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg hover:shadow-orange-500/20 transform hover:-translate-y-0.5 transition-all duration-200 text-sm"
@@ -141,6 +150,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onQuoteClick, onNavigate }) => {
           >
             Contact
           </button>
+          <a
+            href="/admin"
+            className="flex items-center gap-2 w-full text-left px-3 py-2.5 rounded-md text-base font-medium text-primary hover:text-white hover:bg-slate-800 transition-all"
+          >
+            <ShieldCheck className="w-4 h-4 text-primary" />
+            <span>Admin Portal</span>
+          </a>
           <div className="pt-4 border-t border-slate-800">
             <button
               onClick={() => {

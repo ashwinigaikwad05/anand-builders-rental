@@ -1,6 +1,14 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-export type PlateSizeType = '24×3' | '21×3' | '18×3' | '15×3' | '12×3' | '9×3' | '6×3';
+export type PlateSizeType =
+  | '24×3'
+  | '21×3'
+  | '18×3'
+  | '15×3'
+  | '12×3'
+  | '9×3'
+  | '6×3'
+  | (string & {});
 
 export const STANDARD_PLATE_SIZES: PlateSizeType[] = [
   '24×3',
@@ -43,6 +51,9 @@ export interface PartyRecord {
   address?: string | null;
   notes?: string | null;
   status: 'active' | 'inactive';
+  photo_url?: string | null;
+  aadhaar_url?: string | null;
+  cheque_url?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -92,7 +103,7 @@ export interface RentalRecord {
   total_rent: number;
   paid_amount: number;
   pending_amount: number;
-  payment_mode: 'Account 1' | 'Account 2' | 'Cash' | 'Udhari';
+  payment_mode: 'Account 1' | 'Account 2' | 'Cash' | 'Outstanding' | 'Udhari';
   payment_status: 'pending' | 'partial' | 'paid';
   status: 'active' | 'returned' | 'overdue';
   notes?: string | null;
@@ -127,7 +138,7 @@ export interface PaymentRecord {
   cycle_number?: number | null;
   amount: number;
   payment_date: string;
-  payment_mode: 'Account 1' | 'Account 2' | 'Cash' | 'Udhari';
+  payment_mode: 'Account 1' | 'Account 2' | 'Cash' | 'Outstanding' | 'Udhari';
   reference?: string | null;
   notes?: string | null;
   status: 'verified' | 'pending';
@@ -233,6 +244,9 @@ export async function insertParty(party: {
   mobile: string;
   address?: string;
   notes?: string;
+  photo_url?: string | null;
+  aadhaar_url?: string | null;
+  cheque_url?: string | null;
 }): Promise<PartyRecord> {
   const newRecord: PartyRecord = {
     id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `party-${Date.now()}`,
@@ -241,6 +255,9 @@ export async function insertParty(party: {
     address: party.address?.trim() || null,
     notes: party.notes?.trim() || null,
     status: 'active',
+    photo_url: party.photo_url || null,
+    aadhaar_url: party.aadhaar_url || null,
+    cheque_url: party.cheque_url || null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -255,6 +272,9 @@ export async function insertParty(party: {
           address: newRecord.address,
           notes: newRecord.notes,
           status: 'active',
+          photo_url: newRecord.photo_url,
+          aadhaar_url: newRecord.aadhaar_url,
+          cheque_url: newRecord.cheque_url,
         },
       ])
       .select()
@@ -283,6 +303,9 @@ export async function updateParty(
     address?: string | null;
     notes?: string | null;
     status?: 'active' | 'inactive';
+    photo_url?: string | null;
+    aadhaar_url?: string | null;
+    cheque_url?: string | null;
   }
 ): Promise<PartyRecord> {
   if (supabase) {
@@ -381,6 +404,93 @@ export async function updatePlateTypeStatus(
     'plate_types',
     local.map((p) => (p.plate_size === plateSize ? { ...p, status } : p))
   );
+}
+
+export async function insertPlateType(
+  plateSize: string,
+  dailyRate: number = 1.5,
+  status: 'available' | 'low_stock' | 'out_of_stock' = 'available'
+): Promise<PlateTypeRecord> {
+  const newRecord: PlateTypeRecord = {
+    id: `pt-${Date.now()}-${Math.random().toString().slice(2, 6)}`,
+    plate_size: plateSize as PlateSizeType,
+    daily_rate: Number(dailyRate) || 1.5,
+    active: status !== 'out_of_stock',
+    status,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('plate_types')
+        .insert([
+          {
+            plate_size: plateSize,
+            daily_rate: newRecord.daily_rate,
+            active: newRecord.active,
+            status: newRecord.status,
+          },
+        ])
+        .select()
+        .single();
+
+      if (!error && data) {
+        newRecord.id = data.id;
+      }
+    } catch (err) {
+      console.warn('Supabase insertPlateType fallback to local:', err);
+    }
+  }
+
+  const local = getLocal<PlateTypeRecord>('plate_types');
+  const filtered = local.filter((p) => p.plate_size !== plateSize);
+  setLocal('plate_types', [...filtered, newRecord]);
+
+  // Persist custom plate size into localStorage
+  const custom = getCustomPlateSizes();
+  if (!custom.includes(plateSize) && !STANDARD_PLATE_SIZES.includes(plateSize as any)) {
+    saveCustomPlateSizes([...custom, plateSize]);
+  }
+
+  return newRecord;
+}
+
+export async function deletePlateType(plateSize: string): Promise<void> {
+  if (supabase) {
+    try {
+      await supabase.from('plate_types').delete().eq('plate_size', plateSize);
+    } catch (err) {
+      console.warn('Supabase deletePlateType error:', err);
+    }
+  }
+  const local = getLocal<PlateTypeRecord>('plate_types');
+  setLocal('plate_types', local.filter((p) => p.plate_size !== plateSize));
+
+  const custom = getCustomPlateSizes();
+  saveCustomPlateSizes(custom.filter((s) => s !== plateSize));
+}
+
+export const CUSTOM_PLATE_SIZES_KEY = 'anand_custom_plate_sizes';
+
+export function getCustomPlateSizes(): string[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_PLATE_SIZES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomPlateSizes(sizes: string[]): void {
+  try {
+    localStorage.setItem(CUSTOM_PLATE_SIZES_KEY, JSON.stringify(sizes));
+  } catch (err) {
+    console.error('Failed to save custom plate sizes:', err);
+  }
 }
 
 // ------------------------------------------------------------------------------
@@ -557,14 +667,16 @@ export function calculateCycleFinances(
     dailyRate: number;
     baseRent: number;
     paidAmount: number;
+    days?: number;
     items?: Array<{ quantity: number; dailyRate: number; plateType?: string }>;
   },
   asOfDateStr = new Date().toISOString().split('T')[0]
 ) {
   const effectiveEndDate = cycle.actualEndDate || asOfDateStr;
   const elapsedDays = calculateCalendarDays(cycle.startDate, effectiveEndDate);
-  const standardDays = Math.min(elapsedDays, 40);
-  const extraDays = Math.max(0, elapsedDays - 40);
+  const cycleTermDays = cycle.days && cycle.days > 0 ? cycle.days : 40;
+  const standardDays = Math.min(elapsedDays, cycleTermDays);
+  const extraDays = Math.max(0, elapsedDays - cycleTermDays);
 
   let extraAmount = 0;
   if (extraDays > 0) {
@@ -795,7 +907,7 @@ export async function insertRental(rental: {
   total_rent: number;
   paid_amount: number;
   pending_amount: number;
-  payment_mode: 'Account 1' | 'Account 2' | 'Cash' | 'Udhari';
+  payment_mode: 'Account 1' | 'Account 2' | 'Cash' | 'Outstanding' | 'Udhari';
   status?: 'active' | 'returned' | 'overdue';
   notes?: string;
   items?: RentalItemRecord[];
@@ -1159,7 +1271,7 @@ export async function insertPayment(payment: {
   cycle_number?: number;
   amount: number;
   payment_date: string;
-  payment_mode: 'Account 1' | 'Account 2' | 'Cash' | 'Udhari';
+  payment_mode: 'Account 1' | 'Account 2' | 'Cash' | 'Outstanding' | 'Udhari';
   reference?: string;
   notes?: string;
   status?: 'verified' | 'pending';
@@ -1407,3 +1519,7 @@ export async function deleteNotification(id: string): Promise<boolean> {
   setLocal('notifications', local.filter((n) => n.id !== id));
   return true;
 }
+
+// Re-export deduplication engine
+export * from './deduplication';
+

@@ -17,8 +17,16 @@ import {
   X,
   User,
   ChevronRight,
-  Loader2
+  Loader2,
+  Globe,
 } from 'lucide-react';
+
+import {
+  getStoredAppLanguage,
+  setStoredAppLanguage,
+  t,
+  type AppLanguage,
+} from '../../utils/appTranslations';
 
 // Imports Tab Components
 import { DashboardTab } from './tabs/DashboardTab';
@@ -26,9 +34,9 @@ import { PartiesTab } from './tabs/PartiesTab';
 import { PlateTypesTab } from './tabs/PlateTypesTab';
 import { StockTab } from './tabs/StockTab';
 import { RentalsTab } from './tabs/RentalsTab';
-import { ReturnsTab } from './tabs/ReturnsTab';
+import { ReturnsTab, type ReturnInputPayload } from './tabs/ReturnsTab';
 import { PaymentsTab } from './tabs/PaymentsTab';
-import { UdhariTab } from './tabs/UdhariTab';
+import { OutstandingDuesTab } from './tabs/OutstandingDuesTab';
 import { LedgerTab } from './tabs/LedgerTab';
 import { NotificationsTab } from './tabs/NotificationsTab';
 import { ReportsTab } from './tabs/ReportsTab';
@@ -43,8 +51,12 @@ import {
   updateParty,
   deleteParty,
   fetchPlateTypes,
+  insertPlateType,
+  deletePlateType,
   updatePlateTypeRate,
   updatePlateTypeStatus,
+  getCustomPlateSizes,
+  saveCustomPlateSizes,
   fetchStockItems,
   insertStockItem,
   updateStockItem,
@@ -73,6 +85,7 @@ import {
   determineRenewalStartDate,
   STANDARD_PLATE_SIZES,
   supabase,
+  deduplicateAllStoredData,
   type RentalItemRecord,
 } from '../../lib/supabase';
 import type {
@@ -155,9 +168,31 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
   const [isLoading, setIsLoading] = useState(true);
   const [preselectedRentalId, setPreselectedRentalId] = useState<string | null>(null);
 
+  // Display Language State (Marathi / English)
+  const [appLanguage, setAppLanguage] = useState<AppLanguage>(getStoredAppLanguage);
+
+  useEffect(() => {
+    const handleLang = (e: Event) => {
+      const ce = e as CustomEvent<AppLanguage>;
+      if (ce.detail) {
+        setAppLanguage(ce.detail);
+      }
+    };
+    window.addEventListener('anand_language_change', handleLang);
+    return () => window.removeEventListener('anand_language_change', handleLang);
+  }, []);
+
+  const handleLanguageChange = (lang: AppLanguage) => {
+    setAppLanguage(lang);
+    setStoredAppLanguage(lang);
+  };
+
+  const curT = t[appLanguage] || t.marathi;
+
   // --- STATEFUL DB CONCEPT ---
   const [rawParties, setRawParties] = useState<PartyRecord[]>([]);
   const [plateSettings, setPlateSettings] = useState<PlateTypeRecord[]>([]);
+  const [customPlateSizes, setCustomPlateSizes] = useState<string[]>(getCustomPlateSizes);
   const [rentals, setRentals] = useState<Rental[]>([]);
   const [rentalCycles, setRentalCycles] = useState<RentalCycle[]>([]);
   const [returns, setReturns] = useState<ReturnLog[]>([]);
@@ -181,6 +216,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
     try {
       if (showLoadingSpinner) {
         setIsLoading(true);
+      }
+
+      // Automatically scan and deduplicate stored data on load
+      try {
+        await deduplicateAllStoredData();
+      } catch (dedupErr) {
+        console.warn('Auto-deduplication check error:', dedupErr);
       }
       const [
         loadedParties,
@@ -261,6 +303,25 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       }
       setRentalCycles(allCycles);
 
+      // Deterministically sort loaded rentals chronologically so Bill #1, Bill #2, Bill #3 are assigned sequentially
+      const chronologicalRentals = [...loadedRentals].sort((a, b) => {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : new Date(a.issue_date).getTime();
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : new Date(b.issue_date).getTime();
+        return timeA - timeB;
+      });
+
+      // Map party customer numbers 1, 2, 3... based on registration order
+      const partyCustNumberMap = new Map<string, number>();
+      [...loadedParties]
+        .sort((a, b) => {
+          const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return timeA - timeB;
+        })
+        .forEach((p, idx) => {
+          partyCustNumberMap.set(p.id, idx + 1);
+        });
+
       // Convert DB records to UI models with active cycle calculation
       setRentals(
         loadedRentals.map((r) => {
@@ -299,6 +360,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             return sum + c.pendingAmount;
           }, 0);
 
+          // Auto-overdue detection:
+          // If not returned, and 40 days completed (activeFinances.extraDays > 0 or expectedEndDate has elapsed)
+          const isOverdue =
+            r.status !== 'returned' &&
+            (r.status === 'overdue' ||
+              (activeFinances ? activeFinances.extraDays > 0 : false) ||
+              Boolean(activeCycle?.expectedEndDate && todayStr > activeCycle.expectedEndDate));
+
+          const computedStatus: 'active' | 'returned' | 'overdue' =
+            r.status === 'returned' ? 'returned' : isOverdue ? 'overdue' : 'active';
+
+          const rentalBillNumber = chronologicalRentals.findIndex((x) => x.id === r.id) + 1 || 1;
+          const rentalCustomerNumber = partyCustNumberMap.get(r.party_id) || 1;
+
           return {
             id: r.id,
             partyId: r.party_id,
@@ -312,12 +387,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             paid: totalPaidSum || r.paid_amount,
             pending: totalPendingSum,
             paymentMode: r.payment_mode,
-            status: r.status,
+            status: computedStatus,
             items: r.items,
             currentCycleNumber: activeCycle?.cycleNumber || r.current_cycle_number || 1,
             currentCycleStartDate: activeCycle?.startDate || r.current_cycle_start_date || r.issue_date,
             currentCycleEndDate: activeCycle?.expectedEndDate || r.current_cycle_end_date,
             cycles: rCycles,
+            billNumber: rentalBillNumber,
+            customerNumber: rentalCustomerNumber,
           };
         })
       );
@@ -346,7 +423,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           cycleNumber: p.cycle_number || null,
           amount: p.amount,
           date: p.payment_date,
-          paymentMode: p.payment_mode === 'Udhari' ? 'Cash' : p.payment_mode,
+          paymentMode: p.payment_mode === 'Udhari' ? 'Outstanding' : p.payment_mode,
           reference: p.reference || '',
           notes: p.notes || '',
           status: p.status,
@@ -416,6 +493,17 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
   };
 
   // Compute live derived party metrics from database transactions and isolated cycles
+  // Map customer numbers 1, 2, 3... ordered by registration
+  const sortedPartiesList = [...rawParties].sort((a, b) => {
+    const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return timeA - timeB;
+  });
+  const customerNumberMap = new Map<string, number>();
+  sortedPartiesList.forEach((p, idx) => {
+    customerNumberMap.set(p.id, idx + 1);
+  });
+
   const parties: Party[] = rawParties.map((p) => {
     const partyRentals = rentals.filter((r) => r.partyId === p.id);
     const partyReturns = returns.filter((ret) => ret.partyId === p.id);
@@ -466,11 +554,30 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       paid: totalPaid,
       pending,
       status: p.status,
+      photoUrl: p.photo_url || null,
+      aadhaarUrl: p.aadhaar_url || null,
+      chequeUrl: p.cheque_url || null,
+      customerNumber: customerNumberMap.get(p.id) || 1,
     };
   });
 
+  // Combine standard 7 certified sizes with custom plate sizes and DB settings
+  const allPlateSizes: PlateSizeType[] = React.useMemo(() => {
+    const list: string[] = [...STANDARD_PLATE_SIZES];
+    customPlateSizes.forEach((s) => {
+      if (!list.includes(s)) list.push(s);
+    });
+    plateSettings.forEach((p) => {
+      if (!list.includes(p.plate_size)) list.push(p.plate_size);
+    });
+    stockItems.forEach((s) => {
+      if (!list.includes(s.plate_size)) list.push(s.plate_size);
+    });
+    return list as PlateSizeType[];
+  }, [customPlateSizes, plateSettings, stockItems]);
+
   // Compute live synchronized plates data derived from Supabase stock additions, rentals, and returns
-  const derivedPlates: PlateStock[] = STANDARD_PLATE_SIZES.map((size) => {
+  const derivedPlates: PlateStock[] = allPlateSizes.map((size) => {
     const totalForSize = stockItems
       .filter((s) => s.plate_size === size)
       .reduce((sum, s) => sum + s.quantity, 0);
@@ -501,7 +608,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
 
     // Rate from plateSettings if configured
     const existingSetting = plateSettings.find((p) => p.plate_size === size);
-    const dailyRate = existingSetting?.daily_rate ?? 1.5;
+    const dailyRate =
+      existingSetting?.daily_rate && existingSetting.daily_rate > 0
+        ? existingSetting.daily_rate
+        : 1.5;
 
     let status: 'available' | 'low_stock' | 'out_of_stock' = 'available';
     if (existingSetting?.status === 'out_of_stock') {
@@ -576,9 +686,25 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
   };
 
   // 1. Parties CRUD
-  const handleAddParty = async (newParty: { name: string; mobile: string; address?: string; notes?: string }) => {
+  const handleAddParty = async (newParty: {
+    name: string;
+    mobile: string;
+    address?: string;
+    notes?: string;
+    photoUrl?: string | null;
+    aadhaarUrl?: string | null;
+    chequeUrl?: string | null;
+  }) => {
     try {
-      const created = await insertParty(newParty);
+      const created = await insertParty({
+        name: newParty.name,
+        mobile: newParty.mobile,
+        address: newParty.address,
+        notes: newParty.notes,
+        photo_url: newParty.photoUrl,
+        aadhaar_url: newParty.aadhaarUrl,
+        cheque_url: newParty.chequeUrl,
+      });
       setRawParties((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
       addToast('success', `Party "${created.name}" registered.`);
     } catch (err: any) {
@@ -595,6 +721,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         address: updatedParty.address,
         notes: updatedParty.notes,
         status: updatedParty.status,
+        photo_url: updatedParty.photoUrl,
+        aadhaar_url: updatedParty.aadhaarUrl,
+        cheque_url: updatedParty.chequeUrl,
       });
       setRawParties((prev) => prev.map((p) => (p.id === updatedParty.id ? updated : p)));
       addToast('success', `Party "${updatedParty.name}" updated.`);
@@ -606,10 +735,24 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
 
   const handleDeleteParty = async (partyId: string) => {
     try {
-      const target = rawParties.find((p) => p.id === partyId);
+      const targetParty = parties.find((p) => p.id === partyId);
+      const targetRaw = rawParties.find((p) => p.id === partyId);
+      const partyName = targetParty?.name || targetRaw?.name || 'Customer';
+
+      if (targetParty) {
+        if (targetParty.platesWithParty > 0) {
+          addToast('error', `Cannot delete "${partyName}": ${targetParty.platesWithParty} plates are still on site (pending return).`);
+          return;
+        }
+        if (targetParty.pending > 0) {
+          addToast('error', `Cannot delete "${partyName}": Outstanding dues of ₹${targetParty.pending.toLocaleString('en-IN')} must be cleared first.`);
+          return;
+        }
+      }
+
       await deleteParty(partyId);
       setRawParties((prev) => prev.filter((p) => p.id !== partyId));
-      addToast('success', `Party "${target?.name || ''}" removed.`);
+      addToast('success', `Party "${partyName}" removed.`);
     } catch (err: any) {
       addToast('error', err?.message || 'Failed to delete party.');
       throw err;
@@ -638,6 +781,65 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       addToast('info', `Set status of ${plateType} to ${newStatus}.`);
     } catch (err: any) {
       addToast('error', err?.message || 'Failed to update plate status.');
+    }
+  };
+
+  const handleAddPlateType = async (data: {
+    plateType: string;
+    dailyRate: number;
+    initialStock?: number;
+  }) => {
+    try {
+      const trimmed = data.plateType.trim();
+      if (!trimmed) return;
+
+      const created = await insertPlateType(trimmed, data.dailyRate, 'available');
+      setPlateSettings((prev) => [
+        ...prev.filter((p) => p.plate_size !== trimmed),
+        created,
+      ]);
+
+      setCustomPlateSizes((prev) => {
+        if (!prev.includes(trimmed)) {
+          const next = [...prev, trimmed];
+          saveCustomPlateSizes(next);
+          return next;
+        }
+        return prev;
+      });
+
+      if (data.initialStock && data.initialStock > 0) {
+        await handleAddStock({
+          plate_size: trimmed as PlateSizeType,
+          quantity: data.initialStock,
+          received_date: new Date().toISOString().split('T')[0],
+          notes: `Initial stock added with new plate size ${trimmed}`,
+        });
+      }
+
+      addToast(
+        'success',
+        `Plate size "${trimmed}" added successfully at ₹${Number(data.dailyRate).toFixed(2)}/day.`
+      );
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to add plate size.');
+      throw err;
+    }
+  };
+
+  const handleDeletePlateType = async (plateType: string) => {
+    try {
+      await deletePlateType(plateType);
+      setPlateSettings((prev) => prev.filter((p) => p.plate_size !== plateType));
+      setCustomPlateSizes((prev) => {
+        const next = prev.filter((s) => s !== plateType);
+        saveCustomPlateSizes(next);
+        return next;
+      });
+      addToast('info', `Plate size "${plateType}" deleted.`);
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to delete plate size.');
+      throw err;
     }
   };
 
@@ -759,7 +961,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           cycleNumber: 1,
           amount: newRental.paid,
           date: newRental.issueDate,
-          paymentMode: newRental.paymentMode === 'Udhari' ? 'Cash' : (newRental.paymentMode as any),
+          paymentMode: newRental.paymentMode === 'Udhari' ? 'Outstanding' : (newRental.paymentMode as any),
           reference: insertedPayment.reference || '',
           notes: 'Advance payment for rental dispatch sheet (Cycle 1)',
           status: 'verified',
@@ -802,7 +1004,15 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
   const handleRenewRental = async (
     rentalId: string,
     renewalConfirmationDate = new Date().toISOString().split('T')[0],
-    newItems?: RentalItemRecord[]
+    newItems?: RentalItemRecord[],
+    renewDays = 40,
+    payment?: {
+      amount: number;
+      paymentMode: 'Account 1' | 'Account 2' | 'Cash';
+      date?: string;
+      reference?: string;
+      notes?: string;
+    }
   ) => {
     try {
       const rental = rentals.find((r) => r.id === rentalId);
@@ -817,6 +1027,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         existingCycles[existingCycles.length - 1];
 
       if (!activeCycle) return;
+
+      const renewalDays = renewDays && renewDays > 0 ? Number(renewDays) : 40;
 
       // Apply strict Renewal Date Rules:
       // A) If renewed BEFORE or ON cycle expected end date:
@@ -842,24 +1054,35 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           dailyRate: activeCycle.dailyRate,
           baseRent: activeCycle.baseRent,
           paidAmount: activeCycle.paidAmount,
+          days: activeCycle.days || 40,
           items: rental.items,
         },
         finalizedEndDate
       );
 
-      // 1. Finalize previous cycle
+      // Allocation of payment collected at renewal time
+      const paymentAmount = payment && payment.amount > 0 ? Number(payment.amount) : 0;
+      const prevDue = Math.max(0, previousFinances.pendingAmount);
+      const prevPaidFromPayment = Math.min(paymentAmount, prevDue);
+      const newCycleAdvance = Math.max(0, paymentAmount - prevPaidFromPayment);
+
+      const finalPrevCyclePaid = (activeCycle.paidAmount || 0) + prevPaidFromPayment;
+      const finalPrevCyclePending = Math.max(0, previousFinances.totalAmount - finalPrevCyclePaid);
+
+      // 1. Finalize previous cycle (with updated paid/pending if payment was made)
       await updateRentalCycle(activeCycle.id, {
         actual_end_date: finalizedEndDate,
-        days: isOverdueRenewal ? previousFinances.elapsedDays : 40,
+        days: isOverdueRenewal ? previousFinances.elapsedDays : (activeCycle.days || 40),
         extra_days: previousFinances.extraDays,
         extra_amount: previousFinances.extraAmount,
         total_amount: previousFinances.totalAmount,
-        pending_amount: previousFinances.pendingAmount,
+        paid_amount: finalPrevCyclePaid,
+        pending_amount: finalPrevCyclePending,
         status: 'completed',
       });
 
       // 2. Determine plate configuration for new cycle
-      const finalNewItems: RentalItemRecord[] =
+      const baseNewItems: RentalItemRecord[] =
         newItems && newItems.length > 0
           ? newItems
           : rental.items && rental.items.length > 0
@@ -869,9 +1092,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
                 plateType: rental.plateType,
                 quantity: rental.quantity,
                 dailyRate: rental.dailyRate,
-                days: 40,
+                days: renewalDays,
               },
             ];
+
+      const finalNewItems: RentalItemRecord[] = baseNewItems.map((it) => ({
+        ...it,
+        days: renewalDays,
+      }));
 
       const newQuantity = finalNewItems.reduce((sum, it) => sum + Number(it.quantity || 0), 0);
       const newDailyRate = finalNewItems[0]?.dailyRate || rental.dailyRate || 1.5;
@@ -881,29 +1109,30 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           : finalNewItems.map((it) => `${it.plateType} (${it.quantity})`).join(', ');
 
       const newBaseRent = finalNewItems.reduce(
-        (sum, it) => sum + Number(it.quantity || 0) * Number(it.dailyRate || 1.5) * 40,
+        (sum, it) => sum + Number(it.quantity || 0) * Number(it.dailyRate || 1.5) * renewalDays,
         0
       );
 
       const newCycleNumber = activeCycle.cycleNumber + 1;
-      const newExpectedEndDate = calculateExpectedCycleEndDate(newStartDate, 40);
+      const newExpectedEndDate = calculateExpectedCycleEndDate(newStartDate, renewalDays);
+      const newCyclePending = Math.max(0, newBaseRent - newCycleAdvance);
 
-      // 3. Start new fresh 40-day cycle (Cycle N+1) with isolated financials
+      // 3. Start new fresh cycle (Cycle N+1) with isolated financials and configured days
       const createdNewCycle = await insertRentalCycle({
         rental_id: rental.id,
         party_id: rental.partyId,
         cycle_number: newCycleNumber,
         start_date: newStartDate,
         expected_end_date: newExpectedEndDate,
-        days: 40,
+        days: renewalDays,
         extra_days: 0,
         daily_rate: newDailyRate,
         quantity: newQuantity,
         base_rent: newBaseRent,
         extra_amount: 0,
         total_amount: newBaseRent,
-        paid_amount: 0, // Isolated zero paid amount for new cycle
-        pending_amount: newBaseRent,
+        paid_amount: newCycleAdvance,
+        pending_amount: newCyclePending,
         status: 'active',
         items: finalNewItems,
       });
@@ -915,11 +1144,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             ? {
                 ...c,
                 actualEndDate: finalizedEndDate,
-                days: isOverdueRenewal ? previousFinances.elapsedDays : 40,
+                days: isOverdueRenewal ? previousFinances.elapsedDays : (activeCycle.days || 40),
                 extraDays: previousFinances.extraDays,
                 extraAmount: previousFinances.extraAmount,
                 totalAmount: previousFinances.totalAmount,
-                pendingAmount: previousFinances.pendingAmount,
+                paidAmount: finalPrevCyclePaid,
+                pendingAmount: finalPrevCyclePending,
                 status: 'completed' as const,
               }
             : c
@@ -931,15 +1161,15 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           cycleNumber: newCycleNumber,
           startDate: newStartDate,
           expectedEndDate: newExpectedEndDate,
-          days: 40,
+          days: renewalDays,
           extraDays: 0,
           dailyRate: newDailyRate,
           quantity: newQuantity,
           baseRent: newBaseRent,
           extraAmount: 0,
           totalAmount: newBaseRent,
-          paidAmount: 0,
-          pendingAmount: newBaseRent,
+          paidAmount: newCycleAdvance,
+          pendingAmount: newCyclePending,
           status: 'active' as const,
           items: finalNewItems,
         },
@@ -964,6 +1194,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           r.id === rental.id
             ? {
                 ...r,
+                days: renewalDays,
                 currentCycleNumber: newCycleNumber,
                 currentCycleStartDate: newStartDate,
                 currentCycleEndDate: newExpectedEndDate,
@@ -971,13 +1202,15 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
                 quantity: newQuantity,
                 dailyRate: newDailyRate,
                 items: finalNewItems,
+                paid: r.paid + paymentAmount,
+                pending: Math.max(0, r.pending - paymentAmount),
                 cycles: updatedCycleList.filter((c) => c.rentalId === r.id),
               }
             : r
         )
       );
 
-      // 6. Ledger postings
+      // 6. Ledger postings & Payment Creation
       const currentPartyPending =
         parties.find((p) => p.id === rental.partyId)?.pending || 0;
 
@@ -986,7 +1219,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         const ledExtra = await insertLedgerEntry({
           party_id: rental.partyId,
           date: renewalConfirmationDate,
-          description: `Rental Cycle ${activeCycle.cycleNumber} Overdue: ${previousFinances.extraDays} extra days beyond 40-day cycle`,
+          description: `Rental Cycle ${activeCycle.cycleNumber} Overdue: ${previousFinances.extraDays} extra days beyond ${activeCycle.days || 40}-day cycle`,
           debit: previousFinances.extraAmount,
           credit: 0,
           balance: currentPartyPending + previousFinances.extraAmount,
@@ -1007,11 +1240,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         ]);
       }
 
-      // Debit for new cycle standard 40-day rent
+      // Debit for new cycle standard rent
       const ledRenewal = await insertLedgerEntry({
         party_id: rental.partyId,
         date: newStartDate,
-        description: `Rental Renewed (Cycle ${newCycleNumber}): ${newPlateTypeSummary} (${newQuantity} Plates) for 40 days`,
+        description: `Rental Renewed (Cycle ${newCycleNumber}): ${newPlateTypeSummary} (${newQuantity} Plates) for ${renewalDays} days`,
         debit: newBaseRent,
         credit: 0,
         balance:
@@ -1034,10 +1267,144 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         ...prev,
       ]);
 
-      addToast(
-        'success',
-        `Rental renewed for ${rental.partyName}! Cycle ${newCycleNumber} started (${newStartDate} to ${newExpectedEndDate}).`
-      );
+      // If payment collected at renewal, record payments and credit ledger
+      if (payment && payment.amount > 0) {
+        const payDate = payment.date || renewalConfirmationDate;
+        const payMode = payment.paymentMode || 'Cash';
+        const newPaymentsCreated: Payment[] = [];
+
+        // Previous cycle payment record
+        if (prevPaidFromPayment > 0) {
+          const ref = payment.reference?.trim() || `REN-CYC${activeCycle.cycleNumber}-${Date.now().toString().slice(-4)}`;
+          const notes = payment.notes?.trim() || `Renewal settlement for Cycle ${activeCycle.cycleNumber}`;
+          const ins = await insertPayment({
+            party_id: rental.partyId,
+            party_name: rental.partyName,
+            rental_id: rental.id,
+            cycle_id: activeCycle.id,
+            cycle_number: activeCycle.cycleNumber,
+            amount: prevPaidFromPayment,
+            payment_date: payDate,
+            payment_mode: payMode,
+            reference: ref,
+            notes,
+            status: 'verified',
+          });
+          newPaymentsCreated.push({
+            id: ins.id,
+            partyId: rental.partyId,
+            partyName: rental.partyName,
+            rentalId: rental.id,
+            cycleId: activeCycle.id,
+            cycleNumber: activeCycle.cycleNumber,
+            amount: prevPaidFromPayment,
+            date: payDate,
+            paymentMode: payMode,
+            reference: ins.reference || ref,
+            notes,
+            status: 'verified',
+          });
+
+          // Ledger credit for previous cycle settlement
+          const ledPayment = await insertLedgerEntry({
+            party_id: rental.partyId,
+            date: payDate,
+            description: `Payment Received - Cycle ${activeCycle.cycleNumber} Renewal Settlement - ${payMode} (Ref: ${ins.reference || ref})`,
+            debit: 0,
+            credit: prevPaidFromPayment,
+            balance: Math.max(0, currentPartyPending - prevPaidFromPayment),
+            reference_type: 'payment',
+            reference_id: ins.id,
+          });
+          setLedger((prev) => [
+            {
+              id: ledPayment.id,
+              partyId: ledPayment.party_id,
+              date: ledPayment.date,
+              description: ledPayment.description,
+              debit: ledPayment.debit,
+              credit: ledPayment.credit,
+              balance: ledPayment.balance,
+            },
+            ...prev,
+          ]);
+        }
+
+        // New cycle advance payment record
+        if (newCycleAdvance > 0) {
+          const ref = payment.reference?.trim()
+            ? `${payment.reference.trim()}-ADV`
+            : `REN-ADV-CYC${newCycleNumber}-${Date.now().toString().slice(-4)}`;
+          const notes = payment.notes?.trim() || `Advance payment for Renewal Cycle ${newCycleNumber}`;
+          const ins = await insertPayment({
+            party_id: rental.partyId,
+            party_name: rental.partyName,
+            rental_id: rental.id,
+            cycle_id: createdNewCycle.id,
+            cycle_number: newCycleNumber,
+            amount: newCycleAdvance,
+            payment_date: payDate,
+            payment_mode: payMode,
+            reference: ref,
+            notes,
+            status: 'verified',
+          });
+          newPaymentsCreated.push({
+            id: ins.id,
+            partyId: rental.partyId,
+            partyName: rental.partyName,
+            rentalId: rental.id,
+            cycleId: createdNewCycle.id,
+            cycleNumber: newCycleNumber,
+            amount: newCycleAdvance,
+            date: payDate,
+            paymentMode: payMode,
+            reference: ins.reference || ref,
+            notes,
+            status: 'verified',
+          });
+
+          // Ledger credit for advance payment
+          const ledPayment = await insertLedgerEntry({
+            party_id: rental.partyId,
+            date: payDate,
+            description: `Advance Payment Received - Cycle ${newCycleNumber} Renewal - ${payMode} (Ref: ${ins.reference || ref})`,
+            debit: 0,
+            credit: newCycleAdvance,
+            balance: Math.max(0, currentPartyPending - paymentAmount),
+            reference_type: 'payment',
+            reference_id: ins.id,
+          });
+          setLedger((prev) => [
+            {
+              id: ledPayment.id,
+              partyId: ledPayment.party_id,
+              date: ledPayment.date,
+              description: ledPayment.description,
+              debit: ledPayment.debit,
+              credit: ledPayment.credit,
+              balance: ledPayment.balance,
+            },
+            ...prev,
+          ]);
+        }
+
+        if (newPaymentsCreated.length > 0) {
+          setPayments((prev) => [...newPaymentsCreated, ...prev]);
+        }
+      }
+
+      if (payment && payment.amount > 0) {
+        addToast(
+          'success',
+          `Rental renewed for ${rental.partyName} (Cycle ${newCycleNumber}) & payment of ₹${payment.amount.toLocaleString('en-IN')} received!`
+        );
+      } else {
+        addToast(
+          'success',
+          `Rental renewed for ${rental.partyName}! Cycle ${newCycleNumber} started (${newStartDate} to ${newExpectedEndDate}).`
+        );
+      }
     } catch (err: any) {
       addToast('error', err?.message || 'Failed to renew rental.');
       throw err;
@@ -1054,8 +1421,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
     }
   };
 
-  // 4. Returns: Finalizes active cycle, marks rental returned, and restores physical inventory
-  const handleAddReturn = async (newReturn: Omit<ReturnLog, 'id' | 'partyName' | 'plateType' | 'issuedQuantity'>) => {
+  // 4. Returns: Finalizes active cycle, marks rental returned, collects remaining balance if provided, and restores physical inventory
+  const handleAddReturn = async (newReturn: ReturnInputPayload) => {
     try {
       const matchedRental = rentals.find((r) => r.id === newReturn.rentalId);
       const party = rawParties.find((p) => p.id === newReturn.partyId);
@@ -1078,22 +1445,21 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         partyName: party.name,
         plateType: matchedRental.plateType,
         issuedQuantity: matchedRental.quantity,
+        collectedAmount: newReturn.collectedAmount,
+        paymentMode: newReturn.paymentMode,
       };
 
       setReturns((prev) => [created, ...prev]);
 
-      // If remaining quantity becomes zero, mark rental agreement as fully returned in DB and financially settle the cycle balance to ₹0
-      if (newReturn.remainingQuantity === 0) {
-        // Finalize the active cycle for this rental
-        const existingCycles = rentalCycles.filter((c) => c.rentalId === newReturn.rentalId);
-        const activeCycle =
-          existingCycles.find((c) => c.status === 'active') ||
-          existingCycles[existingCycles.length - 1];
+      // Locate active cycle for this rental
+      const existingCycles = rentalCycles.filter((c) => c.rentalId === newReturn.rentalId);
+      const activeCycle =
+        existingCycles.find((c) => c.status === 'active') ||
+        existingCycles[existingCycles.length - 1];
 
-        let finalCycleTotal = matchedRental.totalRent;
-
-        if (activeCycle) {
-          const activeFinances = calculateCycleFinances(
+      let finalCycleTotal = matchedRental.totalRent;
+      let activeFinances = activeCycle
+        ? calculateCycleFinances(
             {
               startDate: activeCycle.startDate,
               actualEndDate: newReturn.returnDate,
@@ -1104,71 +1470,169 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
               items: matchedRental.items,
             },
             newReturn.returnDate
-          );
+          )
+        : null;
 
-          finalCycleTotal = activeFinances.totalAmount;
+      if (activeFinances) {
+        finalCycleTotal = activeFinances.totalAmount;
+      }
 
-          // Financial settlement/waiver on full return:
-          // - set paid_amount equal to total_amount so pending_amount becomes 0
-          // - set status to 'completed'
-          await updateRentalCycle(activeCycle.id, {
+      // If extra days occurred, post ledger debit for extra charges
+      if (activeCycle && activeFinances && activeFinances.extraAmount > 0) {
+        const partyPending = parties.find((p) => p.id === newReturn.partyId)?.pending || 0;
+        const ledExtra = await insertLedgerEntry({
+          party_id: newReturn.partyId,
+          date: newReturn.returnDate,
+          description: `Rental Cycle ${activeCycle.cycleNumber} Return Extra: ${activeFinances.extraDays} days past 40-day cycle`,
+          debit: activeFinances.extraAmount,
+          credit: 0,
+          balance: partyPending + activeFinances.extraAmount,
+          reference_type: 'rental_extra',
+          reference_id: activeCycle.id,
+        });
+
+        setLedger((prev) => [
+          {
+            id: ledExtra.id,
+            partyId: ledExtra.party_id,
+            date: ledExtra.date,
+            description: ledExtra.description,
+            debit: ledExtra.debit,
+            credit: ledExtra.credit,
+            balance: ledExtra.balance,
+          },
+          ...prev,
+        ]);
+      }
+
+      // If payment was collected upon return, record verified Payment voucher and ledger credit entry
+      const amountCollected = Number(newReturn.collectedAmount || 0);
+      const previousPaid = activeCycle ? activeCycle.paidAmount : matchedRental.paid;
+      const newPaidAmount = previousPaid + amountCollected;
+      const newPendingAmount = Math.max(0, finalCycleTotal - newPaidAmount);
+
+      if (amountCollected > 0) {
+        const mode = newReturn.paymentMode || 'Cash';
+        const ref = newReturn.paymentReference || `RET-${Date.now().toString().slice(-4)}`;
+        const notes = newReturn.paymentNotes || `Payment collected on plate return (${newReturn.returnedQuantity} plates)`;
+
+        const insertedPayment = await insertPayment({
+          party_id: newReturn.partyId,
+          party_name: party.name,
+          rental_id: newReturn.rentalId,
+          cycle_id: activeCycle?.id || undefined,
+          cycle_number: activeCycle?.cycleNumber || 1,
+          amount: amountCollected,
+          payment_date: newReturn.returnDate,
+          payment_mode: mode,
+          reference: ref,
+          notes: notes,
+          status: 'verified',
+        });
+
+        const pay: Payment = {
+          id: insertedPayment.id,
+          partyId: newReturn.partyId,
+          partyName: party.name,
+          rentalId: newReturn.rentalId,
+          cycleId: activeCycle?.id || null,
+          cycleNumber: activeCycle?.cycleNumber || 1,
+          amount: amountCollected,
+          date: newReturn.returnDate,
+          paymentMode: mode,
+          reference: ref,
+          notes: notes,
+          status: 'verified',
+        };
+        setPayments((prev) => [pay, ...prev]);
+
+        // Ledger credit voucher
+        const partyPendingBeforePay = parties.find((p) => p.id === newReturn.partyId)?.pending || 0;
+        const ledEntryPay = await insertLedgerEntry({
+          party_id: newReturn.partyId,
+          date: newReturn.returnDate,
+          description: `Payment Received on Plate Return - ${mode} (Ref: ${ref})`,
+          debit: 0,
+          credit: amountCollected,
+          balance: Math.max(0, partyPendingBeforePay - amountCollected),
+          reference_type: 'payment',
+          reference_id: insertedPayment.id,
+        });
+
+        setLedger((prev) => [
+          {
+            id: ledEntryPay.id,
+            partyId: ledEntryPay.party_id,
+            date: ledEntryPay.date,
+            description: ledEntryPay.description,
+            debit: ledEntryPay.debit,
+            credit: ledEntryPay.credit,
+            balance: ledEntryPay.balance,
+          },
+          ...prev,
+        ]);
+
+        // Notification
+        const insertedNot = await insertNotification({
+          party_id: newReturn.partyId,
+          type: 'payment',
+          title: 'Return Settlement Payment Received',
+          message: `₹${amountCollected.toLocaleString('en-IN')} collected in ${mode} upon plate return from ${party.name}. Ref: ${ref}`,
+          date: newReturn.returnDate,
+        });
+
+        setNotifications((prev) => [
+          {
+            id: insertedNot.id,
+            type: insertedNot.type,
+            title: insertedNot.title,
+            message: insertedNot.message,
+            date: insertedNot.date,
+            isRead: insertedNot.is_read,
+          },
+          ...prev,
+        ]);
+      }
+
+      // Update cycle financial state
+      if (activeCycle) {
+        const isFullReturn = newReturn.remainingQuantity === 0;
+        await updateRentalCycle(activeCycle.id, {
+          ...(isFullReturn && activeFinances ? {
             actual_end_date: newReturn.returnDate,
             days: activeFinances.elapsedDays,
             extra_days: activeFinances.extraDays,
             extra_amount: activeFinances.extraAmount,
             total_amount: activeFinances.totalAmount,
-            paid_amount: activeFinances.totalAmount,
-            pending_amount: 0,
             status: 'completed',
-          });
+          } : {}),
+          paid_amount: newPaidAmount,
+          pending_amount: newPendingAmount,
+        });
 
-          setRentalCycles((prev) =>
-            prev.map((c) =>
-              c.id === activeCycle.id
-                ? {
-                    ...c,
+        setRentalCycles((prev) =>
+          prev.map((c) =>
+            c.id === activeCycle.id
+              ? {
+                  ...c,
+                  ...(isFullReturn && activeFinances ? {
                     actualEndDate: newReturn.returnDate,
                     days: activeFinances.elapsedDays,
                     extraDays: activeFinances.extraDays,
                     extraAmount: activeFinances.extraAmount,
                     totalAmount: activeFinances.totalAmount,
-                    paidAmount: activeFinances.totalAmount,
-                    pendingAmount: 0,
                     status: 'completed' as const,
-                  }
-                : c
-            )
-          );
+                  } : {}),
+                  paidAmount: newPaidAmount,
+                  pendingAmount: newPendingAmount,
+                }
+              : c
+          )
+        );
+      }
 
-          // If extra days occurred, post ledger debit for extra charges
-          if (activeFinances.extraAmount > 0) {
-            const partyPending = parties.find((p) => p.id === newReturn.partyId)?.pending || 0;
-            const ledExtra = await insertLedgerEntry({
-              party_id: newReturn.partyId,
-              date: newReturn.returnDate,
-              description: `Rental Cycle ${activeCycle.cycleNumber} Return Extra: ${activeFinances.extraDays} days past 40-day cycle`,
-              debit: activeFinances.extraAmount,
-              credit: 0,
-              balance: partyPending + activeFinances.extraAmount,
-              reference_type: 'rental_extra',
-              reference_id: activeCycle.id,
-            });
-
-            setLedger((prev) => [
-              {
-                id: ledExtra.id,
-                partyId: ledExtra.party_id,
-                date: ledExtra.date,
-                description: ledExtra.description,
-                debit: ledExtra.debit,
-                credit: ledExtra.credit,
-                balance: ledExtra.balance,
-              },
-              ...prev,
-            ]);
-          }
-        }
-
+      // Update rental status and totals
+      if (newReturn.remainingQuantity === 0) {
         await updateRentalOnReturn(newReturn.rentalId, finalCycleTotal, newReturn.returnDate);
         setRentals((prev) =>
           prev.map((r) =>
@@ -1177,38 +1641,34 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
                   ...r,
                   status: 'returned',
                   totalRent: finalCycleTotal,
-                  paid: finalCycleTotal,
-                  pending: 0,
+                  paid: newPaidAmount,
+                  pending: newPendingAmount,
+                }
+              : r
+          )
+        );
+      } else {
+        setRentals((prev) =>
+          prev.map((r) =>
+            r.id === newReturn.rentalId
+              ? {
+                  ...r,
+                  paid: newPaidAmount,
+                  pending: newPendingAmount,
                 }
               : r
           )
         );
       }
 
-      // Ledger Entry for Return Intake (recorded with updated party pending balance after cycle settlement)
-      const partyCyclesAfter = rentalCycles.map((c) => {
-        const isThisRentalReturn = c.rentalId === newReturn.rentalId && (c.status === 'active' || (newReturn.remainingQuantity === 0 && c.status === 'completed'));
-        if (newReturn.remainingQuantity === 0 && isThisRentalReturn) {
-          return { ...c, pendingAmount: 0 };
-        }
-        return c;
-      }).filter((c) => c.partyId === newReturn.partyId);
-
-      const partyPendingAfter = partyCyclesAfter.reduce((sum, c) => {
-        if (c.status === 'active') {
-          const fin = calculateCycleFinances(c, newReturn.returnDate);
-          return sum + fin.pendingAmount;
-        }
-        return sum + c.pendingAmount;
-      }, 0);
-
+      // Ledger Entry for Return Intake
       const ledEntry = await insertLedgerEntry({
         party_id: newReturn.partyId,
         date: newReturn.returnDate,
-        description: `Material Return Intake: ${newReturn.returnedQuantity} Plates of ${matchedRental.plateType} returned${newReturn.remainingQuantity === 0 ? ' (Cycle Settled)' : ''}`,
+        description: `Material Return Intake: ${newReturn.returnedQuantity} Plates of ${matchedRental.plateType} returned${newReturn.remainingQuantity === 0 ? ' (Cycle Completed)' : ''}${amountCollected > 0 ? ` [Collected ₹${amountCollected.toLocaleString('en-IN')}]` : ''}`,
         debit: 0,
         credit: 0,
-        balance: partyPendingAfter,
+        balance: Math.max(0, (parties.find((p) => p.id === newReturn.partyId)?.pending || 0) - amountCollected),
         reference_type: 'return',
         reference_id: inserted.id,
       });
@@ -1226,7 +1686,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         ...prev,
       ]);
 
-      addToast('success', `Received ${newReturn.returnedQuantity} plates of ${matchedRental.plateType} from ${party.name}.`);
+      addToast(
+        'success',
+        `Received ${newReturn.returnedQuantity} plates of ${matchedRental.plateType} from ${party.name}.${amountCollected > 0 ? ` Collected ₹${amountCollected.toLocaleString('en-IN')} (${newReturn.paymentMode || 'Cash'}).` : ''}`
+      );
     } catch (err: any) {
       addToast('error', err?.message || 'Failed to record return.');
       throw err;
@@ -1421,6 +1884,25 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
 
   const unreadAlertsCount = notifications.filter((n) => !n.isRead).length;
 
+  const handleDeduplicateData = async () => {
+    try {
+      const report = await deduplicateAllStoredData();
+      await loadAllData(false);
+      if (report.totalRemoved > 0) {
+        addToast(
+          'success',
+          `Deduplication completed! Removed ${report.totalRemoved} duplicate records (${report.details.join(', ')}).`
+        );
+      } else {
+        addToast('info', 'No duplicate records found. Your database is completely clean!');
+      }
+      return report;
+    } catch (err: any) {
+      addToast('error', err?.message || 'Failed to deduplicate records.');
+      throw err;
+    }
+  };
+
   // Render Page Content based on selected Active tab
   const renderTabContent = () => {
     if (isLoading) {
@@ -1442,9 +1924,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             rentalCycles={rentalCycles}
             returns={returns}
             payments={payments}
-            onTabChange={setActiveTab}
+            onTabChange={handleTabChange}
             onRenewRental={handleRenewRental}
             onInitiateReturn={handleInitiateReturn}
+            appLanguage={appLanguage}
           />
         );
       case 'Parties':
@@ -1467,6 +1950,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             plates={derivedPlates}
             onUpdateRate={handleUpdatePlateRate}
             onUpdateStatus={handleUpdatePlateStatus}
+            onAddPlateType={handleAddPlateType}
+            onDeletePlateType={handleDeletePlateType}
           />
         );
       case 'Plate Stock':
@@ -1488,6 +1973,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             parties={parties}
             plates={derivedPlates}
             rentalCycles={rentalCycles}
+            payments={payments}
             onAddRental={handleAddRental}
             onRenewRental={handleRenewRental}
             onUpdateRentalStatus={handleUpdateRentalStatus}
@@ -1518,7 +2004,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         );
       case 'Outstanding Dues':
       case 'Udhari':
-        return <UdhariTab parties={parties} payments={payments} />;
+        return <OutstandingDuesTab parties={parties} payments={payments} />;
       case 'Ledger':
         return <LedgerTab parties={parties} ledger={ledger} />;
       case 'Notifications':
@@ -1538,28 +2024,37 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             rentals={rentals}
             returns={returns}
             payments={payments}
+            appLanguage={appLanguage}
           />
         );
       case 'Settings':
-        return <SettingsTab />;
+        return (
+          <SettingsTab
+            rentals={rentals}
+            parties={parties}
+            rentalCycles={rentalCycles}
+            payments={payments}
+            onDeduplicate={handleDeduplicateData}
+          />
+        );
       default:
         return <div className="p-8 text-center text-slate-400">Section to be added.</div>;
     }
   };
 
   const navItems = [
-    { name: 'Dashboard', icon: LayoutDashboard },
-    { name: 'Parties', icon: Users },
-    { name: 'Plate Types', icon: Ruler },
-    { name: 'Plate Stock', icon: Layers },
-    { name: 'Rentals', icon: ClipboardList },
-    { name: 'Returns', icon: RefreshCw },
-    { name: 'Payments', icon: DollarSign },
-    { name: 'Outstanding Dues', icon: AlertCircle },
-    { name: 'Ledger', icon: FileText },
-    { name: 'Notifications', icon: Bell, badgeCount: unreadAlertsCount },
-    { name: 'Reports', icon: BarChart3 },
-    { name: 'Settings', icon: Sliders },
+    { name: 'Dashboard', label: curT.nav.Dashboard, icon: LayoutDashboard },
+    { name: 'Parties', label: curT.nav.Parties, icon: Users },
+    { name: 'Plate Types', label: curT.nav['Plate Types'], icon: Ruler },
+    { name: 'Plate Stock', label: curT.nav['Plate Stock'], icon: Layers },
+    { name: 'Rentals', label: curT.nav.Rentals, icon: ClipboardList },
+    { name: 'Returns', label: curT.nav.Returns, icon: RefreshCw },
+    { name: 'Payments', label: curT.nav.Payments, icon: DollarSign },
+    { name: 'Outstanding Dues', label: curT.nav['Outstanding Dues'], icon: AlertCircle },
+    { name: 'Ledger', label: curT.nav.Ledger, icon: FileText },
+    { name: 'Notifications', label: curT.nav.Notifications, icon: Bell, badgeCount: unreadAlertsCount },
+    { name: 'Reports', label: curT.nav.Reports, icon: BarChart3 },
+    { name: 'Settings', label: curT.nav.Settings, icon: Sliders },
   ];
 
   return (
@@ -1573,12 +2068,29 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             <span className="text-[9px] text-primary font-bold">आनंद मटेरियल</span>
           </div>
         </div>
-        <button
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-850"
-        >
-          {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Mobile language selector */}
+          <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700 rounded-lg px-2 py-1 text-xs">
+            <Globe className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+            <select
+              id="mobile-language-select"
+              value={appLanguage}
+              onChange={(e) => handleLanguageChange(e.target.value as AppLanguage)}
+              className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer"
+              title="Select Language"
+              aria-label="Select Language"
+            >
+              <option value="marathi" className="bg-slate-900 text-white font-semibold">मराठी</option>
+              <option value="english" className="bg-slate-900 text-white font-semibold">English</option>
+            </select>
+          </div>
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-850"
+          >
+            {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
       </div>
 
       {/* 2. Desktop Navigation Sidebar */}
@@ -1617,7 +2129,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
                 >
                   <span className="flex items-center gap-3">
                     <Icon className="w-5 h-5 flex-shrink-0" />
-                    <span>{item.name}</span>
+                    <span>{item.label || item.name}</span>
                   </span>
 
                   {/* Badges indicators */}
@@ -1648,14 +2160,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
                 <User className="w-4 h-4" />
               </div>
               <div className="text-left">
-                <p className="text-xs font-bold text-white">Anand Admin</p>
-                <p className="text-[10px] text-slate-500 font-light">Lead Manager</p>
+                <p className="text-xs font-bold text-white">{curT.header.adminUser}</p>
+                <p className="text-[10px] text-slate-500 font-light">{curT.header.adminRole}</p>
               </div>
             </div>
             <button
               onClick={onLogout}
               className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-rose-500 rounded-lg transition-all"
-              title="Logout session"
+              title={curT.header.logout}
             >
               <LogOut className="w-4.5 h-4.5" />
             </button>
@@ -1674,13 +2186,31 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       {/* 3. Main content frame */}
       <div className="flex-grow flex flex-col overflow-hidden min-h-screen">
         {/* Top Header Panel (Desktop only) */}
-        <header className="hidden md:flex bg-white border-b border-slate-200/80 px-8 py-5 items-center justify-between sticky top-0 z-30">
+        <header className="hidden md:flex bg-white border-b border-slate-200/80 px-8 py-4 items-center justify-between sticky top-0 z-30">
           <div className="text-left">
-            <h2 className="text-xl font-black text-charcoal">{activeTab} Controls</h2>
-            <p className="text-[11px] text-slate-400 font-light">Anand Builders Administrative Console</p>
+            <h2 className="text-xl font-black text-charcoal">
+              {curT.nav[activeTab as keyof typeof curT.nav] || activeTab} {curT.header.controls}
+            </h2>
+            <p className="text-[11px] text-slate-400 font-light">{curT.header.subtitle}</p>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
+            {/* Quick Header Language Switcher as Select Option */}
+            <div className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200/70 border border-slate-200/80 hover:border-slate-300 rounded-xl px-2.5 py-1.5 transition-all text-xs font-semibold shadow-2xs">
+              <Globe className="w-4 h-4 text-primary flex-shrink-0" />
+              <select
+                id="header-language-select"
+                value={appLanguage}
+                onChange={(e) => handleLanguageChange(e.target.value as AppLanguage)}
+                className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer pr-1"
+                aria-label="Select System Language"
+                title="Select Language / भाषा निवडा"
+              >
+                <option value="marathi" className="font-bold text-slate-800 bg-white">मराठी (Marathi)</option>
+                <option value="english" className="font-bold text-slate-800 bg-white">English</option>
+              </select>
+            </div>
+
             {/* Quick search input */}
             <div className="relative w-64">
               <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -1695,7 +2225,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
               </span>
               <input
                 type="text"
-                placeholder="Global searching..."
+                placeholder={curT.header.searchPlaceholder}
                 className="w-full bg-slate-50 border border-slate-250/60 focus:border-primary focus:outline-none pl-9 pr-3 py-1.5 rounded-lg text-xs font-semibold"
               />
             </div>
@@ -1703,7 +2233,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             {/* Quick Notifications bell icon button */}
             <button
               onClick={() => handleTabChange('Notifications')}
-              className="relative p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+              className="relative p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <Bell className="w-5 h-5" />
               {unreadAlertsCount > 0 && (

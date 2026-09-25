@@ -9,6 +9,10 @@ export interface Party {
   paid: number;
   pending: number;
   status: 'active' | 'inactive';
+  photoUrl?: string | null;
+  aadhaarUrl?: string | null;
+  chequeUrl?: string | null;
+  customerNumber?: number;
 }
 
 export interface PlateStock {
@@ -61,13 +65,15 @@ export interface Rental {
   totalRent: number;
   paid: number;
   pending: number;
-  paymentMode: 'Account 1' | 'Account 2' | 'Cash' | 'Udhari';
+  paymentMode: 'Account 1' | 'Account 2' | 'Cash' | 'Outstanding' | 'Udhari';
   status: 'active' | 'returned' | 'overdue';
   items?: RentalItem[];
   currentCycleNumber?: number;
   currentCycleStartDate?: string;
   currentCycleEndDate?: string;
   cycles?: RentalCycle[];
+  billNumber?: number;
+  customerNumber?: number;
 }
 
 export interface ReturnLog {
@@ -80,6 +86,8 @@ export interface ReturnLog {
   returnedQuantity: number;
   remainingQuantity: number;
   returnDate: string;
+  collectedAmount?: number;
+  paymentMode?: string;
 }
 
 export interface Payment {
@@ -91,7 +99,7 @@ export interface Payment {
   cycleNumber?: number | null;
   amount: number;
   date: string;
-  paymentMode: 'Account 1' | 'Account 2' | 'Cash';
+  paymentMode: 'Account 1' | 'Account 2' | 'Cash' | 'Outstanding';
   reference: string;
   notes: string;
   status: 'verified' | 'pending';

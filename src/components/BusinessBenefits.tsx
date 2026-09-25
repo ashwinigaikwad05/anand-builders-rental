@@ -41,7 +41,7 @@ export const BusinessBenefits: React.FC = () => {
             <div className="space-y-4 pt-4 border-t border-slate-800/80">
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
-                <span className="text-sm font-medium text-slate-200">Bilingual Support (English & Marathi)</span>
+                <span className="text-sm font-medium text-slate-200">Dual Language Support (Marathi & English)</span>
               </div>
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />

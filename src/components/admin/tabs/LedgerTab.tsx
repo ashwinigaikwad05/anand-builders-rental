@@ -48,8 +48,8 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({ parties, ledger }) => {
               className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold"
             >
               <option value="">-- Choose Party --</option>
-              {parties.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+              {parties.map((p, idx) => (
+                <option key={p.id} value={p.id}>Customer #{p.customerNumber || idx + 1} — {p.name}</option>
               ))}
             </select>
           </div>
@@ -79,6 +79,37 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({ parties, ledger }) => {
       </div>
 
       {/* Profile summary if party is selected */}
+      {selectedParty && (
+        <div className="bg-white p-5 rounded-3xl border border-slate-200/60 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            {selectedParty.photoUrl ? (
+              <img
+                src={selectedParty.photoUrl}
+                alt={selectedParty.name}
+                className="w-12 h-12 rounded-2xl object-cover border border-slate-200 shadow-xs"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-sm font-black text-slate-600">
+                {selectedParty.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div>
+              <h4 className="text-base font-black text-charcoal">{selectedParty.name}</h4>
+              <p className="text-xs text-slate-500 font-mono">+91 {selectedParty.mobile} {selectedParty.address ? `• ${selectedParty.address}` : ''}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+              selectedParty.status === 'active'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : 'bg-slate-50 text-slate-500 border border-slate-200'
+            }`}>
+              {selectedParty.status}
+            </span>
+          </div>
+        </div>
+      )}
+
       {selectedParty && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div className="bg-slate-50 p-5 rounded-2xl border border-slate-150 space-y-1">

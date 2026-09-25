@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS parties (
   address TEXT,
   notes TEXT,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  photo_url TEXT,
+  aadhaar_url TEXT,
+  cheque_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -43,7 +46,7 @@ EXECUTE FUNCTION update_updated_at_column();
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS plate_types (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  plate_size TEXT UNIQUE NOT NULL CHECK (plate_size IN ('24×3', '21×3', '18×3', '15×3', '12×3', '9×3', '6×3')),
+  plate_size TEXT UNIQUE NOT NULL,
   daily_rate NUMERIC(10,2) NOT NULL DEFAULT 1.50 CHECK (daily_rate >= 0),
   active BOOLEAN NOT NULL DEFAULT TRUE,
   status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'low_stock', 'out_of_stock')),
@@ -75,7 +78,7 @@ EXECUTE FUNCTION update_updated_at_column();
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS inventory_stock (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  plate_size TEXT NOT NULL CHECK (plate_size IN ('24×3', '21×3', '18×3', '15×3', '12×3', '9×3', '6×3')),
+  plate_size TEXT NOT NULL,
   quantity INTEGER NOT NULL CHECK (quantity > 0),
   received_date DATE NOT NULL DEFAULT CURRENT_DATE,
   notes TEXT,

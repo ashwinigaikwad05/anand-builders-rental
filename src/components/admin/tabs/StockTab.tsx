@@ -88,7 +88,18 @@ export const StockTab: React.FC<StockTabProps> = ({
   };
 
   // 2. Build per-size stock breakdown map from actual inventory stock records
-  const sizeBreakdown = STANDARD_PLATE_SIZES.map((size) => {
+  const allStockSizes: PlateSizeType[] = React.useMemo(() => {
+    const list: string[] = [...STANDARD_PLATE_SIZES];
+    plates.forEach((p) => {
+      if (!list.includes(p.plateType)) list.push(p.plateType);
+    });
+    stockItems.forEach((s) => {
+      if (!list.includes(s.plate_size)) list.push(s.plate_size);
+    });
+    return list as PlateSizeType[];
+  }, [plates, stockItems]);
+
+  const sizeBreakdown = allStockSizes.map((size) => {
     const totalStockForSize = stockItems
       .filter((item) => item.plate_size === size)
       .reduce((sum, item) => sum + item.quantity, 0);
@@ -269,7 +280,7 @@ export const StockTab: React.FC<StockTabProps> = ({
             </p>
           </div>
           <span className="text-xs font-semibold text-slate-500">
-            {STANDARD_PLATE_SIZES.length} Standard Sizes
+            {sizeBreakdown.length} Total Sizes
           </span>
         </div>
 

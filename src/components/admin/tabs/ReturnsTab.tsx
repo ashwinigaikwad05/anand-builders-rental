@@ -1,14 +1,21 @@
 import React, { useState } from 'react';
-import { Plus, Search, RefreshCw, X, Check, Info } from 'lucide-react';
+import { Plus, Search, RefreshCw, X, Check, Info, IndianRupee, Wallet } from 'lucide-react';
 import type { Party, Rental, ReturnLog, RentalCycle } from '../../../data/adminMockData';
 import { calculateCalendarDays, calculateCycleFinances } from '../../../lib/supabase';
+
+export interface ReturnInputPayload extends Omit<ReturnLog, 'id' | 'partyName' | 'plateType' | 'issuedQuantity'> {
+  collectedAmount?: number;
+  paymentMode?: 'Cash' | 'Account 1' | 'Account 2';
+  paymentReference?: string;
+  paymentNotes?: string;
+}
 
 interface ReturnsTabProps {
   returns: ReturnLog[];
   rentals: Rental[];
   parties: Party[];
   rentalCycles?: RentalCycle[];
-  onAddReturn: (newReturn: Omit<ReturnLog, 'id' | 'partyName' | 'plateType' | 'issuedQuantity'>) => void;
+  onAddReturn: (newReturn: ReturnInputPayload) => void;
   preselectedRentalId?: string | null;
   onClearPreselectedRental?: () => void;
 }
@@ -25,6 +32,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
   const todayStr = new Date().toISOString().split('T')[0];
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isConfirmReturnOpen, setIsConfirmReturnOpen] = useState(false);
 
   // Form states
   const [selectedPartyId, setSelectedPartyId] = useState('');
@@ -32,22 +40,88 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
   const [returnedQty, setReturnedQty] = useState<number>(0);
   const [returnDate, setReturnDate] = useState(todayStr);
 
+  // Payment collection states
+  const [collectedAmount, setCollectedAmount] = useState<number>(0);
+  const [paymentMode, setPaymentMode] = useState<'Cash' | 'Account 1' | 'Account 2'>('Cash');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState('');
+
   const [validationError, setValidationError] = useState('');
+
+  const getAlreadyReturned = (rental: Rental) => {
+    return returns
+      .filter((ret) => ret.rentalId === rental.id)
+      .reduce((sum, ret) => sum + ret.returnedQuantity, 0);
+  };
+
+  const getRemainingToReturn = (rental: Rental) => {
+    const returnedSum = getAlreadyReturned(rental);
+    return Math.max(0, rental.quantity - returnedSum);
+  };
+
+  const getActiveCycle = (rental: Rental): RentalCycle | null => {
+    const list = rentalCycles.filter((c) => c.rentalId === rental.id);
+    if (list.length > 0) {
+      return list.find((c) => c.status === 'active') || list[list.length - 1];
+    }
+    return null;
+  };
+
+  // Helper to get ALL cycles for a rental
+  const getAllCyclesForRental = (rental: Rental): RentalCycle[] => {
+    const list = rentalCycles.filter((c) => c.rentalId === rental.id);
+    if (list.length > 0) return [...list].sort((a, b) => a.cycleNumber - b.cycleNumber);
+    if (rental.cycles && rental.cycles.length > 0) return [...rental.cycles].sort((a, b) => a.cycleNumber - b.cycleNumber);
+    return [];
+  };
+
+  // Helper to compute live pending balance for a rental (ALL cycles)
+  const computeRentalPendingDue = (rental: Rental, date = returnDate) => {
+    const allCycs = getAllCyclesForRental(rental);
+    if (allCycs.length > 0) {
+      let totalAmount = 0;
+      let totalPaid = 0;
+      for (const cyc of allCycs) {
+        if (cyc.status === 'active') {
+          const finances = calculateCycleFinances(
+            {
+              startDate: cyc.startDate,
+              actualEndDate: date,
+              quantity: cyc.quantity,
+              dailyRate: cyc.dailyRate,
+              baseRent: cyc.baseRent,
+              paidAmount: cyc.paidAmount,
+              items: rental.items,
+            },
+            date
+          );
+          totalAmount += finances.totalAmount;
+        } else {
+          totalAmount += cyc.totalAmount;
+        }
+        totalPaid += cyc.paidAmount;
+      }
+      return Math.max(0, totalAmount - totalPaid);
+    }
+    return rental.pending;
+  };
 
   // Handle preselected rental from other tabs
   React.useEffect(() => {
     if (preselectedRentalId) {
       const targetRental = rentals.find((r) => r.id === preselectedRentalId);
       if (targetRental) {
-        const returnedSum = returns
-          .filter((ret) => ret.rentalId === targetRental.id)
-          .reduce((sum, ret) => sum + ret.returnedQuantity, 0);
-        const remaining = Math.max(0, targetRental.quantity - returnedSum);
+        const remaining = getRemainingToReturn(targetRental);
+        const due = computeRentalPendingDue(targetRental, todayStr);
 
         setSelectedPartyId(targetRental.partyId);
         setSelectedRentalId(targetRental.id);
         setReturnedQty(remaining);
         setReturnDate(todayStr);
+        setCollectedAmount(due);
+        setPaymentMode('Cash');
+        setPaymentReference('');
+        setPaymentNotes('');
         setValidationError('');
         setIsAddOpen(true);
       }
@@ -67,17 +141,9 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
   );
 
   const selectedRental = rentals.find((r) => r.id === selectedRentalId);
-
-  // Find active cycle for selected rental
-  const getActiveCycle = (rental: Rental): RentalCycle | null => {
-    const list = rentalCycles.filter((c) => c.rentalId === rental.id);
-    if (list.length > 0) {
-      return list.find((c) => c.status === 'active') || list[list.length - 1];
-    }
-    return null;
-  };
-
+  const selectedParty = parties.find((p) => p.id === selectedPartyId);
   const selectedActiveCycle = selectedRental ? getActiveCycle(selectedRental) : null;
+
   const cycleElapsed = selectedActiveCycle
     ? calculateCalendarDays(selectedActiveCycle.startDate, returnDate)
     : selectedRental
@@ -99,22 +165,61 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
       )
     : null;
 
-  const getAlreadyReturned = (rental: Rental) => {
-    return returns
-      .filter((ret) => ret.rentalId === rental.id)
-      .reduce((sum, ret) => sum + ret.returnedQuantity, 0);
-  };
+  // Compute ALL-CYCLES aggregated totals for the selected rental
+  const allCyclesFinancials = (() => {
+    if (!selectedRental) return { totalAmount: 0, paidAmount: 0, pendingAmount: 0 };
+    const allCycs = getAllCyclesForRental(selectedRental);
+    if (allCycs.length === 0) {
+      // Fallback to rental-level data
+      return {
+        totalAmount: selectedRental.totalRent,
+        paidAmount: selectedRental.paid,
+        pendingAmount: selectedRental.pending,
+      };
+    }
+    let totalAmount = 0;
+    let totalPaid = 0;
+    for (const cyc of allCycs) {
+      if (cyc.status === 'active') {
+        const fin = calculateCycleFinances(
+          {
+            startDate: cyc.startDate,
+            actualEndDate: returnDate,
+            quantity: cyc.quantity,
+            dailyRate: cyc.dailyRate,
+            baseRent: cyc.baseRent,
+            paidAmount: cyc.paidAmount,
+            items: selectedRental.items,
+          },
+          returnDate
+        );
+        totalAmount += fin.totalAmount;
+      } else {
+        totalAmount += cyc.totalAmount;
+      }
+      totalPaid += cyc.paidAmount;
+    }
+    return {
+      totalAmount,
+      paidAmount: totalPaid,
+      pendingAmount: Math.max(0, totalAmount - totalPaid),
+    };
+  })();
 
-  const getRemainingToReturn = (rental: Rental) => {
-    const returnedSum = getAlreadyReturned(rental);
-    return Math.max(0, rental.quantity - returnedSum);
-  };
+  const currentPendingDue = allCyclesFinancials.pendingAmount;
+
+  const balanceAfterReturn = Math.max(0, currentPendingDue - (collectedAmount || 0));
 
   const handleOpenAdd = () => {
-    setSelectedPartyId(parties[0]?.id || '');
+    const firstParty = parties[0]?.id || '';
+    setSelectedPartyId(firstParty);
     setSelectedRentalId('');
     setReturnedQty(0);
     setReturnDate(todayStr);
+    setCollectedAmount(0);
+    setPaymentMode('Cash');
+    setPaymentReference('');
+    setPaymentNotes('');
     setValidationError('');
     setIsAddOpen(true);
   };
@@ -123,6 +228,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
     setSelectedPartyId(partyId);
     setSelectedRentalId('');
     setReturnedQty(0);
+    setCollectedAmount(0);
   };
 
   const handleRentalChange = (rentalId: string) => {
@@ -130,7 +236,12 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
     const rental = rentals.find((r) => r.id === rentalId);
     if (rental) {
       const remaining = getRemainingToReturn(rental);
+      const due = computeRentalPendingDue(rental, returnDate);
       setReturnedQty(remaining);
+      setCollectedAmount(due);
+    } else {
+      setReturnedQty(0);
+      setCollectedAmount(0);
     }
   };
 
@@ -162,16 +273,29 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
         return;
       }
 
-      onAddReturn({
-        partyId: selectedPartyId,
-        rentalId: selectedRentalId,
-        returnedQuantity: returnedQty,
-        remainingQuantity: remainingLimit - returnedQty,
-        returnDate,
-      });
-
-      setIsAddOpen(false);
+      // Prompt confirmation alert before recording return
+      setIsConfirmReturnOpen(true);
     }
+  };
+
+  const handleExecuteReturn = () => {
+    if (!selectedRental) return;
+    const remainingLimit = getRemainingToReturn(selectedRental);
+
+    onAddReturn({
+      partyId: selectedPartyId,
+      rentalId: selectedRentalId,
+      returnedQuantity: returnedQty,
+      remainingQuantity: remainingLimit - returnedQty,
+      returnDate,
+      collectedAmount: collectedAmount > 0 ? collectedAmount : 0,
+      paymentMode: collectedAmount > 0 ? paymentMode : undefined,
+      paymentReference: paymentReference.trim() || undefined,
+      paymentNotes: paymentNotes.trim() || undefined,
+    });
+
+    setIsConfirmReturnOpen(false);
+    setIsAddOpen(false);
   };
 
   return (
@@ -195,7 +319,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
         {/* Trigger Button */}
         <button
           onClick={handleOpenAdd}
-          className="bg-primary hover:bg-primary-dark text-white font-bold px-5 py-3 rounded-xl shadow-md hover:shadow-orange-500/10 flex items-center justify-center gap-2 text-sm"
+          className="bg-primary hover:bg-primary-dark text-white font-bold px-5 py-3 rounded-xl shadow-md hover:shadow-orange-500/10 flex items-center justify-center gap-2 text-sm cursor-pointer transition-all"
         >
           <Plus className="w-4 h-4" />
           <span>New Return Intake</span>
@@ -207,40 +331,51 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
         {/* Left: Returned Logs Table (7 Columns) */}
         <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-            <h4 className="text-sm font-bold text-charcoal">Material Return Logs</h4>
+            <h4 className="text-sm font-bold text-charcoal">Material Return & Settlement Logs</h4>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                  <th className="px-6 py-4">Return Date</th>
-                  <th className="px-6 py-4">Party Name</th>
-                  <th className="px-6 py-4">Size</th>
-                  <th className="px-6 py-4">Returned Qty</th>
-                  <th className="px-6 py-4">Remaining</th>
+                  <th className="px-5 py-4">Return Date</th>
+                  <th className="px-5 py-4">Party Name</th>
+                  <th className="px-4 py-4">Size</th>
+                  <th className="px-4 py-4">Returned</th>
+                  <th className="px-4 py-4">Remaining</th>
+                  <th className="px-5 py-4 text-right">Payment Collected</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-light">
                 {filteredReturns.map((ret) => (
                   <tr key={ret.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 text-slate-500 font-mono">{ret.returnDate}</td>
-                    <td className="px-6 py-4 font-bold text-slate-800">{ret.partyName}</td>
-                    <td className="px-6 py-4 font-mono text-slate-500">{ret.plateType}</td>
-                    <td className="px-6 py-4 font-bold text-emerald-600">+{ret.returnedQuantity}</td>
-                    <td className={`px-6 py-4 ${ret.remainingQuantity > 0 ? 'text-amber-600 font-bold' : 'text-slate-400'}`}>
+                    <td className="px-5 py-4 text-slate-500 font-mono text-xs">{ret.returnDate}</td>
+                    <td className="px-5 py-4 font-bold text-slate-800">{ret.partyName}</td>
+                    <td className="px-4 py-4 font-mono text-slate-500 text-xs">{ret.plateType}</td>
+                    <td className="px-4 py-4 font-bold text-emerald-600">+{ret.returnedQuantity}</td>
+                    <td className={`px-4 py-4 ${ret.remainingQuantity > 0 ? 'text-amber-600 font-bold' : 'text-slate-400 text-xs'}`}>
                       {ret.remainingQuantity > 0 ? `${ret.remainingQuantity} left` : 'Fully Cleaned'}
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      {ret.collectedAmount && ret.collectedAmount > 0 ? (
+                        <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-lg text-xs">
+                          <span>₹{ret.collectedAmount.toLocaleString('en-IN')}</span>
+                          <span className="text-[10px] text-emerald-600 font-normal">({ret.paymentMode || 'Paid'})</span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-xs italic">Credit (₹0)</span>
+                      )}
                     </td>
                   </tr>
                 ))}
                 {returns.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-10 text-center text-slate-400 font-light italic">
+                    <td colSpan={6} className="px-6 py-10 text-center text-slate-400 font-light italic">
                       No returns logged yet.
                     </td>
                   </tr>
                 ) : filteredReturns.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-10 text-center text-slate-400 font-light italic">
+                    <td colSpan={6} className="px-6 py-10 text-center text-slate-400 font-light italic">
                       No return logs found matching query.
                     </td>
                   </tr>
@@ -267,6 +402,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                   const remaining = getRemainingToReturn(rent);
                   if (remaining <= 0) return null;
                   const cyc = getActiveCycle(rent);
+                  const due = computeRentalPendingDue(rent, todayStr);
                   return (
                     <div key={rent.id} className="p-4 hover:bg-slate-50/50 transition-colors flex justify-between items-center text-left text-xs sm:text-sm">
                       <div className="space-y-0.5">
@@ -278,19 +414,26 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                             </span>
                           )}
                         </div>
-                        <p className="text-slate-500 text-xs font-mono">{rent.plateType} • {remaining} plates outstanding</p>
+                        <p className="text-slate-500 text-xs font-mono">
+                          {rent.plateType} • {remaining} plates on site
+                        </p>
+                        <p className="text-[11px] font-bold text-rose-600">
+                          Due: ₹{due.toLocaleString('en-IN')}
+                        </p>
                       </div>
                       <button
                         onClick={() => {
                           setSelectedPartyId(rent.partyId);
                           setSelectedRentalId(rent.id);
                           setReturnedQty(remaining);
+                          setCollectedAmount(due);
+                          setReturnDate(todayStr);
                           setValidationError('');
                           setIsAddOpen(true);
                         }}
-                        className="text-xs bg-orange-50 hover:bg-orange-100 text-primary border border-orange-200 px-3 py-1.5 rounded-lg font-bold"
+                        className="text-xs bg-orange-50 hover:bg-orange-100 text-primary border border-orange-200 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer"
                       >
-                        Receive
+                        Receive & Settle
                       </button>
                     </div>
                   );
@@ -302,19 +445,19 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
 
       {/* Add Return Intake Dialog */}
       {isAddOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 max-w-lg w-full overflow-hidden shadow-2xl animate-scaleUp text-left">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-slate-200 max-w-lg w-full overflow-hidden shadow-2xl animate-scaleUp text-left my-auto">
             <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h4 className="text-base font-bold text-charcoal flex items-center gap-2">
                 <RefreshCw className="w-5 h-5 text-primary" />
-                Receive Shuttering Plates Intake
+                <span>Receive Plates & Settle Amount</span>
               </h4>
-              <button onClick={() => setIsAddOpen(false)} className="p-1 text-slate-400 hover:text-slate-800 rounded-lg">
+              <button onClick={() => setIsAddOpen(false)} className="p-1 text-slate-400 hover:text-slate-800 rounded-lg cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[82vh] overflow-y-auto">
               {validationError && (
                 <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 p-4 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2">
                   <Info className="w-4 h-4" /> {validationError}
@@ -399,19 +542,19 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
               )}
 
               {/* Step 3: Quantities and Date with Return All button */}
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <label className="text-xs font-bold text-slate-500 uppercase">
-                      Return Quantity (Plates Count) *
+                      Return Qty (Plates) *
                     </label>
                     {selectedRental && (
                       <button
                         type="button"
                         onClick={handleReturnAll}
-                        className="text-xs text-primary font-bold hover:text-primary-dark underline"
+                        className="text-[11px] text-primary font-bold hover:text-primary-dark cursor-pointer"
                       >
-                        [ Return All ({getRemainingToReturn(selectedRental)}) ]
+                        All ({getRemainingToReturn(selectedRental)})
                       </button>
                     )}
                   </div>
@@ -422,7 +565,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                     value={returnedQty || ''}
                     onChange={(e) => setReturnedQty(Math.max(0, parseInt(e.target.value) || 0))}
                     placeholder="e.g. 100"
-                    className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-3 rounded-xl text-sm font-semibold text-slate-800"
+                    className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
                   />
                 </div>
 
@@ -432,33 +575,262 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                     type="date"
                     required
                     value={returnDate}
-                    onChange={(e) => setReturnDate(e.target.value)}
-                    className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-3 rounded-xl text-sm font-medium"
+                    onChange={(e) => {
+                      setReturnDate(e.target.value);
+                      if (selectedRental) {
+                        const due = computeRentalPendingDue(selectedRental, e.target.value);
+                        setCollectedAmount(due);
+                      }
+                    }}
+                    className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-2.5 rounded-xl text-sm font-medium"
                   />
                 </div>
               </div>
+
+              {/* Step 4: Collect Remaining Amount / Settlement */}
+              {selectedRental && (
+                <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+                      <Wallet className="w-4 h-4 text-emerald-700" />
+                      Collect Remaining Dues on Return
+                    </span>
+                    <span className="text-xs font-black text-emerald-900">
+                      Due: ₹{currentPendingDue.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+
+                  {/* Financial Status Cards */}
+                  <div className="grid grid-cols-3 gap-2 text-center bg-white/90 p-2.5 rounded-xl border border-emerald-100 text-xs">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Total Rent</span>
+                      <span className="font-bold text-slate-800">
+                        ₹{allCyclesFinancials.totalAmount.toLocaleString('en-IN')}
+                      </span>
+                      {getAllCyclesForRental(selectedRental).length > 1 && (
+                        <span className="text-[9px] text-slate-400 block font-mono">
+                          {getAllCyclesForRental(selectedRental).length} cycles
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Already Paid</span>
+                      <span className="font-bold text-emerald-600">
+                        ₹{allCyclesFinancials.paidAmount.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Pending Due</span>
+                      <span className="font-black text-rose-600">
+                        ₹{currentPendingDue.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Payment Collection Inputs */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <label className="font-bold text-slate-700 uppercase text-[11px]">
+                        Payment Amount Collected Now (₹)
+                      </label>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setCollectedAmount(currentPendingDue)}
+                          className="text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded cursor-pointer transition-all"
+                        >
+                          Pay Full (₹{currentPendingDue.toLocaleString('en-IN')})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCollectedAmount(0)}
+                          className="text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-2 py-0.5 rounded cursor-pointer transition-all"
+                        >
+                          ₹0 (Outstanding)
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <IndianRupee className="w-4 h-4 text-emerald-700" />
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={collectedAmount || ''}
+                        onChange={(e) => setCollectedAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                        placeholder="0"
+                        className="w-full bg-white border border-emerald-300 focus:border-emerald-600 focus:outline-none pl-9 pr-4 py-2.5 rounded-xl text-sm font-bold text-slate-900"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Payment Mode & Reference (shown when collecting payment) */}
+                  {collectedAmount > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-600 uppercase text-[10px]">Payment Mode</label>
+                        <select
+                          value={paymentMode}
+                          onChange={(e) => setPaymentMode(e.target.value as any)}
+                          className="w-full bg-white border border-slate-200 px-3 py-2 rounded-xl font-semibold text-slate-800"
+                        >
+                          <option value="Cash">Cash</option>
+                          <option value="Account 1">Account 1 (Bank Direct)</option>
+                          <option value="Account 2">Account 2 (UPI / Digital)</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-600 uppercase text-[10px]">Reference / Receipt Note</label>
+                        <input
+                          type="text"
+                          value={paymentReference}
+                          onChange={(e) => setPaymentReference(e.target.value)}
+                          placeholder="e.g. Return settlement / UPI ref"
+                          className="w-full bg-white border border-slate-200 px-3 py-2 rounded-xl text-xs"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Balance remaining after this return */}
+                  <div className="flex justify-between items-center text-xs font-bold pt-2 border-t border-emerald-200 text-slate-700">
+                    <span>Balance After This Return:</span>
+                    <span className={balanceAfterReturn > 0 ? 'text-rose-600 font-black' : 'text-emerald-700 font-black'}>
+                      ₹{balanceAfterReturn.toLocaleString('en-IN')}{' '}
+                      {balanceAfterReturn === 0 ? '(Fully Settled ✓)' : '(Pending as Outstanding)'}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-4 pt-4 border-t border-slate-100 justify-end">
                 <button
                   type="button"
                   onClick={() => setIsAddOpen(false)}
-                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition-all"
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-sm shadow-md transition-all flex items-center gap-1.5"
+                  className="px-5 py-2.5 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-sm shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Confirm Return</span>
+                  <span>
+                    {collectedAmount > 0
+                      ? `Confirm Return & Collect ₹${collectedAmount.toLocaleString('en-IN')}`
+                      : 'Confirm Return Only'}
+                  </span>
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* RETURN TIME CONFIRMATION ALERT MODAL */}
+      {isConfirmReturnOpen && selectedRental && selectedParty && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full overflow-hidden shadow-2xl animate-scaleUp text-left">
+            <div className="px-6 py-5 border-b border-orange-100 flex justify-between items-center bg-orange-50/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-orange-100 text-primary flex items-center justify-center shadow-xs">
+                  <RefreshCw className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-slate-900">Confirm Plate Return</h4>
+                  <p className="text-[11px] font-semibold text-primary">साहित्य वापसी पुष्टी करा</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsConfirmReturnOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                Please review the return details for <strong className="text-slate-900 font-bold font-mono">"{selectedParty.name}"</strong> before saving:
+              </p>
+
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5 text-xs">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Customer:</span>
+                  <span className="font-bold text-slate-900">{selectedParty.name}</span>
+                </div>
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Plate Size:</span>
+                  <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    {selectedRental.plateType}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Plates Returning Now:</span>
+                  <span className="font-bold text-primary bg-orange-50 px-2.5 py-0.5 rounded-lg border border-orange-200 font-mono">
+                    {returnedQty} Plates
+                  </span>
+                </div>
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Remaining on Site:</span>
+                  <span className={`font-bold px-2 py-0.5 rounded text-[11px] font-mono ${
+                    getRemainingToReturn(selectedRental) - returnedQty === 0
+                      ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
+                      : 'text-amber-800 bg-amber-50 border border-amber-200'
+                  }`}>
+                    {getRemainingToReturn(selectedRental) - returnedQty} Plates{' '}
+                    {getRemainingToReturn(selectedRental) - returnedQty === 0 ? '(Full Return ✓)' : '(Partial Return)'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Payment Collected Now:</span>
+                  <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200 font-mono">
+                    ₹{(collectedAmount || 0).toLocaleString('en-IN')}{' '}
+                    {collectedAmount > 0 ? `(${paymentMode})` : '(₹0)'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Balance After Return:</span>
+                  <span className={`font-bold px-2 py-0.5 rounded text-[11px] font-mono ${
+                    balanceAfterReturn === 0
+                      ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
+                      : 'text-rose-700 bg-rose-50 border border-rose-200'
+                  }`}>
+                    ₹{balanceAfterReturn.toLocaleString('en-IN')}{' '}
+                    {balanceAfterReturn === 0 ? '(Fully Settled ✓)' : '(Pending)'}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                Are you sure you want to record this return? Inventory stock will be replenished and payment accounts will be updated.
+              </p>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmReturnOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Review / मागे जा
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteReturn}
+                  className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-md shadow-orange-500/20 transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Yes, Confirm Return</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-

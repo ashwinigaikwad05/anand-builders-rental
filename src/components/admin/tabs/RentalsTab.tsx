@@ -9,21 +9,24 @@ import {
   Trash2,
   History,
   RotateCw,
+  RefreshCw,
+  FileText,
 } from 'lucide-react';
-import type { Party, PlateStock, Rental, RentalItem, RentalCycle } from '../../../data/adminMockData';
+import type { Party, PlateStock, Rental, RentalItem, RentalCycle, Payment } from '../../../data/adminMockData';
 import {
   calculateCycleFinances,
   calculateExpectedCycleEndDate,
 } from '../../../lib/supabase';
 
 import { RenewRentalModal } from '../modals/RenewRentalModal';
+import { RentalBillModal } from '../modals/RentalBillModal';
 
 interface PlateRowItem {
   id: string;
   plateType: string;
-  quantity: number;
-  dailyRate: number;
-  days: number;
+  quantity: number | string;
+  dailyRate: number | string;
+  days: number | string;
 }
 
 interface RentalsTabProps {
@@ -31,10 +34,23 @@ interface RentalsTabProps {
   parties: Party[];
   plates: PlateStock[];
   rentalCycles?: RentalCycle[];
+  payments?: Payment[];
   onAddRental: (newRental: Omit<Rental, 'id' | 'totalRent' | 'pending' | 'status'>) => void;
-  onUpdateRentalStatus: (rentalId: string, status: 'active' | 'returned' | 'overdue') => void;
+  onUpdateRentalStatus?: (rentalId: string, status: 'active' | 'returned' | 'overdue') => void;
   onInitiateReturn?: (rental: Rental) => void;
-  onRenewRental?: (rentalId: string, renewalConfirmationDate?: string, newItems?: RentalItem[]) => Promise<void>;
+  onRenewRental?: (
+    rentalId: string,
+    renewalConfirmationDate?: string,
+    newItems?: RentalItem[],
+    renewDays?: number,
+    payment?: {
+      amount: number;
+      paymentMode: 'Cash' | 'Account 1' | 'Account 2';
+      date?: string;
+      reference?: string;
+      notes?: string;
+    }
+  ) => Promise<void>;
 }
 
 export const RentalsTab: React.FC<RentalsTabProps> = ({
@@ -42,8 +58,9 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   parties,
   plates,
   rentalCycles = [],
+  payments = [],
   onAddRental,
-  onUpdateRentalStatus,
+  onUpdateRentalStatus: _onUpdateRentalStatus,
   onInitiateReturn,
   onRenewRental,
 }) => {
@@ -57,6 +74,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [renewTarget, setRenewTarget] = useState<Rental | null>(null);
   const [historyTarget, setHistoryTarget] = useState<Rental | null>(null);
+  const [billTarget, setBillTarget] = useState<Rental | null>(null);
 
   // Form states for Add Rental
   const [selectedPartyId, setSelectedPartyId] = useState('');
@@ -64,16 +82,19 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   const [plateRows, setPlateRows] = useState<PlateRowItem[]>([
     { id: 'row-1', plateType: '24×3', quantity: 100, dailyRate: 1.5, days: 40 },
   ]);
-  const [amountPaid, setAmountPaid] = useState<number>(0);
-  const [paymentMode, setPaymentMode] = useState<'Account 1' | 'Account 2' | 'Cash' | 'Udhari'>('Udhari');
+  const [amountPaid, setAmountPaid] = useState<string>('0');
+  const [paymentMode, setPaymentMode] = useState<'Account 1' | 'Account 2' | 'Cash' | 'Outstanding'>('Outstanding');
   const [validationError, setValidationError] = useState('');
 
   // Calculations across all plate rows
-  const calculatedTotalRent = plateRows.reduce(
-    (sum, r) => sum + r.quantity * r.dailyRate * r.days,
-    0
-  );
-  const calculatedPending = Math.max(0, calculatedTotalRent - amountPaid);
+  const calculatedTotalRent = plateRows.reduce((sum, r) => {
+    const q = parseInt(String(r.quantity), 10) || 0;
+    const rate = parseFloat(String(r.dailyRate)) || 0;
+    const d = parseInt(String(r.days), 10) || 0;
+    return sum + q * rate * d;
+  }, 0);
+  const numericPaid = parseFloat(amountPaid) || 0;
+  const calculatedPending = Math.max(0, calculatedTotalRent - numericPaid);
 
   // Helper to fetch all cycles for a rental
   const getCyclesForRental = (rental: Rental): RentalCycle[] => {
@@ -147,12 +168,27 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
     return { activeCycle, finances };
   };
 
+  // Helper to determine real-time effective status
+  const getEffectiveRentalStatus = (rental: Rental): 'active' | 'returned' | 'overdue' => {
+    if (rental.status === 'returned') return 'returned';
+    const { activeCycle, finances } = getLiveCycleData(rental);
+    if (
+      rental.status === 'overdue' ||
+      finances.extraDays > 0 ||
+      Boolean(activeCycle.expectedEndDate && todayStr > activeCycle.expectedEndDate)
+    ) {
+      return 'overdue';
+    }
+    return 'active';
+  };
+
   const filteredRentals = rentals.filter((r) => {
     const matchesSearch =
       r.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       r.plateType.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === 'All' || r.status === statusFilter;
+    const effectiveStatus = getEffectiveRentalStatus(r);
+    const matchesStatus = statusFilter === 'All' || effectiveStatus === statusFilter;
     const matchesParty = partyFilter === 'All' || r.partyId === partyFilter;
     const matchesPlate = plateFilter === 'All' || r.plateType.includes(plateFilter);
 
@@ -163,17 +199,21 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
     setSelectedPartyId(parties[0]?.id || '');
     setIssueDate(todayStr);
     const firstPlate = plates[0];
+    const initialDailyRate =
+      firstPlate && firstPlate.dailyRate && firstPlate.dailyRate > 0
+        ? firstPlate.dailyRate
+        : 1.5;
     setPlateRows([
       {
         id: `row-${Date.now()}-1`,
         plateType: firstPlate?.plateType || '24×3',
         quantity: 100,
-        dailyRate: firstPlate?.dailyRate || 1.5,
+        dailyRate: initialDailyRate,
         days: 40,
       },
     ]);
-    setAmountPaid(0);
-    setPaymentMode('Udhari');
+    setAmountPaid('0');
+    setPaymentMode('Outstanding');
     setValidationError('');
     setIsAddOpen(true);
   };
@@ -183,11 +223,15 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
       (p) => !plateRows.some((r) => r.plateType === p.plateType)
     );
     const targetPlate = unusedPlate || plates[0];
+    const targetDailyRate =
+      targetPlate && targetPlate.dailyRate && targetPlate.dailyRate > 0
+        ? targetPlate.dailyRate
+        : 1.5;
     const newRow: PlateRowItem = {
       id: `row-${Date.now()}-${plateRows.length + 1}`,
       plateType: targetPlate?.plateType || '21×3',
       quantity: 50,
-      dailyRate: targetPlate?.dailyRate || 1.5,
+      dailyRate: targetDailyRate,
       days: plateRows[0]?.days || 40,
     };
     setPlateRows((prev) => [...prev, newRow]);
@@ -205,7 +249,8 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
         if (field === 'plateType') {
           const matched = plates.find((p) => p.plateType === value);
           if (matched) {
-            updated.dailyRate = matched.dailyRate;
+            updated.dailyRate =
+              matched.dailyRate && matched.dailyRate > 0 ? matched.dailyRate : 1.5;
           }
         }
         return updated;
@@ -234,18 +279,25 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
         setValidationError('Please choose a valid plate size for all rows.');
         return;
       }
-      if (row.quantity <= 0) {
-        setValidationError(`Please enter a quantity greater than 0 for size ${row.plateType}.`);
+      const q = parseInt(String(row.quantity), 10) || 0;
+      if (q < 1) {
+        setValidationError(`Please enter a quantity of at least 1 for size ${row.plateType}.`);
         return;
       }
-      if (row.days <= 0) {
-        setValidationError(`Please enter rental term days greater than 0 for size ${row.plateType}.`);
+      const d = parseInt(String(row.days), 10) || 0;
+      if (d < 1) {
+        setValidationError(`Please enter rental term days of at least 1 for size ${row.plateType}.`);
+        return;
+      }
+      const rate = parseFloat(String(row.dailyRate));
+      if (isNaN(rate) || rate < 0) {
+        setValidationError(`Please enter a valid daily rate for size ${row.plateType}.`);
         return;
       }
 
       const matchedPlate = plates.find((p) => p.plateType === row.plateType);
       const available = matchedPlate ? matchedPlate.available : 0;
-      if (row.quantity > available) {
+      if (q > available) {
         setValidationError(`Only ${available} plates are available for size ${row.plateType}.`);
         return;
       }
@@ -256,26 +308,31 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
 
     const items: RentalItem[] = plateRows.map((r) => ({
       plateType: r.plateType,
-      quantity: r.quantity,
-      dailyRate: r.dailyRate,
-      days: r.days,
+      quantity: parseInt(String(r.quantity), 10) || 1,
+      dailyRate: parseFloat(String(r.dailyRate)) || 0,
+      days: parseInt(String(r.days), 10) || 1,
     }));
 
-    const totalQuantity = plateRows.reduce((sum, r) => sum + r.quantity, 0);
+    const totalQuantity = plateRows.reduce(
+      (sum, r) => sum + (parseInt(String(r.quantity), 10) || 1),
+      0
+    );
     const plateTypeSummary =
       plateRows.length === 1
         ? plateRows[0].plateType
-        : plateRows.map((r) => `${r.plateType} (${r.quantity})`).join(', ');
+        : plateRows
+            .map((r) => `${r.plateType} (${parseInt(String(r.quantity), 10) || 1})`)
+            .join(', ');
 
     onAddRental({
       partyId: selectedPartyId,
       partyName: party.name,
       plateType: plateTypeSummary,
       quantity: totalQuantity,
-      dailyRate: plateRows[0]?.dailyRate || 1.5,
+      dailyRate: parseFloat(String(plateRows[0]?.dailyRate)) || 1.5,
       issueDate,
-      days: plateRows[0]?.days || 40,
-      paid: amountPaid,
+      days: parseInt(String(plateRows[0]?.days), 10) || 40,
+      paid: parseFloat(amountPaid) || 0,
       paymentMode,
       items,
     });
@@ -370,16 +427,16 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                <th className="px-5 py-4">Party & Agreement</th>
-                <th className="px-4 py-4">Size & Qty</th>
-                <th className="px-4 py-4">Active Cycle</th>
-                <th className="px-4 py-4">Cycle Dates</th>
-                <th className="px-4 py-4">Duration & Extra</th>
-                <th className="px-4 py-4">Cycle Total</th>
-                <th className="px-4 py-4">Paid</th>
-                <th className="px-4 py-4">Outstanding</th>
-                <th className="px-4 py-4">Status</th>
-                <th className="px-4 py-4 text-center">Actions</th>
+                <th className="px-5 py-4 min-w-[160px]">Party & Agreement</th>
+                <th className="px-4 py-4 min-w-[100px]">Size & Qty</th>
+                <th className="px-4 py-4 min-w-[90px]">Cycle</th>
+                <th className="px-4 py-4 min-w-[140px]">Cycle Dates</th>
+                <th className="px-4 py-4 min-w-[110px]">Duration</th>
+                <th className="px-4 py-4 min-w-[90px]">Total</th>
+                <th className="px-4 py-4 min-w-[80px]">Paid</th>
+                <th className="px-4 py-4 min-w-[100px]">Due</th>
+                <th className="px-4 py-4 min-w-[100px]">Status</th>
+                <th className="px-5 py-4 min-w-[270px] text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-light">
@@ -387,29 +444,45 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                 const { activeCycle, finances } = getLiveCycleData(rent);
                 const allCycles = getCyclesForRental(rent);
                 const hasExtra = finances.extraDays > 0;
+                const isOverdue =
+                  rent.status !== 'returned' &&
+                  (rent.status === 'overdue' ||
+                    hasExtra ||
+                    Boolean(activeCycle.expectedEndDate && todayStr > activeCycle.expectedEndDate));
+                const effectiveStatus: 'active' | 'returned' | 'overdue' =
+                  rent.status === 'returned' ? 'returned' : isOverdue ? 'overdue' : 'active';
 
                 return (
                   <tr key={rent.id} className="hover:bg-slate-50/50 transition-colors">
                     {/* Party & Agreement */}
-                    <td className="px-5 py-4">
-                      <div className="font-bold text-slate-800 text-sm">{rent.partyName}</div>
-                      <div className="text-[11px] text-slate-400 font-mono">
-                        Dispatched: {rent.issueDate}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-black text-xs px-2 py-0.5 rounded-lg bg-orange-100 text-primary border border-orange-200 shadow-2xs">
+                          Bill #{rent.billNumber || 1}
+                        </span>
+                        <span className="font-bold text-slate-900 text-sm">{rent.partyName}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
+                        <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded text-[10px]">
+                          Cust #{rent.customerNumber || parties.find((p) => p.id === rent.partyId)?.customerNumber || 1}
+                        </span>
+                        <span>•</span>
+                        <span>Disp: {rent.issueDate}</span>
                       </div>
                     </td>
 
                     {/* Size & Qty */}
-                    <td className="px-4 py-4">
-                      <div className="font-mono text-xs font-semibold text-slate-700">
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
                         {rent.plateType}
-                      </div>
-                      <div className="text-xs font-bold text-slate-800">
+                      </span>
+                      <div className="text-xs font-bold text-slate-700 mt-1">
                         {rent.quantity} Plates
                       </div>
                     </td>
 
                     {/* Active Cycle Badge */}
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded-lg">
                         <span>Cycle {activeCycle.cycleNumber}</span>
                         {activeCycle.status === 'active' && (
@@ -417,80 +490,151 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                         )}
                       </span>
                       {allCycles.length > 1 && (
-                        <div className="text-[10px] text-slate-400 mt-0.5">
-                          {allCycles.length} cycles total
+                        <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
+                          {allCycles.length} cyc total
                         </div>
                       )}
                     </td>
 
                     {/* Cycle Dates */}
-                    <td className="px-4 py-4 text-xs font-mono text-slate-600">
-                      <div>{activeCycle.startDate}</div>
+                    <td className="px-4 py-4 text-xs font-mono text-slate-700 whitespace-nowrap">
+                      <div className="font-semibold text-slate-800">{activeCycle.startDate}</div>
                       <div className="text-slate-400 text-[11px]">
-                        to {activeCycle.actualEndDate || activeCycle.expectedEndDate}
+                        → {activeCycle.actualEndDate || activeCycle.expectedEndDate}
                       </div>
                     </td>
 
                     {/* Duration & Extra */}
-                    <td className="px-4 py-4">
-                      <div className="font-semibold text-slate-800 text-xs">
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="font-bold text-slate-800 text-xs">
                         {finances.elapsedDays} Days
                       </div>
-                      <div className="text-[11px] text-slate-500 font-mono">
-                        {finances.standardDays} Std {finances.extraDays > 0 ? `+ ${finances.extraDays} Extra` : ''}
+                      <div className="text-[11px] text-slate-400 font-mono">
+                        {finances.standardDays} / {activeCycle.days || 40}d
                       </div>
                       {hasExtra && (
-                        <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold rounded">
-                          +{finances.extraDays}d Over 40
+                        <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold rounded">
+                          +{finances.extraDays}d Overdue
                         </span>
                       )}
                     </td>
 
-                    {/* Cycle Total with Extra Day Breakdown Notice */}
-                    <td className="px-4 py-4">
-                      <div className="font-bold text-slate-800">
-                        ₹{finances.totalAmount.toLocaleString('en-IN')}
-                      </div>
-                      {hasExtra && (
-                        <div className="text-[10px] text-amber-700 font-medium bg-amber-50/90 border border-amber-200 rounded px-1.5 py-0.5 mt-1 max-w-[180px] leading-tight">
-                          ₹{finances.extraAmount.toLocaleString('en-IN')} extra added for {finances.extraDays} days beyond 40-day cycle.
-                        </div>
-                      )}
-                    </td>
+                    {/* Cycle Total */}
+                    {(() => {
+                      // Compute all-cycles aggregate figures
+                      let allCyclesTotalAmount = 0;
+                      let allCyclesPaidAmount = 0;
+                      for (const cyc of allCycles) {
+                        if (cyc.status === 'active' && rent.status !== 'returned') {
+                          const cycFin = calculateCycleFinances(
+                            {
+                              startDate: cyc.startDate,
+                              quantity: cyc.quantity,
+                              dailyRate: cyc.dailyRate,
+                              baseRent: cyc.baseRent,
+                              paidAmount: cyc.paidAmount,
+                              items: rent.items,
+                            },
+                            todayStr
+                          );
+                          allCyclesTotalAmount += cycFin.totalAmount;
+                        } else {
+                          allCyclesTotalAmount += cyc.totalAmount;
+                        }
+                        allCyclesPaidAmount += cyc.paidAmount;
+                      }
+                      const allCyclesPendingAmount = Math.max(0, allCyclesTotalAmount - allCyclesPaidAmount);
+                      const hasMultipleCycles = allCycles.length > 1;
 
-                    {/* Paid */}
-                    <td className="px-4 py-4 text-emerald-600 font-bold">
-                      ₹{activeCycle.paidAmount.toLocaleString('en-IN')}
-                    </td>
+                      return (
+                        <>
+                          {/* Total */}
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="font-bold text-slate-900 text-sm">
+                              ₹{allCyclesTotalAmount.toLocaleString('en-IN')}
+                            </div>
+                            {hasExtra && (
+                              <div className="text-[10px] text-amber-700 font-medium">
+                                +₹{finances.extraAmount.toLocaleString('en-IN')} extra
+                              </div>
+                            )}
+                            {hasMultipleCycles && (
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {allCycles.length} cycles
+                              </div>
+                            )}
+                          </td>
 
-                    {/* Outstanding */}
-                    <td className={`px-4 py-4 font-bold ${finances.pendingAmount > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
-                      ₹{finances.pendingAmount.toLocaleString('en-IN')}
-                    </td>
+                          {/* Paid */}
+                          <td className="px-4 py-4 whitespace-nowrap text-emerald-600 font-bold text-sm">
+                            ₹{allCyclesPaidAmount.toLocaleString('en-IN')}
+                          </td>
+
+                          {/* Due (All Cycles Pending) */}
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className={`font-black text-sm ${allCyclesPendingAmount > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                              ₹{allCyclesPendingAmount.toLocaleString('en-IN')}
+                            </div>
+                            {allCyclesPendingAmount === 0 && (
+                              <span className="text-[10px] font-bold text-emerald-600">Settled ✓</span>
+                            )}
+                          </td>
+                        </>
+                      );
+                    })()}
 
                     {/* Status */}
-                    <td className="px-4 py-4">
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-                          rent.status === 'returned'
-                            ? 'bg-slate-50 text-slate-500 border border-slate-200'
-                            : rent.status === 'overdue' || hasExtra
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        }`}
-                      >
-                        {rent.status}
-                      </span>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                            effectiveStatus === 'returned'
+                              ? 'bg-slate-100 text-slate-500 border border-slate-200'
+                              : effectiveStatus === 'overdue'
+                              ? 'bg-rose-100 text-rose-700 border border-rose-300 font-black'
+                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          }`}
+                        >
+                          {effectiveStatus === 'overdue' ? 'OVERDUE' : effectiveStatus.toUpperCase()}
+                        </span>
+                        {effectiveStatus === 'overdue' && finances.extraDays > 0 && (
+                          <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+                            +{finances.extraDays}d
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Actions */}
-                    <td className="px-4 py-4">
-                      <div className="flex justify-center gap-1.5 items-center flex-wrap">
+                    <td className="px-5 py-4 whitespace-nowrap text-right">
+                      <div className="inline-flex items-center justify-end gap-1.5">
+                        {/* View & Print Rental Bill */}
+                        <button
+                          onClick={() => setBillTarget(rent)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs transition-all cursor-pointer"
+                          title={`Generate / Print Rental Bill #${rent.billNumber || 1}`}
+                        >
+                          <FileText className="w-3.5 h-3.5 text-orange-400" />
+                          <span>Bill #{rent.billNumber || 1}</span>
+                        </button>
+
+                        {/* Return Action */}
+                        {(effectiveStatus === 'active' || effectiveStatus === 'overdue') && onInitiateReturn && (
+                          <button
+                            onClick={() => onInitiateReturn(rent)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-orange-50 hover:bg-orange-100 text-primary border border-orange-200 transition-all cursor-pointer"
+                            title="Record plate return and collect remaining balance"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            <span>Return</span>
+                          </button>
+                        )}
+
                         {/* Renew Cycle Button */}
-                        {(rent.status === 'active' || rent.status === 'overdue') && onRenewRental && (
+                        {(effectiveStatus === 'active' || effectiveStatus === 'overdue') && onRenewRental && (
                           <button
                             onClick={() => handleOpenRenewModal(rent)}
-                            className="text-xs bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold px-2.5 py-1 rounded-lg transition-all flex items-center gap-1"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-all cursor-pointer"
                             title="Renew rental for another 40-day cycle"
                           >
                             <RotateCw className="w-3.5 h-3.5" />
@@ -498,45 +642,14 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                           </button>
                         )}
 
-                        {/* Return Action */}
-                        {(rent.status === 'active' || rent.status === 'overdue') && onInitiateReturn && (
-                          <button
-                            onClick={() => onInitiateReturn(rent)}
-                            className="text-xs bg-orange-50 border border-orange-200 hover:bg-orange-100 text-primary font-bold px-2.5 py-1 rounded-lg transition-all"
-                            title="Record return intake for this rental"
-                          >
-                            Return
-                          </button>
-                        )}
-
                         {/* View Cycle History Modal Trigger */}
                         <button
                           onClick={() => setHistoryTarget(rent)}
-                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
+                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
                           title="View Cycle Financial History"
                         >
                           <History className="w-4 h-4" />
                         </button>
-
-                        {/* Status Toggle */}
-                        {rent.status === 'active' && (
-                          <button
-                            onClick={() => onUpdateRentalStatus(rent.id, 'overdue')}
-                            className="text-[11px] text-rose-600 hover:bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100"
-                            title="Mark Overdue"
-                          >
-                            Overdue
-                          </button>
-                        )}
-                        {rent.status === 'overdue' && (
-                          <button
-                            onClick={() => onUpdateRentalStatus(rent.id, 'active')}
-                            className="text-[11px] text-emerald-600 hover:bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100"
-                            title="Mark Active"
-                          >
-                            Active
-                          </button>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -567,9 +680,9 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
           activeCycle={getActiveCycleForRental(renewTarget)}
           plates={plates}
           onClose={() => setRenewTarget(null)}
-          onConfirm={async (rentalId, renewalDate, newItems) => {
+          onConfirm={async (rentalId, renewalDate, newItems, renewDays, payment) => {
             if (onRenewRental) {
-              await onRenewRental(rentalId, renewalDate, newItems);
+              await onRenewRental(rentalId, renewalDate, newItems, renewDays, payment);
             }
           }}
         />
@@ -780,9 +893,9 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                     className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-4 py-3 rounded-xl text-sm font-semibold text-slate-800"
                   >
                     <option value="">-- Choose Party --</option>
-                    {parties.map((p) => (
+                    {parties.map((p, idx) => (
                       <option key={p.id} value={p.id}>
-                        {p.name} ({p.mobile})
+                        Customer #{p.customerNumber || idx + 1} — {p.name} ({p.mobile})
                       </option>
                     ))}
                   </select>
@@ -856,11 +969,18 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                           type="number"
                           min="1"
                           required
-                          value={row.quantity || ''}
-                          onChange={(e) =>
-                            handleUpdatePlateRow(row.id, 'quantity', Math.max(0, parseInt(e.target.value) || 0))
-                          }
+                          value={row.quantity}
                           placeholder="e.g. 100"
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => handleUpdatePlateRow(row.id, 'quantity', e.target.value)}
+                          onBlur={() => {
+                            const val = parseInt(String(row.quantity), 10);
+                            if (!val || val < 1) {
+                              handleUpdatePlateRow(row.id, 'quantity', 1);
+                            } else {
+                              handleUpdatePlateRow(row.id, 'quantity', val);
+                            }
+                          }}
                           className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
                         />
                       </div>
@@ -872,13 +992,23 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                         </label>
                         <input
                           type="number"
-                          step="0.05"
+                          step="any"
                           min="0"
                           required
                           value={row.dailyRate}
-                          onChange={(e) =>
-                            handleUpdatePlateRow(row.id, 'dailyRate', Math.max(0, parseFloat(e.target.value) || 0))
-                          }
+                          placeholder="1.50"
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => handleUpdatePlateRow(row.id, 'dailyRate', e.target.value)}
+                          onBlur={() => {
+                            const strVal = String(row.dailyRate).trim();
+                            if (strVal === '' || isNaN(parseFloat(strVal))) {
+                              const defaultRate =
+                                plates.find((p) => p.plateType === row.plateType)?.dailyRate || 1.5;
+                              handleUpdatePlateRow(row.id, 'dailyRate', defaultRate);
+                            } else {
+                              handleUpdatePlateRow(row.id, 'dailyRate', Math.max(0, parseFloat(strVal)));
+                            }
+                          }}
                           className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
                         />
                       </div>
@@ -886,16 +1016,25 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       {/* Rental Term */}
                       <div className="lg:col-span-2 space-y-1 sm:space-y-0">
                         <label className="lg:hidden text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
-                          Rental Term (Days) *
+                          Standard Term (Days) *
                         </label>
                         <input
                           type="number"
                           min="1"
+                          max="365"
                           required
                           value={row.days}
-                          onChange={(e) =>
-                            handleUpdatePlateRow(row.id, 'days', Math.max(1, parseInt(e.target.value) || 1))
-                          }
+                          placeholder="e.g. 40"
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => handleUpdatePlateRow(row.id, 'days', e.target.value)}
+                          onBlur={() => {
+                            const val = parseInt(String(row.days), 10);
+                            if (!val || val < 1) {
+                              handleUpdatePlateRow(row.id, 'days', 1);
+                            } else {
+                              handleUpdatePlateRow(row.id, 'days', Math.min(365, val));
+                            }
+                          }}
                           className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
                         />
                       </div>
@@ -938,14 +1077,19 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-3 border-b border-slate-200/70">
                   <div className="space-y-1 text-left">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                      Calculated 40-Day Base Rent
+                      Calculated {plateRows[0]?.days ? `${plateRows[0].days}-Day ` : ''}Base Rent
                     </span>
                     <div className="space-y-0.5 text-[11px] text-slate-500 font-mono">
-                      {plateRows.map((r, idx) => (
-                        <div key={idx}>
-                          {r.quantity} plates ({r.plateType}) × ₹{r.dailyRate.toFixed(2)}/day × {r.days} days = ₹{(r.quantity * r.dailyRate * r.days).toLocaleString('en-IN')}
-                        </div>
-                      ))}
+                      {plateRows.map((r, idx) => {
+                        const q = parseInt(String(r.quantity), 10) || 0;
+                        const rate = parseFloat(String(r.dailyRate)) || 0;
+                        const d = parseInt(String(r.days), 10) || 0;
+                        return (
+                          <div key={idx}>
+                            {q} plates ({r.plateType}) × ₹{rate.toFixed(2)}/day × {d} days = ₹{(q * rate * d).toLocaleString('en-IN')}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                   <div className="text-right">
@@ -963,9 +1107,17 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                     <input
                       type="number"
                       min="0"
+                      step="any"
                       required
                       value={amountPaid}
-                      onChange={(e) => setAmountPaid(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="0"
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setAmountPaid(e.target.value)}
+                      onBlur={() => {
+                        if (amountPaid.trim() === '') {
+                          setAmountPaid('0');
+                        }
+                      }}
                       className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
                     />
                   </div>
@@ -979,10 +1131,10 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       onChange={(e) => setPaymentMode(e.target.value as any)}
                       className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
                     >
-                      <option value="Udhari">Outstanding Dues</option>
+                      <option value="Outstanding">Outstanding</option>
                       <option value="Account 1">Account 1 (Bank)</option>
                       <option value="Account 2">Account 2 (Digital)</option>
-                      <option value="Cash">Yard Drawer Cash</option>
+                      <option value="Cash">Cash</option>
                     </select>
                   </div>
                 </div>
@@ -1015,6 +1167,21 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* RENTAL BILL / CHALLAN MODAL */}
+      {billTarget && (
+        <RentalBillModal
+          rental={billTarget}
+          activeCycle={getActiveCycleForRental(billTarget)}
+          rentalCycles={getCyclesForRental(billTarget)}
+          party={parties.find((p) => p.id === billTarget.partyId)}
+          payments={payments.filter((p) => (p.rentalId && p.rentalId === billTarget.id) || (p.partyId && p.partyId === billTarget.partyId))}
+          finances={getLiveCycleData(billTarget).finances}
+          billNumber={billTarget.billNumber}
+          customerNumber={billTarget.customerNumber || parties.find((p) => p.id === billTarget.partyId)?.customerNumber}
+          onClose={() => setBillTarget(null)}
+        />
       )}
     </div>
   );

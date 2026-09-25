@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { Search, AlertCircle, CheckCircle2 } from 'lucide-react';
 import type { Party, Payment } from '../../../data/adminMockData';
 
-interface UdhariTabProps {
+export interface OutstandingDuesTabProps {
   parties: Party[];
   payments: Payment[];
 }
 
-export const UdhariTab: React.FC<UdhariTabProps> = ({ parties, payments }) => {
+export const OutstandingDuesTab: React.FC<OutstandingDuesTabProps> = ({ parties, payments }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredParties = parties.filter((p) =>
@@ -93,7 +93,14 @@ export const UdhariTab: React.FC<UdhariTabProps> = ({ parties, payments }) => {
 
                 return (
                   <tr key={party.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 font-bold text-slate-800">{party.name}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+                          #{party.customerNumber || 1}
+                        </span>
+                        <span className="font-bold text-slate-800">{party.name}</span>
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-slate-500">₹{party.totalRent.toLocaleString('en-IN')}</td>
                     <td className="px-6 py-4 text-emerald-600 font-bold">₹{party.paid.toLocaleString('en-IN')}</td>
                     <td className={`px-6 py-4 font-black ${party.pending > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
@@ -132,3 +139,5 @@ export const UdhariTab: React.FC<UdhariTabProps> = ({ parties, payments }) => {
     </div>
   );
 };
+
+export const UdhariTab = OutstandingDuesTab;

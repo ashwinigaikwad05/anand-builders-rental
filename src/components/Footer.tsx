@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, MapPin, ArrowUp } from 'lucide-react';
+import { Phone, MapPin, ArrowUp, ShieldCheck } from 'lucide-react';
 import { CONTACT_INFO } from '../data/mockData';
 
 interface FooterProps {
@@ -17,7 +17,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 pb-12 border-b border-slate-800/80">
           
-          {/* Logo & Bilingual Brand Info (5 Columns) */}
+          {/* Logo & Brand Info (5 Columns) */}
           <div className="lg:col-span-5 text-left space-y-5">
             <div className="flex items-center gap-3">
               <img
@@ -125,7 +125,16 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <p>© {new Date().getFullYear()} Anand Builders & Developers. All rights reserved.</p>
           
           <div className="flex items-center gap-6">
-            <span>Bilingual Demo Site</span>
+            <a
+              href="/admin"
+              className="text-slate-500 hover:text-primary transition flex items-center gap-1.5 font-medium"
+              title="Open Admin Management Portal"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+              <span>Admin Portal</span>
+            </a>
+            <span className="hidden sm:inline text-slate-700">•</span>
+            <span>Marathi & English Support</span>
             <button
               onClick={handleScrollToTop}
               className="p-2.5 bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-primary rounded-lg transition-all"

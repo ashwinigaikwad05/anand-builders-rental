@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Plus, Layers, AlertCircle, Loader2 } from 'lucide-react';
-import { STANDARD_PLATE_SIZES } from '../../../lib/supabase';
+import { STANDARD_PLATE_SIZES, getCustomPlateSizes } from '../../../lib/supabase';
 import type { PlateSizeType } from '../../../lib/supabase';
 
 interface AddStockModalProps {
@@ -19,7 +19,8 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
   onClose,
   onAddStock,
 }) => {
-  const [plateSize, setPlateSize] = useState<PlateSizeType>('24×3');
+  const allSizes = Array.from(new Set([...STANDARD_PLATE_SIZES, ...getCustomPlateSizes()]));
+  const [plateSize, setPlateSize] = useState<PlateSizeType>(allSizes[0] || '24×3');
   const [quantity, setQuantity] = useState<string>('');
   const [receivedDate, setReceivedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
@@ -120,7 +121,7 @@ export const AddStockModal: React.FC<AddStockModalProps> = ({
               disabled={isSubmitting}
               className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none px-4 py-3 rounded-xl text-sm font-semibold text-slate-800"
             >
-              {STANDARD_PLATE_SIZES.map((size) => (
+              {allSizes.map((size) => (
                 <option key={size} value={size}>
                   {size} Width Plate
                 </option>

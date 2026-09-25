@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Layers,
   ShieldCheck,
@@ -27,11 +27,17 @@ import {
   calculateExpectedCycleEndDate,
 } from '../../../lib/supabase';
 import { RenewRentalModal } from '../modals/RenewRentalModal';
+import { DashboardDetailModal, type DashboardDetailField } from '../modals/DashboardDetailModal';
 import {
   getCleanPhoneNumber,
   determineCycleAlertStatus,
   buildWhatsAppUrl,
 } from '../../../utils/alertMessaging';
+import {
+  getStoredAppLanguage,
+  t,
+  type AppLanguage,
+} from '../../../utils/appTranslations';
 
 interface DashboardTabProps {
   parties: Party[];
@@ -41,8 +47,21 @@ interface DashboardTabProps {
   returns?: ReturnLog[];
   payments: Payment[];
   onTabChange: (tabName: string) => void;
-  onRenewRental?: (rentalId: string, renewalConfirmationDate?: string, newItems?: RentalItem[]) => Promise<void>;
+  onRenewRental?: (
+    rentalId: string,
+    renewalConfirmationDate?: string,
+    newItems?: RentalItem[],
+    renewDays?: number,
+    payment?: {
+      amount: number;
+      paymentMode: 'Cash' | 'Account 1' | 'Account 2';
+      date?: string;
+      reference?: string;
+      notes?: string;
+    }
+  ) => Promise<void>;
   onInitiateReturn?: (rental: Rental) => void;
+  appLanguage?: AppLanguage;
 }
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({
@@ -55,12 +74,36 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   onTabChange,
   onRenewRental,
   onInitiateReturn,
+  appLanguage,
 }) => {
   const todayStr = new Date().toISOString().split('T')[0];
+
+  // Selected Language State
+  const [currentLang, setCurrentLang] = useState<AppLanguage>(() => appLanguage || getStoredAppLanguage());
+
+  useEffect(() => {
+    if (appLanguage) {
+      setCurrentLang(appLanguage);
+    }
+  }, [appLanguage]);
+
+  useEffect(() => {
+    const handleLangChange = (e: Event) => {
+      const customEvent = e as CustomEvent<AppLanguage>;
+      if (customEvent.detail) {
+        setCurrentLang(customEvent.detail);
+      }
+    };
+    window.addEventListener('anand_language_change', handleLangChange);
+    return () => window.removeEventListener('anand_language_change', handleLangChange);
+  }, []);
+
+  const curT = t[currentLang] || t.marathi;
 
   // Quick Renew Modal state
   const [renewTarget, setRenewTarget] = useState<Rental | null>(null);
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(true);
+  const [selectedDetailField, setSelectedDetailField] = useState<DashboardDetailField | null>(null);
 
   // Core plate inventory calculations
   const totalPlates = plates.reduce((sum, p) => sum + p.total, 0);
@@ -184,6 +227,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   return (
     <div className="space-y-8 text-left">
+
       {/* 40-Day Completion Top Notification Popup Alert */}
       {isAlertModalOpen && completed40Alerts.length > 0 && (
         <div className="bg-gradient-to-r from-purple-950 via-slate-900 to-rose-950 text-white p-5 rounded-3xl border border-purple-800 shadow-xl relative animate-fadeIn">
@@ -194,19 +238,19 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               </div>
               <div>
                 <h4 className="text-base font-extrabold text-white flex items-center gap-2">
-                  <span>40-Day Rental Cycle Completion Alert</span>
+                  <span>{curT.cycleAlerts.title}</span>
                   <span className="bg-purple-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black">
-                    {completed40Alerts.length} Active
+                    {completed40Alerts.length} {curT.cycleAlerts.attentionRequired}
                   </span>
                 </h4>
                 <p className="text-xs text-purple-200 font-light mt-0.5">
-                  {completed40Alerts.length} party rental cycle{completed40Alerts.length > 1 ? 's have' : ' has'} completed 40 days and {completed40Alerts.length > 1 ? 'are' : 'is'} ready for Return or Renewal.
+                  {completed40Alerts.length} {curT.cycleAlerts.subtitle}
                 </p>
               </div>
             </div>
             <button
               onClick={() => setIsAlertModalOpen(false)}
-              className="p-1.5 text-purple-300 hover:text-white hover:bg-purple-800/40 rounded-xl transition"
+              className="p-1.5 text-purple-300 hover:text-white hover:bg-purple-800/40 rounded-xl transition cursor-pointer"
               title="Dismiss banner"
             >
               <X className="w-5 h-5" />
@@ -230,15 +274,15 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 </div>
                 <div className="text-[11px] text-slate-200 space-y-0.5">
                   <div className="flex justify-between">
-                    <span>Cycle Number:</span>
-                    <span className="font-bold text-white">Cycle {item.activeCycle.cycleNumber}</span>
+                    <span>{curT.cycleAlerts.activeCycle}</span>
+                    <span className="font-bold text-white">{curT.cycleAlerts.cycle} {item.activeCycle.cycleNumber}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Days Used:</span>
-                    <span className="font-bold text-amber-300">{item.elapsedDays} Days</span>
+                    <span>{curT.cycleAlerts.daysUsed}</span>
+                    <span className="font-bold text-amber-300">{item.elapsedDays} {curT.cycleAlerts.days}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Plates:</span>
+                    <span>{curT.cycleAlerts.plateAndQty}</span>
                     <span className="font-semibold text-white">{item.plateSummary}</span>
                   </div>
                 </div>
@@ -247,7 +291,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                     href={item.telLink}
                     className="flex-1 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-xs"
                   >
-                    <Phone className="w-3.5 h-3.5" /> 📞 Call Party
+                    <Phone className="w-3.5 h-3.5" /> 📞 {curT.cycleAlerts.callParty}
                   </a>
                   <a
                     href={item.whatsappUrl}
@@ -255,7 +299,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                     rel="noopener noreferrer"
                     className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-xs"
                   >
-                    <MessageSquare className="w-3.5 h-3.5" /> 💬 WhatsApp
+                    <MessageSquare className="w-3.5 h-3.5" /> 💬 {curT.cycleAlerts.whatsapp}
                   </a>
                 </div>
               </div>
@@ -267,63 +311,115 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       {/* Upper Primary Stat Widgets */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Card 1: Total Inventory */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => setSelectedDetailField('total_stock')}
+          className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md hover:border-slate-300 hover:-translate-y-0.5 transition-all group select-none"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') setSelectedDetailField('total_stock');
+          }}
+          title={currentLang === 'marathi' ? 'तपशील पाहण्यासाठी क्लिक करा' : 'Click to view stock breakdown'}
+        >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Total Shuttering Stock
+              {curT.stats.totalStock}
             </span>
             <h3 className="text-3xl font-black text-charcoal">{totalPlates.toLocaleString()}</h3>
-            <p className="text-[10px] text-slate-400 font-light">Inventory across all sizes</p>
+            <p className="text-[10px] text-slate-400 font-light">{curT.stats.totalStockSub}</p>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 group-hover:text-primary transition-colors pt-1">
+              <span>{currentLang === 'marathi' ? 'तपशील पाहा' : 'Click for details'}</span>
+              <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </div>
           </div>
-          <div className="p-3.5 bg-slate-100 rounded-xl text-slate-700">
+          <div className="p-3.5 bg-slate-100 rounded-xl text-slate-700 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
             <Layers className="w-6 h-6" />
           </div>
         </div>
 
         {/* Card 2: Available Inventory */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => setSelectedDetailField('in_yard')}
+          className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md hover:border-emerald-300 hover:-translate-y-0.5 transition-all group select-none"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') setSelectedDetailField('in_yard');
+          }}
+          title={currentLang === 'marathi' ? 'गोदाम साहित्याचा तपशील पाहण्यासाठी क्लिक करा' : 'Click to view yard availability'}
+        >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Available in Yard
+              {curT.stats.inYard}
             </span>
             <h3 className="text-3xl font-black text-emerald-600">
               {availablePlates.toLocaleString()}
             </h3>
-            <p className="text-[10px] text-emerald-500 font-medium">Ready for dispatch</p>
+            <p className="text-[10px] text-emerald-500 font-medium">{curT.stats.inYardSub}</p>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 group-hover:text-emerald-600 transition-colors pt-1">
+              <span>{currentLang === 'marathi' ? 'तपशील पाहा' : 'Click for details'}</span>
+              <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </div>
           </div>
-          <div className="p-3.5 bg-emerald-50 rounded-xl text-emerald-600">
+          <div className="p-3.5 bg-emerald-50 rounded-xl text-emerald-600 group-hover:bg-emerald-100 transition-colors">
             <ShieldCheck className="w-6 h-6" />
           </div>
         </div>
 
         {/* Card 3: In Use Inventory */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => setSelectedDetailField('with_parties')}
+          className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md hover:border-orange-300 hover:-translate-y-0.5 transition-all group select-none"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') setSelectedDetailField('with_parties');
+          }}
+          title={currentLang === 'marathi' ? 'ग्राहकांकडील साहित्याचा तपशील पाहण्यासाठी क्लिक करा' : 'Click to view rented plates list'}
+        >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Plates with Parties
+              {curT.stats.withParties}
             </span>
             <h3 className="text-3xl font-black text-primary">
               {platesWithParties.toLocaleString()}
             </h3>
-            <p className="text-[10px] text-slate-400 font-light">Active construction sites</p>
+            <p className="text-[10px] text-slate-400 font-light">{curT.stats.withPartiesSub}</p>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 group-hover:text-primary transition-colors pt-1">
+              <span>{currentLang === 'marathi' ? 'तपशील पाहा' : 'Click for details'}</span>
+              <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </div>
           </div>
-          <div className="p-3.5 bg-orange-50 rounded-xl text-primary">
+          <div className="p-3.5 bg-orange-50 rounded-xl text-primary group-hover:bg-orange-100 transition-colors">
             <UserCheck className="w-6 h-6" />
           </div>
         </div>
 
         {/* Card 4: Outstanding Dues */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => setSelectedDetailField('outstanding')}
+          className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md hover:border-rose-300 hover:-translate-y-0.5 transition-all group select-none"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') setSelectedDetailField('outstanding');
+          }}
+          title={currentLang === 'marathi' ? 'बाकी रकमेचा तपशील पाहण्यासाठी क्लिक करा' : 'Click to view outstanding dues breakdown'}
+        >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Outstanding Dues
+              {curT.stats.outstanding}
             </span>
             <h3 className="text-3xl font-black text-rose-600">
               ₹{totalPendingAmount.toLocaleString('en-IN')}
             </h3>
-            <p className="text-[10px] text-rose-500 font-medium">Outstanding accounts receivable</p>
+            <p className="text-[10px] text-rose-500 font-medium">{curT.stats.outstandingSub}</p>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 group-hover:text-rose-600 transition-colors pt-1">
+              <span>{currentLang === 'marathi' ? 'तपशील पाहा' : 'Click for details'}</span>
+              <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </div>
           </div>
-          <div className="p-3.5 bg-rose-50 rounded-xl text-rose-600">
+          <div className="p-3.5 bg-rose-50 rounded-xl text-rose-600 group-hover:bg-rose-100 transition-colors">
             <DollarSign className="w-6 h-6" />
           </div>
         </div>
@@ -338,30 +434,47 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </div>
             <div>
               <h4 className="text-base font-bold text-charcoal">
-                40-Day Rental Cycle Expiration Alerts
+                {curT.cycleAlerts.title}
               </h4>
               <p className="text-[11px] text-slate-400 font-light">
-                Real-time tracking of active 40-day cycles with instant Call and WhatsApp party actions
+                {curT.cycleAlerts.subtitle}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedDetailField('cycle_alerts')}
+              className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-200 rounded-full text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+            >
+              <span>{currentLang === 'marathi' ? 'सर्व तपशील पाहा' : 'View Full Details'}</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
             <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100/70 text-amber-800">
-              {cycleAlerts.length} Attention Required
+              {cycleAlerts.length} {curT.cycleAlerts.attentionRequired}
             </span>
           </div>
         </div>
 
         <div className="p-6">
           {cycleAlerts.length === 0 ? (
-            <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 text-emerald-800 text-xs">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-              <div>
-                <span className="font-bold block">All Cycles Within Normal 40-Day Term</span>
-                <span className="text-emerald-700/90 text-[11px]">
-                  No active rental agreements are currently overdue or expiring within 7 days.
-                </span>
+            <div
+              onClick={() => setSelectedDetailField('cycle_alerts')}
+              className="flex items-center justify-between p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 text-emerald-800 text-xs cursor-pointer hover:bg-emerald-100/60 transition group select-none"
+              title={currentLang === 'marathi' ? 'तपशील पाहण्यासाठी क्लिक करा' : 'Click to view cycle status'}
+            >
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                <div>
+                  <span className="font-bold block">{curT.cycleAlerts.allGoodTitle}</span>
+                  <span className="text-emerald-700/90 text-[11px]">
+                    {curT.cycleAlerts.allGoodSub}
+                  </span>
+                </div>
               </div>
+              <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 group-hover:underline">
+                {currentLang === 'marathi' ? 'तपशील पाहा' : 'View details'} <ArrowUpRight className="w-3 h-3" />
+              </span>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -406,37 +519,37 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
                       <div className="bg-white/90 rounded-xl p-3 border border-slate-200/60 space-y-1.5 text-xs">
                         <div className="flex justify-between text-slate-600">
-                          <span className="font-semibold text-slate-500">Plate Variant & Qty:</span>
+                          <span className="font-semibold text-slate-500">{curT.cycleAlerts.plateAndQty}</span>
                           <span className="font-bold text-slate-800">{plateSummary}</span>
                         </div>
                         <div className="flex justify-between text-slate-600">
-                          <span className="font-semibold text-slate-500">Active Cycle:</span>
-                          <span className="font-bold text-slate-800">Cycle {activeCycle.cycleNumber}</span>
+                          <span className="font-semibold text-slate-500">{curT.cycleAlerts.activeCycle}</span>
+                          <span className="font-bold text-slate-800">{curT.cycleAlerts.cycle} {activeCycle.cycleNumber}</span>
                         </div>
                         <div className="flex justify-between text-slate-600">
-                          <span className="font-semibold text-slate-500">Days Used:</span>
-                          <span className="font-bold text-amber-600">{alert.elapsedDays} Days</span>
+                          <span className="font-semibold text-slate-500">{curT.cycleAlerts.daysUsed}</span>
+                          <span className="font-bold text-amber-600">{alert.elapsedDays} {curT.cycleAlerts.days}</span>
                         </div>
                         <div className="flex justify-between text-slate-600">
-                          <span className="font-semibold text-slate-500">Term Dates:</span>
+                          <span className="font-semibold text-slate-500">{curT.cycleAlerts.termDates}</span>
                           <span className="font-mono text-[11px] text-slate-700">
                             {activeCycle.startDate} → {activeCycle.expectedEndDate}
                           </span>
                         </div>
                         <div className="flex justify-between text-slate-600">
-                          <span className="font-semibold text-slate-500">Action Status:</span>
+                          <span className="font-semibold text-slate-500">{curT.cycleAlerts.actionStatus}</span>
                           <span className="font-extrabold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded text-[10px]">
-                            Ready for Return or Renewal
+                            {curT.cycleAlerts.readyAction}
                           </span>
                         </div>
                         {finances.extraAmount > 0 && (
                           <div className="pt-1 border-t border-slate-100 flex justify-between text-amber-800 font-bold text-[11px]">
-                            <span>Extra Charges Added:</span>
+                            <span>{curT.cycleAlerts.extraCharges}</span>
                             <span>+₹{finances.extraAmount.toLocaleString('en-IN')}</span>
                           </div>
                         )}
                         <div className="flex justify-between text-slate-700 font-bold text-xs pt-1 border-t border-slate-100">
-                          <span>Current Pending:</span>
+                          <span>{curT.cycleAlerts.currentPending}</span>
                           <span className={finances.pendingAmount > 0 ? 'text-rose-600' : 'text-emerald-600'}>
                             ₹{finances.pendingAmount.toLocaleString('en-IN')}
                           </span>
@@ -449,22 +562,22 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                       <div className="grid grid-cols-2 gap-2">
                         <a
                           href={telLink}
-                          className="px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5"
+                          className="px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                           title={`Call ${rental.partyName}`}
                         >
                           <Phone className="w-3.5 h-3.5" />
-                          <span>Call Party</span>
+                          <span>{curT.cycleAlerts.callParty}</span>
                         </a>
 
                         <a
                           href={whatsappUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5"
-                          title={`Open WhatsApp chat with pre-filled message`}
+                          className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                          title="Open WhatsApp chat with pre-filled message"
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
-                          <span>WhatsApp</span>
+                          <span>{curT.cycleAlerts.whatsapp}</span>
                         </a>
                       </div>
 
@@ -472,23 +585,25 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                       <div className="grid grid-cols-2 gap-2">
                         {onRenewRental && (
                           <button
+                            type="button"
                             onClick={() => {
                               setRenewTarget(rental);
                             }}
-                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] rounded-xl transition-all flex items-center justify-center gap-1"
+                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
                           >
                             <RotateCw className="w-3 h-3" />
-                            <span>Renew Cycle</span>
+                            <span>{curT.cycleAlerts.renewCycle}</span>
                           </button>
                         )}
 
                         {onInitiateReturn && (
                           <button
+                            type="button"
                             onClick={() => onInitiateReturn(rental)}
-                            className="px-3 py-1.5 bg-white hover:bg-orange-50 border border-orange-200 text-primary font-bold text-[11px] rounded-xl transition-all flex items-center justify-center gap-1"
+                            className="px-3 py-1.5 bg-white hover:bg-orange-50 border border-orange-200 text-primary font-bold text-[11px] rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
                           >
                             <RefreshCw className="w-3 h-3" />
-                            <span>Return Intake</span>
+                            <span>{curT.cycleAlerts.returnIntake}</span>
                           </button>
                         )}
                       </div>
@@ -504,49 +619,88 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       {/* Account Balances Strip: Account 1, Account 2, Cash */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {/* Account 1 */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between hover:border-blue-200 transition-all">
+        <div
+          onClick={() => setSelectedDetailField('account_1')}
+          className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md hover:border-blue-300 hover:-translate-y-0.5 transition-all group select-none"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') setSelectedDetailField('account_1');
+          }}
+          title={currentLang === 'marathi' ? 'खाते १ चे व्यवहार पाहण्यासाठी क्लिक करा' : 'Click to view Account 1 transactions'}
+        >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-              Account 1 (Bank Direct)
+              {curT.accounts.acc1Title}
             </span>
             <h3 className="text-2xl sm:text-3xl font-black text-blue-600">
               ₹{account1Balance.toLocaleString('en-IN')}
             </h3>
-            <p className="text-[10px] text-slate-400 font-light">Primary Bank Account</p>
+            <p className="text-[10px] text-slate-400 font-light">{curT.accounts.acc1Sub}</p>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 group-hover:text-blue-600 transition-colors pt-1">
+              <span>{currentLang === 'marathi' ? 'व्यवहार पाहा' : 'View Transactions'}</span>
+              <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </div>
           </div>
-          <div className="p-3.5 bg-blue-50 rounded-xl text-blue-600">
+          <div className="p-3.5 bg-blue-50 rounded-xl text-blue-600 group-hover:bg-blue-100 transition-colors">
             <Landmark className="w-6 h-6" />
           </div>
         </div>
 
         {/* Account 2 */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between hover:border-purple-200 transition-all">
+        <div
+          onClick={() => setSelectedDetailField('account_2')}
+          className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md hover:border-purple-300 hover:-translate-y-0.5 transition-all group select-none"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') setSelectedDetailField('account_2');
+          }}
+          title={currentLang === 'marathi' ? 'खाते २ चे व्यवहार पाहण्यासाठी क्लिक करा' : 'Click to view Account 2 transactions'}
+        >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-              Account 2 (UPI / Digital)
+              {curT.accounts.acc2Title}
             </span>
             <h3 className="text-2xl sm:text-3xl font-black text-purple-600">
               ₹{account2Balance.toLocaleString('en-IN')}
             </h3>
-            <p className="text-[10px] text-slate-400 font-light">Secondary Digital Account</p>
+            <p className="text-[10px] text-slate-400 font-light">{curT.accounts.acc2Sub}</p>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 group-hover:text-purple-600 transition-colors pt-1">
+              <span>{currentLang === 'marathi' ? 'व्यवहार पाहा' : 'View Transactions'}</span>
+              <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </div>
           </div>
-          <div className="p-3.5 bg-purple-50 rounded-xl text-purple-600">
+          <div className="p-3.5 bg-purple-50 rounded-xl text-purple-600 group-hover:bg-purple-100 transition-colors">
             <Smartphone className="w-6 h-6" />
           </div>
         </div>
 
         {/* Cash Account */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between hover:border-emerald-200 transition-all">
+        <div
+          onClick={() => setSelectedDetailField('cash')}
+          className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md hover:border-emerald-300 hover:-translate-y-0.5 transition-all group select-none"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') setSelectedDetailField('cash');
+          }}
+          title={currentLang === 'marathi' ? 'रोख व्यवहार पाहण्यासाठी क्लिक करा' : 'Click to view cash transactions'}
+        >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-              Cash (Yard Drawer)
+              {curT.accounts.cashTitle}
             </span>
             <h3 className="text-2xl sm:text-3xl font-black text-emerald-600">
               ₹{cashBalance.toLocaleString('en-IN')}
             </h3>
-            <p className="text-[10px] text-slate-400 font-light">Physical Cash on hand</p>
+            <p className="text-[10px] text-slate-400 font-light">{curT.accounts.cashSub}</p>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 group-hover:text-emerald-600 transition-colors pt-1">
+              <span>{currentLang === 'marathi' ? 'व्यवहार पाहा' : 'View Transactions'}</span>
+              <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </div>
           </div>
-          <div className="p-3.5 bg-emerald-50 rounded-xl text-emerald-600">
+          <div className="p-3.5 bg-emerald-50 rounded-xl text-emerald-600 group-hover:bg-emerald-100 transition-colors">
             <Banknote className="w-6 h-6" />
           </div>
         </div>
@@ -554,41 +708,83 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
       {/* Daily Flow & Operational Status Metrics Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
+        {/* Today's Rentals */}
+        <div
+          onClick={() => setSelectedDetailField('today_rentals')}
+          className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md hover:border-orange-300 hover:-translate-y-0.5 transition-all group select-none"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') setSelectedDetailField('today_rentals');
+          }}
+          title={currentLang === 'marathi' ? 'आजचे वाटप पाहण्यासाठी क्लिक करा' : "Click to view today's dispatches"}
+        >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-              Today's Rentals
+              {curT.daily.todayRentals}
             </span>
             <p className="text-2xl font-black text-primary">{todayRentalsCount}</p>
-            <p className="text-[10px] text-slate-400 font-light">Dispatches issued today</p>
+            <p className="text-[10px] text-slate-400 font-light">{curT.daily.todayRentalsSub}</p>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 group-hover:text-primary transition-colors pt-1">
+              <span>{currentLang === 'marathi' ? 'तपशील पाहा' : 'View Details'}</span>
+              <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </div>
           </div>
-          <div className="p-3.5 bg-orange-50 rounded-xl text-primary">
+          <div className="p-3.5 bg-orange-50 rounded-xl text-primary group-hover:bg-orange-100 transition-colors">
             <ClipboardList className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
+        {/* Today's Returns */}
+        <div
+          onClick={() => setSelectedDetailField('today_returns')}
+          className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md hover:border-blue-300 hover:-translate-y-0.5 transition-all group select-none"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') setSelectedDetailField('today_returns');
+          }}
+          title={currentLang === 'marathi' ? 'आजचे साहित्य जमा पाहण्यासाठी क्लिक करा' : "Click to view today's return intakes"}
+        >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-              Today's Returns
+              {curT.daily.todayReturns}
             </span>
             <p className="text-2xl font-black text-blue-600">{todayReturnsCount}</p>
-            <p className="text-[10px] text-slate-400 font-light">Intakes received today</p>
+            <p className="text-[10px] text-slate-400 font-light">{curT.daily.todayReturnsSub}</p>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 group-hover:text-blue-600 transition-colors pt-1">
+              <span>{currentLang === 'marathi' ? 'तपशील पाहा' : 'View Details'}</span>
+              <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </div>
           </div>
-          <div className="p-3.5 bg-blue-50 rounded-xl text-blue-600">
+          <div className="p-3.5 bg-blue-50 rounded-xl text-blue-600 group-hover:bg-blue-100 transition-colors">
             <RefreshCw className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between">
+        {/* Overdue Rentals */}
+        <div
+          onClick={() => setSelectedDetailField('overdue_rentals')}
+          className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md hover:border-rose-300 hover:-translate-y-0.5 transition-all group select-none"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') setSelectedDetailField('overdue_rentals');
+          }}
+          title={currentLang === 'marathi' ? 'मुदत संपलेल्या नोंदी पाहण्यासाठी क्लिक करा' : 'Click to view overdue rentals list'}
+        >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-              Overdue Rentals
+              {curT.daily.overdueRentals}
             </span>
             <p className="text-2xl font-black text-rose-600">{overdueRentals.length}</p>
-            <p className="text-[10px] text-slate-400 font-light">Exceeding rental terms</p>
+            <p className="text-[10px] text-slate-400 font-light">{curT.daily.overdueRentalsSub}</p>
+            <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 group-hover:text-rose-600 transition-colors pt-1">
+              <span>{currentLang === 'marathi' ? 'तपशील पाहा' : 'View Details'}</span>
+              <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </div>
           </div>
-          <div className="p-3.5 bg-rose-50 rounded-xl text-rose-600">
+          <div className="p-3.5 bg-rose-50 rounded-xl text-rose-600 group-hover:bg-rose-100 transition-colors">
             <AlertTriangle className="w-6 h-6" />
           </div>
         </div>
@@ -603,10 +799,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
               <h4 className="text-base font-bold text-charcoal flex items-center gap-2">
                 <ClipboardList className="w-5 h-5 text-primary" />
-                Active Rentals & Overdues
+                {curT.tables.activeRentalsTitle}
               </h4>
               <span className="bg-rose-50 border border-rose-100 text-rose-700 text-xs px-2.5 py-0.5 rounded-full font-bold">
-                {overdueRentals.length} Overdue
+                {overdueRentals.length} {curT.tables.overdueCount}
               </span>
             </div>
 
@@ -614,11 +810,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                    <th className="px-6 py-4">Party</th>
-                    <th className="px-6 py-4">Size</th>
-                    <th className="px-6 py-4">Qty</th>
-                    <th className="px-6 py-4">Issue Date</th>
-                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">{curT.tables.partyCol}</th>
+                    <th className="px-6 py-4">{curT.tables.sizeCol}</th>
+                    <th className="px-6 py-4">{curT.tables.qtyCol}</th>
+                    <th className="px-6 py-4">{curT.tables.issueDateCol}</th>
+                    <th className="px-6 py-4">{curT.tables.statusCol}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -636,7 +832,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                               : 'bg-emerald-50 text-emerald-700 border border-emerald-200/50'
                           }`}
                         >
-                          {rent.status === 'overdue' ? 'Overdue' : 'Active'}
+                          {rent.status === 'overdue' ? curT.tables.overdueStatus : curT.tables.activeStatus}
                         </span>
                       </td>
                     </tr>
@@ -644,7 +840,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   {activeRentals.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-6 py-10 text-center text-slate-400 font-light italic">
-                        No rentals yet.
+                        {curT.tables.noRentals}
                       </td>
                     </tr>
                   )}
@@ -655,7 +851,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
           {/* Quick Custom Visualization of Inventory Distribution */}
           <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm">
-            <h4 className="text-base font-bold text-charcoal mb-6">Inventory Stock Allocation</h4>
+            <h4 className="text-base font-bold text-charcoal mb-6">{curT.tables.stockAllocation}</h4>
             <div className="space-y-4">
               {plates.map((plate) => {
                 const inUsePercent =
@@ -663,11 +859,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 return (
                   <div key={plate.plateType} className="space-y-1">
                     <div className="flex justify-between text-xs font-semibold">
-                      <span className="text-charcoal font-bold">Size: {plate.plateType}</span>
+                      <span className="text-charcoal font-bold">{plate.plateType}</span>
                       <span className="text-slate-500">
                         {plate.total === 0
-                          ? '0 in stock (0% rented)'
-                          : `${plate.withParties} / ${plate.total} rented (${inUsePercent.toFixed(0)}%)`}
+                          ? '0'
+                          : `${plate.withParties} / ${plate.total} ${curT.tables.rentedRatio} (${inUsePercent.toFixed(0)}%)`}
                       </span>
                     </div>
                     <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden flex">
@@ -687,11 +883,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <div className="flex gap-4 mt-6 text-xs font-medium justify-center border-t border-slate-100 pt-4">
               <span className="flex items-center gap-1.5 text-slate-500">
                 <span className="w-3 h-3 rounded-full bg-primary" />
-                With Parties
+                {curT.tables.withPartiesLegend}
               </span>
               <span className="flex items-center gap-1.5 text-slate-500">
                 <span className="w-3 h-3 rounded-full bg-emerald-500" />
-                Available in Stockyard
+                {curT.tables.inStockyardLegend}
               </span>
             </div>
           </div>
@@ -702,12 +898,13 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           {/* Recent Payments Log */}
           <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
             <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
-              <h4 className="text-base font-bold text-charcoal">Recent Payments</h4>
+              <h4 className="text-base font-bold text-charcoal">{curT.tables.recentPayments}</h4>
               <button
+                type="button"
                 onClick={() => onTabChange('Payments')}
-                className="text-xs text-primary hover:text-primary-dark font-bold transition-all"
+                className="text-xs text-primary hover:text-primary-dark font-bold transition-all cursor-pointer"
               >
-                View All
+                {curT.tables.viewAll}
               </button>
             </div>
 
@@ -720,7 +917,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   <div className="space-y-0.5">
                     <p className="text-sm font-bold text-slate-800">{pay.partyName}</p>
                     <p className="text-xs text-slate-400 font-light">
-                      {pay.date} • {pay.paymentMode} {pay.cycleNumber ? `(Cycle ${pay.cycleNumber})` : ''}
+                      {pay.date} • {pay.paymentMode} {pay.cycleNumber ? `(${curT.cycleAlerts.cycle} ${pay.cycleNumber})` : ''}
                     </p>
                   </div>
                   <div className="text-right">
@@ -732,7 +929,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               ))}
               {recentPayments.length === 0 && (
                 <div className="p-6 text-center text-slate-400 font-light italic">
-                  No payments yet.
+                  {curT.tables.noPayments}
                 </div>
               )}
             </div>
@@ -741,45 +938,49 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           {/* Quick Actions */}
           <div className="bg-charcoal text-white p-6 rounded-3xl border border-slate-800/80 relative overflow-hidden shadow-lg">
             <div className="absolute inset-0 bg-[radial-gradient(#ffffff03_1px,transparent_1px)] [background-size:16px_16px] opacity-15" />
-            <h4 className="text-base font-bold text-white relative z-10">Quick Actions</h4>
+            <h4 className="text-base font-bold text-white relative z-10">{curT.tables.quickActions}</h4>
             <div className="grid grid-cols-2 gap-4 mt-6 relative z-10">
               <button
+                type="button"
                 onClick={() => onTabChange('Rentals')}
-                className="bg-slate-900 border border-slate-800 hover:border-primary/50 text-left p-4 rounded-2xl hover:bg-slate-850 transition-all flex flex-col justify-between h-24"
+                className="bg-slate-900 border border-slate-800 hover:border-primary/50 text-left p-4 rounded-2xl hover:bg-slate-850 transition-all flex flex-col justify-between h-24 cursor-pointer"
               >
-                <span className="text-xs text-slate-400">Issue Shuttering</span>
+                <span className="text-xs text-slate-400">{curT.tables.issueShuttering}</span>
                 <span className="font-bold text-sm text-white flex items-center gap-1">
-                  + New Rental <ArrowUpRight className="w-4 h-4 text-primary" />
+                  {curT.tables.newRentalBtn} <ArrowUpRight className="w-4 h-4 text-primary" />
                 </span>
               </button>
 
               <button
+                type="button"
                 onClick={() => onTabChange('Returns')}
-                className="bg-slate-900 border border-slate-800 hover:border-primary/50 text-left p-4 rounded-2xl hover:bg-slate-850 transition-all flex flex-col justify-between h-24"
+                className="bg-slate-900 border border-slate-800 hover:border-primary/50 text-left p-4 rounded-2xl hover:bg-slate-850 transition-all flex flex-col justify-between h-24 cursor-pointer"
               >
-                <span className="text-xs text-slate-400">Receive Shuttering</span>
+                <span className="text-xs text-slate-400">{curT.tables.receiveShuttering}</span>
                 <span className="font-bold text-sm text-white flex items-center gap-1">
-                  + Add Return <ArrowDownRight className="w-4 h-4 text-primary" />
+                  {curT.tables.addReturnBtn} <ArrowDownRight className="w-4 h-4 text-primary" />
                 </span>
               </button>
 
               <button
+                type="button"
                 onClick={() => onTabChange('Payments')}
-                className="bg-slate-900 border border-slate-800 hover:border-primary/50 text-left p-4 rounded-2xl hover:bg-slate-850 transition-all flex flex-col justify-between h-24"
+                className="bg-slate-900 border border-slate-800 hover:border-primary/50 text-left p-4 rounded-2xl hover:bg-slate-850 transition-all flex flex-col justify-between h-24 cursor-pointer"
               >
-                <span className="text-xs text-slate-400">Record Payments</span>
+                <span className="text-xs text-slate-400">{curT.tables.recordPayments}</span>
                 <span className="font-bold text-sm text-white flex items-center gap-1">
-                  + Add Payment <ArrowUpRight className="w-4 h-4 text-primary" />
+                  {curT.tables.addPaymentBtn} <ArrowUpRight className="w-4 h-4 text-primary" />
                 </span>
               </button>
 
               <button
+                type="button"
                 onClick={() => onTabChange('Plate Stock')}
-                className="bg-slate-900 border border-slate-800 hover:border-primary/50 text-left p-4 rounded-2xl hover:bg-slate-850 transition-all flex flex-col justify-between h-24"
+                className="bg-slate-900 border border-slate-800 hover:border-primary/50 text-left p-4 rounded-2xl hover:bg-slate-850 transition-all flex flex-col justify-between h-24 cursor-pointer"
               >
-                <span className="text-xs text-slate-400">Manage Stock</span>
+                <span className="text-xs text-slate-400">{curT.tables.manageStock}</span>
                 <span className="font-bold text-sm text-white flex items-center gap-1">
-                  Plate Stock <ArrowRightIcon className="w-4 h-4 text-primary" />
+                  {curT.tables.plateStockBtn} <ArrowRightIcon className="w-4 h-4 text-primary" />
                 </span>
               </button>
             </div>
@@ -794,13 +995,30 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           activeCycle={getActiveCycle(renewTarget)}
           plates={plates}
           onClose={() => setRenewTarget(null)}
-          onConfirm={async (rentalId, renewalDate, newItems) => {
+          onConfirm={async (rentalId, renewalDate, newItems, renewDays, payment) => {
             if (onRenewRental) {
-              await onRenewRental(rentalId, renewalDate, newItems);
+              await onRenewRental(rentalId, renewalDate, newItems, renewDays, payment);
             }
           }}
         />
       )}
+
+      {/* DASHBOARD DRILL-DOWN DETAIL MODAL */}
+      <DashboardDetailModal
+        isOpen={selectedDetailField !== null}
+        onClose={() => setSelectedDetailField(null)}
+        field={selectedDetailField}
+        parties={parties}
+        plates={plates}
+        rentals={rentals}
+        rentalCycles={rentalCycles}
+        returns={returns}
+        payments={payments}
+        onTabChange={onTabChange}
+        onRenewRental={onRenewRental}
+        onInitiateReturn={onInitiateReturn}
+        appLanguage={currentLang}
+      />
     </div>
   );
 };
@@ -811,3 +1029,4 @@ const ArrowRightIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
   </svg>
 );
+

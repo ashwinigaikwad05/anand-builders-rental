@@ -176,7 +176,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                <th className="px-6 py-4">Receipt Date</th>
+                <th className="px-6 py-4">Payment Date</th>
                 <th className="px-6 py-4">Customer Party</th>
                 <th className="px-6 py-4">Cycle Target</th>
                 <th className="px-6 py-4">Amount</th>
@@ -250,7 +250,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
             <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h4 className="text-base font-bold text-charcoal flex items-center gap-2">
                 <Wallet className="w-5 h-5 text-primary" />
-                Record Customer Payment Receipt
+                Record Customer Payment
               </h4>
               <button onClick={() => setIsAddOpen(false)} className="p-1 text-slate-400 hover:text-slate-800 rounded-lg">
                 <X className="w-5 h-5" />
@@ -274,9 +274,9 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-3 rounded-xl text-sm font-medium"
                 >
                   <option value="">-- Choose Party --</option>
-                  {parties.map((p) => (
+                  {parties.map((p, idx) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} (Outstanding: ₹{p.pending.toLocaleString('en-IN')})
+                      Customer #{p.customerNumber || idx + 1} — {p.name} (Outstanding: ₹{p.pending.toLocaleString('en-IN')})
                     </option>
                   ))}
                 </select>
@@ -318,7 +318,8 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   <label className="text-xs font-bold text-slate-500 uppercase">Amount Received (₹) *</label>
                   <input
                     type="number"
-                    min="1"
+                    min="0.01"
+                    step="any"
                     required
                     value={amount || ''}
                     onChange={(e) => setAmount(Math.max(0, parseFloat(e.target.value) || 0))}
@@ -327,7 +328,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Receipt Date *</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Payment Date *</label>
                   <input
                     type="date"
                     required
@@ -383,7 +384,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   >
                     <span className="text-sm">💵</span>
                     <span>Cash</span>
-                    <span className="text-[10px] text-slate-400 font-normal">Yard Drawer</span>
+                    <span className="text-[10px] text-slate-400 font-normal">In-Hand Cash</span>
                   </button>
                 </div>
               </div>
