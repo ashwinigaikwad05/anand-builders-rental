@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Plus,
   Search,
@@ -11,6 +11,7 @@ import {
   RotateCw,
   RefreshCw,
   FileText,
+  ArrowUpDown,
 } from 'lucide-react';
 import type { Party, PlateStock, Rental, RentalItem, RentalCycle, Payment } from '../../../data/adminMockData';
 import {
@@ -70,6 +71,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   const [statusFilter, setStatusFilter] = useState<'All' | 'active' | 'returned' | 'overdue'>('All');
   const [partyFilter, setPartyFilter] = useState<string>('All');
   const [plateFilter, setPlateFilter] = useState<string>('All');
+  const [sortBy, setSortBy] = useState<'customer-serial' | 'bill-asc' | 'bill-desc' | 'date-desc'>('customer-serial');
 
   // Modals
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -183,6 +185,23 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
     return 'active';
   };
 
+  // Helper to reliably look up a customer's sequential serial number across parties & rental records
+  const getCustomerNumberForRental = (rental: Rental): number => {
+    const normName = (rental.partyName || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const matchedParty = parties.find(
+      (p) =>
+        (rental.partyId && p.id === rental.partyId) ||
+        (p.name && p.name.trim().toLowerCase().replace(/\s+/g, ' ') === normName)
+    );
+    if (matchedParty?.customerNumber) {
+      return matchedParty.customerNumber;
+    }
+    if (rental.customerNumber && rental.customerNumber > 0) {
+      return rental.customerNumber;
+    }
+    return 1;
+  };
+
   const filteredRentals = rentals.filter((r) => {
     const matchesSearch =
       r.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -195,6 +214,42 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
 
     return matchesSearch && matchesStatus && matchesParty && matchesPlate;
   });
+
+  const sortedRentals = useMemo(() => {
+    return [...filteredRentals].sort((a, b) => {
+      const custA = getCustomerNumberForRental(a);
+      const custB = getCustomerNumberForRental(b);
+      const billA = a.billNumber || 0;
+      const billB = b.billNumber || 0;
+
+      if (sortBy === 'customer-serial') {
+        // Primary: Serial customer order (Cust #1, Cust #2...)
+        if (custA !== custB) return custA - custB;
+        // Secondary: Serial bills of that customer together (Bill #1, Bill #2, Bill #3...)
+        if (billA !== billB) return billA - billB;
+        return (a.issueDate || '').localeCompare(b.issueDate || '');
+      }
+
+      if (sortBy === 'bill-asc') {
+        if (billA !== billB) return billA - billB;
+        return (a.issueDate || '').localeCompare(b.issueDate || '');
+      }
+
+      if (sortBy === 'bill-desc') {
+        if (billA !== billB) return billB - billA;
+        return (b.issueDate || '').localeCompare(a.issueDate || '');
+      }
+
+      if (sortBy === 'date-desc') {
+        const timeA = new Date(a.issueDate || 0).getTime();
+        const timeB = new Date(b.issueDate || 0).getTime();
+        if (timeA !== timeB) return timeB - timeA;
+        return billB - billA;
+      }
+
+      return 0;
+    });
+  }, [filteredRentals, sortBy, parties]);
 
   const handleOpenAdd = () => {
     setSelectedPartyId(parties[0]?.id || '');
@@ -410,6 +465,22 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
               </option>
             ))}
           </select>
+
+          {/* Sort By Filter: Serial Customers & Bills */}
+          <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-3 py-1.5 rounded-xl">
+            <ArrowUpDown className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="bg-transparent focus:outline-none text-xs sm:text-sm font-semibold text-slate-700 cursor-pointer"
+              title="Sort Rentals"
+            >
+              <option value="customer-serial">👥 Customer Serial (Cust #1, #2... All Bills)</option>
+              <option value="bill-asc">🧾 Bill # (Ascending 1, 2, 3...)</option>
+              <option value="bill-desc">🧾 Bill # (Newest First)</option>
+              <option value="date-desc">📅 Issue Date (Newest First)</option>
+            </select>
+          </div>
         </div>
 
         {/* Trigger Button */}
@@ -441,7 +512,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-light">
-              {filteredRentals.map((rent) => {
+              {sortedRentals.map((rent, idx) => {
                 const { activeCycle, finances } = getLiveCycleData(rent);
                 const allCycles = getCyclesForRental(rent);
                 const hasExtra = finances.extraDays > 0;
@@ -453,24 +524,40 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                 const effectiveStatus: 'active' | 'returned' | 'overdue' =
                   rent.status === 'returned' ? 'returned' : isOverdue ? 'overdue' : 'active';
 
+                const currentCustNum = getCustomerNumberForRental(rent);
+                const prevCustNum = idx > 0 ? getCustomerNumberForRental(sortedRentals[idx - 1]) : null;
+                const isNewCustomerGroup = sortBy === 'customer-serial' && currentCustNum !== prevCustNum;
+
                 return (
-                  <tr key={rent.id} className="hover:bg-slate-50/50 transition-colors">
-                    {/* Party & Agreement */}
-                    <td className="px-5 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-black text-xs px-2 py-0.5 rounded-lg bg-orange-100 text-primary border border-orange-200 shadow-2xs">
-                          Bill #{rent.billNumber || 1}
-                        </span>
-                        <span className="font-bold text-slate-900 text-sm">{rent.partyName}</span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
-                        <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded text-[10px]">
-                          Cust #{rent.customerNumber || parties.find((p) => p.id === rent.partyId)?.customerNumber || 1}
-                        </span>
-                        <span>•</span>
-                        <span>Disp: {rent.issueDate}</span>
-                      </div>
-                    </td>
+                  <React.Fragment key={rent.id}>
+                    {isNewCustomerGroup && (
+                      <tr className="bg-slate-50/90 border-t-2 border-slate-200">
+                        <td colSpan={10} className="px-5 py-2 text-xs font-bold text-slate-700 font-mono tracking-wide">
+                          <span className="inline-flex items-center gap-2 bg-white border border-slate-200/90 px-3 py-1 rounded-lg shadow-2xs">
+                            <span className="font-black text-primary">Customer #{currentCustNum}</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-slate-800 font-bold uppercase">{rent.partyName}</span>
+                          </span>
+                        </td>
+                      </tr>
+                    )}
+                    <tr className="hover:bg-slate-50/50 transition-colors">
+                      {/* Party & Agreement */}
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-black text-xs px-2 py-0.5 rounded-lg bg-orange-100 text-primary border border-orange-200 shadow-2xs">
+                            Bill #{rent.billNumber || 1}
+                          </span>
+                          <span className="font-bold text-slate-900 text-sm">{rent.partyName}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded text-[10px]">
+                            Cust #{currentCustNum}
+                          </span>
+                          <span>•</span>
+                          <span>Disp: {rent.issueDate}</span>
+                        </div>
+                      </td>
 
                     {/* Size & Qty */}
                     <td className="px-4 py-4 whitespace-nowrap">
@@ -654,6 +741,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       </div>
                     </td>
                   </tr>
+                  </React.Fragment>
                 );
               })}
               {rentals.length === 0 ? (
@@ -1178,11 +1266,19 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
           rental={billTarget}
           activeCycle={getActiveCycleForRental(billTarget)}
           rentalCycles={getCyclesForRental(billTarget)}
-          party={parties.find((p) => p.id === billTarget.partyId)}
-          payments={payments.filter((p) => (p.rentalId && p.rentalId === billTarget.id) || (p.partyId && p.partyId === billTarget.partyId))}
+          party={parties.find(
+            (p) =>
+              (billTarget.partyId && p.id === billTarget.partyId) ||
+              p.name.trim().toLowerCase() === billTarget.partyName?.trim().toLowerCase()
+          )}
+          payments={payments.filter(
+            (p) =>
+              (p.rentalId && p.rentalId === billTarget.id) ||
+              (p.partyId && p.partyId === billTarget.partyId)
+          )}
           finances={getLiveCycleData(billTarget).finances}
           billNumber={billTarget.billNumber}
-          customerNumber={billTarget.customerNumber || parties.find((p) => p.id === billTarget.partyId)?.customerNumber}
+          customerNumber={getCustomerNumberForRental(billTarget)}
           onClose={() => setBillTarget(null)}
         />
       )}

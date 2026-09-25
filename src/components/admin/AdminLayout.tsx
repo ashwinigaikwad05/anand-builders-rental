@@ -310,17 +310,53 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         return timeA - timeB;
       });
 
-      // Map party customer numbers 1, 2, 3... based on registration order
+      // Map party customer numbers 1, 2, 3... based on registration / first dispatch order
       const partyCustNumberMap = new Map<string, number>();
-      [...loadedParties]
-        .sort((a, b) => {
-          const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-          const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-          return timeA - timeB;
-        })
-        .forEach((p, idx) => {
-          partyCustNumberMap.set(p.id, idx + 1);
-        });
+      const partyNameToNumberMap = new Map<string, number>();
+
+      // Collect all distinct parties from loadedParties AND loadedRentals
+      const allUniquePartyMetas: { id: string; name: string; earliestDate: string }[] = [];
+      const seenPartyIds = new Set<string>();
+      const seenPartyNames = new Set<string>();
+
+      for (const p of loadedParties) {
+        const normName = p.name.trim().toLowerCase();
+        seenPartyIds.add(p.id);
+        seenPartyNames.add(normName);
+        const pRentals = loadedRentals.filter(
+          (r) => r.party_id === p.id || (r.party_name && r.party_name.trim().toLowerCase() === normName)
+        );
+        const earliestRentDate = pRentals.reduce((earliest, r) => {
+          const d = r.issue_date || (r.created_at ? r.created_at.split('T')[0] : '');
+          return d && (!earliest || d < earliest) ? d : earliest;
+        }, '');
+        const pCreatedDate = p.created_at ? p.created_at.split('T')[0] : '';
+        const earliestDate = [pCreatedDate, earliestRentDate].filter(Boolean).sort()[0] || '2026-01-01';
+        allUniquePartyMetas.push({ id: p.id, name: p.name.trim(), earliestDate });
+      }
+
+      for (const r of loadedRentals) {
+        const normName = r.party_name ? r.party_name.trim().toLowerCase() : '';
+        if (normName && !seenPartyNames.has(normName)) {
+          seenPartyNames.add(normName);
+          if (r.party_id) seenPartyIds.add(r.party_id);
+          const earliestDate = r.issue_date || (r.created_at ? r.created_at.split('T')[0] : '2026-01-01');
+          allUniquePartyMetas.push({ id: r.party_id || `party-${normName}`, name: r.party_name.trim(), earliestDate });
+        }
+      }
+
+      allUniquePartyMetas.sort((a, b) => {
+        if (a.earliestDate !== b.earliestDate) {
+          return a.earliestDate.localeCompare(b.earliestDate);
+        }
+        return a.name.localeCompare(b.name);
+      });
+
+      allUniquePartyMetas.forEach((p, idx) => {
+        const custNum = idx + 1;
+        partyCustNumberMap.set(p.id, custNum);
+        partyNameToNumberMap.set(p.name.toLowerCase(), custNum);
+      });
 
       // Convert DB records to UI models with active cycle calculation
       setRentals(
@@ -372,7 +408,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             r.status === 'returned' ? 'returned' : isOverdue ? 'overdue' : 'active';
 
           const rentalBillNumber = chronologicalRentals.findIndex((x) => x.id === r.id) + 1 || 1;
-          const rentalCustomerNumber = partyCustNumberMap.get(r.party_id) || 1;
+          const rentalCustomerNumber = partyCustNumberMap.get(r.party_id)
+            || partyNameToNumberMap.get(r.party_name?.trim().toLowerCase())
+            || 1;
 
           return {
             id: r.id,
@@ -493,20 +531,93 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
   };
 
   // Compute live derived party metrics from database transactions and isolated cycles
-  // Map customer numbers 1, 2, 3... ordered by registration
-  const sortedPartiesList = [...rawParties].sort((a, b) => {
-    const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-    const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-    return timeA - timeB;
-  });
-  const customerNumberMap = new Map<string, number>();
-  sortedPartiesList.forEach((p, idx) => {
-    customerNumberMap.set(p.id, idx + 1);
+  // Build unified customer registry from BOTH rawParties and rentals so every distinct customer is assigned serial Cust #1, #2...
+  const allCustomerMetas: {
+    id: string;
+    name: string;
+    mobile: string;
+    address: string;
+    notes: string;
+    status: 'active' | 'inactive';
+    photo_url?: string | null;
+    aadhaar_url?: string | null;
+    cheque_url?: string | null;
+    earliestDate: string;
+  }[] = [];
+
+  const registeredCustomerIds = new Set<string>();
+  const registeredCustomerNames = new Set<string>();
+
+  for (const p of rawParties) {
+    const normName = p.name.trim().toLowerCase();
+    registeredCustomerIds.add(p.id);
+    registeredCustomerNames.add(normName);
+    const pRentals = rentals.filter(
+      (r) => r.partyId === p.id || (r.partyName && r.partyName.trim().toLowerCase() === normName)
+    );
+    const earliestRentDate = pRentals.reduce((earliest, r) => {
+      const d = r.issueDate || r.currentCycleStartDate;
+      return d && (!earliest || d < earliest) ? d : earliest;
+    }, '');
+    const pCreatedDate = p.created_at ? p.created_at.split('T')[0] : '';
+    const earliestDate = [pCreatedDate, earliestRentDate].filter(Boolean).sort()[0] || '2026-01-01';
+
+    allCustomerMetas.push({
+      id: p.id,
+      name: p.name.trim(),
+      mobile: p.mobile,
+      address: p.address || '',
+      notes: p.notes || '',
+      status: p.status,
+      photo_url: p.photo_url,
+      aadhaar_url: p.aadhaar_url,
+      cheque_url: p.cheque_url,
+      earliestDate,
+    });
+  }
+
+  for (const r of rentals) {
+    const normName = r.partyName ? r.partyName.trim().toLowerCase() : '';
+    if (normName && !registeredCustomerNames.has(normName) && (!r.partyId || !registeredCustomerIds.has(r.partyId))) {
+      registeredCustomerNames.add(normName);
+      if (r.partyId) registeredCustomerIds.add(r.partyId);
+      allCustomerMetas.push({
+        id: r.partyId || `party-${normName.replace(/[^a-z0-9]/g, '-')}`,
+        name: r.partyName.trim(),
+        mobile: '',
+        address: '',
+        notes: '',
+        status: 'active',
+        earliestDate: r.issueDate || '2026-01-01',
+      });
+    }
+  }
+
+  // Sort all customers chronologically so Customer #1, Customer #2, Customer #3... are deterministic
+  allCustomerMetas.sort((a, b) => {
+    if (a.earliestDate !== b.earliestDate) {
+      return a.earliestDate.localeCompare(b.earliestDate);
+    }
+    return a.name.localeCompare(b.name);
   });
 
-  const parties: Party[] = rawParties.map((p) => {
-    const partyRentals = rentals.filter((r) => r.partyId === p.id);
-    const partyReturns = returns.filter((ret) => ret.partyId === p.id);
+  const customerNumberMap = new Map<string, number>();
+  const customerNameNumberMap = new Map<string, number>();
+
+  allCustomerMetas.forEach((p, idx) => {
+    const num = idx + 1;
+    customerNumberMap.set(p.id, num);
+    customerNameNumberMap.set(p.name.toLowerCase(), num);
+  });
+
+  const parties: Party[] = allCustomerMetas.map((p) => {
+    const normName = p.name.trim().toLowerCase();
+    const partyRentals = rentals.filter(
+      (r) => r.partyId === p.id || (r.partyName && r.partyName.trim().toLowerCase() === normName)
+    );
+    const partyReturns = returns.filter(
+      (ret) => ret.partyId === p.id || (ret.partyName && ret.partyName.trim().toLowerCase() === normName)
+    );
     const partyPayments = payments.filter((pay) => pay.partyId === p.id);
     const partyCycles = rentalCycles.filter((c) => c.partyId === p.id);
     const todayDateStr = new Date().toISOString().split('T')[0];
@@ -557,7 +668,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       photoUrl: p.photo_url || null,
       aadhaarUrl: p.aadhaar_url || null,
       chequeUrl: p.cheque_url || null,
-      customerNumber: customerNumberMap.get(p.id) || 1,
+      customerNumber: customerNumberMap.get(p.id) || customerNameNumberMap.get(p.name.toLowerCase()) || 1,
     };
   });
 
@@ -890,6 +1001,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
 
       setRentalCycles((prev) => [initialCycle, ...prev]);
 
+      const maxBill = rentals.reduce((max, r) => Math.max(max, r.billNumber || 0), 0);
+      const nextBillNumber = maxBill + 1;
+      const normPartyName = (newRental.partyName || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      const matchedParty = parties.find(
+        (p) =>
+          (newRental.partyId && p.id === newRental.partyId) ||
+          p.name.trim().toLowerCase().replace(/\s+/g, ' ') === normPartyName
+      );
+      const nextCustNumber = matchedParty?.customerNumber || (parties.length > 0 ? parties.length + 1 : 1);
+
       const createdRental: Rental = {
         ...newRental,
         id: inserted.id,
@@ -901,6 +1022,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         currentCycleStartDate: newRental.issueDate,
         currentCycleEndDate: expectedEndDate,
         cycles: [initialCycle],
+        billNumber: nextBillNumber,
+        customerNumber: nextCustNumber,
       };
 
       setRentals((prev) => [createdRental, ...prev]);

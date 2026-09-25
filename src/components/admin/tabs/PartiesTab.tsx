@@ -85,11 +85,13 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
     setLightboxOpen(true);
   };
 
-  const filteredParties = parties.filter(
-    (p) =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.mobile.includes(searchTerm)
-  );
+  const filteredParties = parties
+    .filter(
+      (p) =>
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.mobile.includes(searchTerm)
+    )
+    .sort((a, b) => (a.customerNumber || 1) - (b.customerNumber || 1));
 
   // Compute live unreturned plates and dues for party being evaluated for deletion
   const partyToDeleteStats = React.useMemo(() => {
