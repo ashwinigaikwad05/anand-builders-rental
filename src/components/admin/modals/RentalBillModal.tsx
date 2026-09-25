@@ -56,7 +56,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   onClose,
 }) => {
   const config = templateConfig || getBillTemplateConfig();
-  const [selectedStyle, setSelectedStyle] = useState<BillTemplateStyle>(config.templateStyle || 'simple');
+  // Auto-select Simple Bill ('simple') by default whenever opening the bill modal
+  const [selectedStyle, setSelectedStyle] = useState<BillTemplateStyle>(
+    templateConfig?.templateStyle || 'simple'
+  );
   const [selectedLanguage, setSelectedLanguage] = useState<BillLanguage>(config.billLanguage || 'marathi');
   const [printTerms, setPrintTerms] = useState<boolean>(
     config.printTermsAndConditions !== undefined ? Boolean(config.printTermsAndConditions) : true
@@ -64,11 +67,47 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   const [showCycles, setShowCycles] = useState<boolean>(true);
   const [showPayments, setShowPayments] = useState<boolean>(true);
 
+  // Sync when templateConfig prop updates (e.g. previewing from settings)
+  useEffect(() => {
+    if (templateConfig?.templateStyle) {
+      setSelectedStyle(templateConfig.templateStyle);
+    }
+  }, [templateConfig?.templateStyle]);
+
   useEffect(() => {
     if (templateConfig?.printTermsAndConditions !== undefined) {
       setPrintTerms(Boolean(templateConfig.printTermsAndConditions));
     }
   }, [templateConfig?.printTermsAndConditions]);
+
+  // Ensure simple bill is saved as default template style if not set
+  useEffect(() => {
+    const latestConfig = getBillTemplateConfig();
+    if (!latestConfig.templateStyle || latestConfig.templateStyle !== 'simple') {
+      saveBillTemplateConfig({
+        ...latestConfig,
+        templateStyle: 'simple',
+      });
+    }
+  }, []);
+
+  const handleSelectStyle = (style: BillTemplateStyle) => {
+    setSelectedStyle(style);
+    const latestConfig = getBillTemplateConfig();
+    saveBillTemplateConfig({
+      ...latestConfig,
+      templateStyle: style,
+    });
+  };
+
+  const handleSelectLanguage = (lang: BillLanguage) => {
+    setSelectedLanguage(lang);
+    const latestConfig = getBillTemplateConfig();
+    saveBillTemplateConfig({
+      ...latestConfig,
+      billLanguage: lang,
+    });
+  };
 
   const handleTogglePrintTerms = (checked: boolean) => {
     setPrintTerms(checked);
@@ -527,7 +566,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               </span>
               <button
                 type="button"
-                onClick={() => setSelectedLanguage('marathi')}
+                onClick={() => handleSelectLanguage('marathi')}
                 className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
                   selectedLanguage === 'marathi'
                     ? 'bg-primary text-white shadow-xs font-black'
@@ -539,7 +578,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedLanguage('english')}
+                onClick={() => handleSelectLanguage('english')}
                 className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
                   selectedLanguage === 'english'
                     ? 'bg-slate-900 text-white shadow-xs font-black'
@@ -555,10 +594,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
             <div className="hidden sm:flex items-center bg-slate-200/80 p-1 rounded-xl text-xs font-bold">
               <button
                 type="button"
-                onClick={() => setSelectedStyle('simple')}
+                onClick={() => handleSelectStyle('simple')}
                 className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   selectedStyle === 'simple'
-                    ? 'bg-white text-slate-900 shadow-xs'
+                    ? 'bg-white text-slate-950 shadow-sm font-extrabold ring-1 ring-slate-300'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -566,10 +605,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedStyle('standard')}
+                onClick={() => handleSelectStyle('standard')}
                 className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   selectedStyle === 'standard'
-                    ? 'bg-white text-slate-900 shadow-xs'
+                    ? 'bg-white text-slate-950 shadow-sm font-extrabold ring-1 ring-slate-300'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -577,10 +616,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedStyle('compact')}
+                onClick={() => handleSelectStyle('compact')}
                 className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   selectedStyle === 'compact'
-                    ? 'bg-white text-slate-900 shadow-xs'
+                    ? 'bg-white text-slate-950 shadow-sm font-extrabold ring-1 ring-slate-300'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
