@@ -176,11 +176,10 @@ export const DocumentUploadCard: React.FC<DocumentUploadCardProps> = ({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={() => !isProcessing && fileInputRef.current?.click()}
-          className={`h-32 sm:h-36 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-4 text-center cursor-pointer transition-all ${
-            isDragging
+          className={`h-32 sm:h-36 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-4 text-center cursor-pointer transition-all ${isDragging
               ? 'border-primary bg-primary/5 scale-[0.99]'
               : 'border-slate-200 hover:border-primary/60 hover:bg-slate-50/70 bg-white'
-          } ${isProcessing ? 'pointer-events-none opacity-60' : ''}`}
+            } ${isProcessing ? 'pointer-events-none opacity-60' : ''}`}
         >
           {isProcessing ? (
             <div className="flex flex-col items-center gap-2 text-primary">

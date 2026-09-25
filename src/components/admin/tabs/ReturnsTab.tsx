@@ -8,6 +8,7 @@ export interface ReturnInputPayload extends Omit<ReturnLog, 'id' | 'partyName' |
   paymentMode?: 'Cash' | 'Account 1' | 'Account 2';
   paymentReference?: string;
   paymentNotes?: string;
+  penaltyAmount?: number;
 }
 
 interface ReturnsTabProps {
@@ -40,7 +41,8 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
   const [returnedQty, setReturnedQty] = useState<number>(0);
   const [returnDate, setReturnDate] = useState(todayStr);
 
-  // Payment collection states
+  // Payment & Penalty collection states
+  const [penaltyAmount, setPenaltyAmount] = useState<number>(0);
   const [collectedAmount, setCollectedAmount] = useState<number>(0);
   const [paymentMode, setPaymentMode] = useState<'Cash' | 'Account 1' | 'Account 2'>('Cash');
   const [paymentReference, setPaymentReference] = useState('');
@@ -207,8 +209,8 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
   })();
 
   const currentPendingDue = allCyclesFinancials.pendingAmount;
-
-  const balanceAfterReturn = Math.max(0, currentPendingDue - (collectedAmount || 0));
+  const totalReturnPayable = currentPendingDue + (penaltyAmount || 0);
+  const balanceAfterReturn = Math.max(0, totalReturnPayable - (collectedAmount || 0));
 
   const handleOpenAdd = () => {
     const firstParty = parties[0]?.id || '';
@@ -216,6 +218,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
     setSelectedRentalId('');
     setReturnedQty(0);
     setReturnDate(todayStr);
+    setPenaltyAmount(0);
     setCollectedAmount(0);
     setPaymentMode('Cash');
     setPaymentReference('');
@@ -228,6 +231,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
     setSelectedPartyId(partyId);
     setSelectedRentalId('');
     setReturnedQty(0);
+    setPenaltyAmount(0);
     setCollectedAmount(0);
   };
 
@@ -238,9 +242,11 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
       const remaining = getRemainingToReturn(rental);
       const due = computeRentalPendingDue(rental, returnDate);
       setReturnedQty(remaining);
+      setPenaltyAmount(0);
       setCollectedAmount(due);
     } else {
       setReturnedQty(0);
+      setPenaltyAmount(0);
       setCollectedAmount(0);
     }
   };
@@ -291,7 +297,8 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
       collectedAmount: collectedAmount > 0 ? collectedAmount : 0,
       paymentMode: collectedAmount > 0 ? paymentMode : undefined,
       paymentReference: paymentReference.trim() || undefined,
-      paymentNotes: paymentNotes.trim() || undefined,
+      paymentNotes: (paymentNotes.trim() ? paymentNotes.trim() : 'Material return settlement') + (penaltyAmount > 0 ? ` (Incl. Penalty ₹${penaltyAmount})` : ''),
+      penaltyAmount: penaltyAmount > 0 ? penaltyAmount : undefined,
     });
 
     setIsConfirmReturnOpen(false);
@@ -357,12 +364,26 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                     </td>
                     <td className="px-5 py-4 text-right">
                       {ret.collectedAmount && ret.collectedAmount > 0 ? (
-                        <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-lg text-xs">
-                          <span>₹{ret.collectedAmount.toLocaleString('en-IN')}</span>
-                          <span className="text-[10px] text-emerald-600 font-normal">({ret.paymentMode || 'Paid'})</span>
-                        </span>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-lg text-xs">
+                            <span>₹{ret.collectedAmount.toLocaleString('en-IN')}</span>
+                            <span className="text-[10px] text-emerald-600 font-normal">({ret.paymentMode || 'Paid'})</span>
+                          </span>
+                          {ret.penaltyAmount && ret.penaltyAmount > 0 ? (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                              Incl. Penalty ₹{ret.penaltyAmount}
+                            </span>
+                          ) : null}
+                        </div>
                       ) : (
-                        <span className="text-slate-400 text-xs italic">Credit (₹0)</span>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className="text-slate-400 text-xs italic">Credit (₹0)</span>
+                          {ret.penaltyAmount && ret.penaltyAmount > 0 ? (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                              Penalty ₹{ret.penaltyAmount}
+                            </span>
+                          ) : null}
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -426,6 +447,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                           setSelectedPartyId(rent.partyId);
                           setSelectedRentalId(rent.id);
                           setReturnedQty(remaining);
+                          setPenaltyAmount(0);
                           setCollectedAmount(due);
                           setReturnDate(todayStr);
                           setValidationError('');
@@ -589,40 +611,111 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
 
               {/* Step 4: Collect Remaining Amount / Settlement */}
               {selectedRental && (
-                <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
-                      <Wallet className="w-4 h-4 text-emerald-700" />
-                      Collect Remaining Dues on Return
-                    </span>
-                    <span className="text-xs font-black text-emerald-900">
-                      Due: ₹{currentPendingDue.toLocaleString('en-IN')}
+                <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 space-y-3.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 border-b border-emerald-200/80 gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-2xs">
+                        <Wallet className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider block">
+                          Collect Dues on Return / हिशोब व रक्कम जमा करा
+                        </span>
+                        <span className="text-[10px] text-emerald-700 font-medium">
+                          (Optional: Settle rental dues, add penalty fee, or collect payment)
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-xs font-black text-emerald-900 bg-emerald-100/80 px-2.5 py-1 rounded-lg border border-emerald-300 font-mono self-start sm:self-center">
+                      Total Payable: ₹{totalReturnPayable.toLocaleString('en-IN')}
                     </span>
                   </div>
 
-                  {/* Financial Status Cards */}
-                  <div className="grid grid-cols-3 gap-2 text-center bg-white/90 p-2.5 rounded-xl border border-emerald-100 text-xs">
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Total Rent</span>
-                      <span className="font-bold text-slate-800">
+                  {/* Dues Breakdown & Penalty Row (4 Columns Grid) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                    {/* Box 1: Total Rent */}
+                    <div className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs flex flex-col justify-between">
+                      <div>
+                        <span className="text-[10px] text-slate-500 font-bold uppercase block truncate">
+                          Total Rent (एकूण भाडे)
+                        </span>
+                        <span className="text-[9px] text-slate-400 block truncate">
+                          {getAllCyclesForRental(selectedRental).length > 1
+                            ? `${getAllCyclesForRental(selectedRental).length} cycles total`
+                            : 'Rental Charges'}
+                        </span>
+                      </div>
+                      <span className="font-mono text-sm sm:text-base font-black text-slate-800 mt-1">
                         ₹{allCyclesFinancials.totalAmount.toLocaleString('en-IN')}
                       </span>
-                      {getAllCyclesForRental(selectedRental).length > 1 && (
-                        <span className="text-[9px] text-slate-400 block font-mono">
-                          {getAllCyclesForRental(selectedRental).length} cycles
-                        </span>
-                      )}
                     </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Already Paid</span>
-                      <span className="font-bold text-emerald-600">
-                        ₹{allCyclesFinancials.paidAmount.toLocaleString('en-IN')}
+
+                    {/* Box 2: Pending Rent */}
+                    <div className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs flex flex-col justify-between">
+                      <div>
+                        <span className="text-[10px] text-slate-500 font-bold uppercase block truncate">
+                          Pending Rent (बाकी भाडे)
+                        </span>
+                        <span className="text-[9px] text-emerald-600 font-medium block truncate">
+                          Paid: ₹{allCyclesFinancials.paidAmount.toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <span className={`font-mono text-sm sm:text-base font-black mt-1 ${currentPendingDue > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                        ₹{currentPendingDue.toLocaleString('en-IN')}
                       </span>
                     </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Pending Due</span>
-                      <span className="font-black text-rose-600">
-                        ₹{currentPendingDue.toLocaleString('en-IN')}
+
+                    {/* Box 3: Penalty Simple Box (दंड / लेट फी) */}
+                    <div className="bg-amber-50/90 p-2.5 rounded-xl border border-amber-200/90 shadow-2xs flex flex-col justify-between ring-1 ring-amber-300/60">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-amber-900 font-extrabold uppercase block">
+                          Penalty / दंड (₹)
+                        </span>
+                        {penaltyAmount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPenaltyAmount(0);
+                              setCollectedAmount(currentPendingDue);
+                            }}
+                            className="text-[9px] text-amber-700 hover:text-amber-950 font-bold underline cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                      <div className="relative mt-1">
+                        <span className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-amber-700 font-bold text-xs">
+                          ₹
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={penaltyAmount || ''}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseFloat(e.target.value) || 0);
+                            setPenaltyAmount(val);
+                            setCollectedAmount(currentPendingDue + val);
+                          }}
+                          placeholder="0"
+                          className="w-full bg-white border border-amber-300 focus:border-amber-600 focus:ring-1 focus:ring-amber-500 focus:outline-none pl-5 pr-2 py-1 rounded-lg text-sm font-black text-amber-950 font-mono shadow-2xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Box 4: Total Payable */}
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-300 shadow-2xs flex flex-col justify-between bg-gradient-to-br from-white to-slate-50">
+                      <div>
+                        <span className="text-[10px] text-slate-700 font-black uppercase block truncate">
+                          Total Payable (एकूण देय)
+                        </span>
+                        <span className="text-[9px] text-slate-400 block truncate">
+                          Rent{penaltyAmount > 0 ? ' + Penalty' : ''}
+                        </span>
+                      </div>
+                      <span className="font-mono text-sm sm:text-base font-black text-slate-950 mt-1">
+                        ₹{totalReturnPayable.toLocaleString('en-IN')}
                       </span>
                     </div>
                   </div>
@@ -633,13 +726,31 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                       <label className="font-bold text-slate-700 uppercase text-[11px]">
                         Payment Amount Collected Now (₹)
                       </label>
-                      <div className="flex gap-1.5">
+                      <div className="flex flex-wrap gap-1.5">
+                        {currentPendingDue > 0 && penaltyAmount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setCollectedAmount(currentPendingDue)}
+                            className="text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-950 font-bold px-2 py-0.5 rounded cursor-pointer transition-all border border-rose-200"
+                          >
+                            Only Rent (₹{currentPendingDue.toLocaleString('en-IN')})
+                          </button>
+                        )}
+                        {penaltyAmount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setCollectedAmount(penaltyAmount)}
+                            className="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold px-2 py-0.5 rounded cursor-pointer transition-all border border-amber-200"
+                          >
+                            Only Penalty (₹{penaltyAmount.toLocaleString('en-IN')})
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => setCollectedAmount(currentPendingDue)}
-                          className="text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded cursor-pointer transition-all"
+                          onClick={() => setCollectedAmount(totalReturnPayable)}
+                          className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-0.5 rounded cursor-pointer transition-all shadow-2xs"
                         >
-                          Pay Full (₹{currentPendingDue.toLocaleString('en-IN')})
+                          Pay Full (₹{totalReturnPayable.toLocaleString('en-IN')})
                         </button>
                         <button
                           type="button"
@@ -784,6 +895,20 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                   }`}>
                     {getRemainingToReturn(selectedRental) - returnedQty} Plates{' '}
                     {getRemainingToReturn(selectedRental) - returnedQty === 0 ? '(Full Return ✓)' : '(Partial Return)'}
+                  </span>
+                </div>
+                {penaltyAmount > 0 && (
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200/60 text-amber-900">
+                    <span className="text-slate-500 font-medium">Penalty / दंड:</span>
+                    <span className="font-bold bg-amber-50 px-2.5 py-0.5 rounded-lg border border-amber-200 font-mono">
+                      ₹{penaltyAmount.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Total Payable:</span>
+                  <span className="font-bold text-slate-900 font-mono">
+                    ₹{totalReturnPayable.toLocaleString('en-IN')}
                   </span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">

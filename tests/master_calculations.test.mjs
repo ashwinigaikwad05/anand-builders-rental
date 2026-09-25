@@ -389,6 +389,190 @@ runTest('Inventory', 'Stock invariant: Total Stock = Available + With Parties', 
 });
 
 // =============================================================================
+// SUITE 9: RETURN TIME SETTLEMENT & PENALTY (दण्ड / लेट फी)
+// =============================================================================
+console.log('\n⚖️ SUITE 9: Return Time Settlement & Penalty Calculations');
+
+runTest('ReturnPenalty', 'Return with ₹0 penalty: Standard settlement clears exact pending due', () => {
+  const currentPendingDue = 600;
+  const penaltyAmount = 0;
+  const totalReturnPayable = currentPendingDue + penaltyAmount;
+  const collectedAmount = 600;
+  const balanceAfterReturn = Math.max(0, totalReturnPayable - collectedAmount);
+
+  assert.strictEqual(totalReturnPayable, 600);
+  assert.strictEqual(balanceAfterReturn, 0);
+});
+
+runTest('ReturnPenalty', 'Return with Penalty: Total Payable = Pending Rent + Penalty', () => {
+  const currentPendingDue = 1200;
+  const penaltyAmount = 350;
+  const totalReturnPayable = currentPendingDue + penaltyAmount;
+  assert.strictEqual(totalReturnPayable, 1550);
+
+  // Full settlement clears both rent and penalty to ₹0
+  const collectedAmount = 1550;
+  const balanceAfterReturn = Math.max(0, totalReturnPayable - collectedAmount);
+  assert.strictEqual(balanceAfterReturn, 0);
+});
+
+runTest('ReturnPenalty', 'Return with Penalty: Partial payment preserves remaining penalty/rent balance', () => {
+  const currentPendingDue = 1200;
+  const penaltyAmount = 350;
+  const totalReturnPayable = currentPendingDue + penaltyAmount; // 1550
+  const collectedAmount = 1200; // Customer only pays rent
+  const balanceAfterReturn = Math.max(0, totalReturnPayable - collectedAmount);
+
+  assert.strictEqual(balanceAfterReturn, 350);
+});
+
+runTest('ReturnPenalty', 'Return with Penalty: ₹0 payment leaves total payable as outstanding', () => {
+  const currentPendingDue = 800;
+  const penaltyAmount = 200;
+  const totalReturnPayable = currentPendingDue + penaltyAmount; // 1000
+  const collectedAmount = 0;
+  const balanceAfterReturn = Math.max(0, totalReturnPayable - collectedAmount);
+
+  assert.strictEqual(balanceAfterReturn, 1000);
+});
+
+runTest('ReturnPenalty', 'Partial Return vs Full Return state completion', () => {
+  const issuedQuantity = 100;
+
+  // Step 1: Return 40 plates
+  let alreadyReturned = 40;
+  let remainingOnSite = Math.max(0, issuedQuantity - alreadyReturned);
+  let isFullReturn = remainingOnSite === 0;
+  assert.strictEqual(remainingOnSite, 60);
+  assert.strictEqual(isFullReturn, false);
+
+  // Step 2: Return remaining 60 plates
+  alreadyReturned += 60;
+  remainingOnSite = Math.max(0, issuedQuantity - alreadyReturned);
+  isFullReturn = remainingOnSite === 0;
+  assert.strictEqual(remainingOnSite, 0);
+  assert.strictEqual(isFullReturn, true);
+});
+
+// =============================================================================
+// SUITE 10: MULTI-CYCLE ACCUMULATION & COMBINED RETURN SETTLEMENT
+// =============================================================================
+console.log('\n📊 SUITE 10: Multi-Cycle All-Time Pending Accumulation with Return Penalty');
+
+runTest('MultiCycleReturn', 'All-time pending across 3 cycles + Return Penalty settles to ₹0', () => {
+  // Cycle 1: Base 600, Paid 400 -> Due 200
+  const cycle1Due = 200;
+  // Cycle 2: Base 600, Paid 300 -> Due 300
+  const cycle2Due = 300;
+  // Cycle 3 (Active on return): Base 600, 10 extra days @ 15 = 150, Total 750, Paid 200 -> Due 550
+  const cycle3Finances = { baseRent: 600, extraAmount: 150, totalAmount: 750, paidAmount: 200, pendingAmount: 550 };
+
+  const allCyclesPendingRent = cycle1Due + cycle2Due + cycle3Finances.pendingAmount;
+  assert.strictEqual(allCyclesPendingRent, 1050);
+
+  const returnPenalty = 250;
+  const totalSettlementDue = allCyclesPendingRent + returnPenalty;
+  assert.strictEqual(totalSettlementDue, 1300);
+
+  // Customer settles in full with ₹1,300
+  const paymentCollected = 1300;
+  const finalBalance = Math.max(0, totalSettlementDue - paymentCollected);
+  assert.strictEqual(finalBalance, 0);
+});
+
+// =============================================================================
+// SUITE 11: RENEWAL ALLOCATIONS WITH ALL-TIME DUES & PENALTY
+// =============================================================================
+console.log('\n🔄 SUITE 11: Renewal Allocations: Prior Dues, Penalty & Advance Rent');
+
+function allocateRenewalWithPenalty(allPrevDues, newBaseRent, penaltyAmount, collectedPayment) {
+  const totalAccountDue = allPrevDues + newBaseRent + penaltyAmount;
+  const prevCyclePaymentAllocation = Math.min(collectedPayment, allPrevDues);
+  const remainingAfterPrev = Math.max(0, collectedPayment - prevCyclePaymentAllocation);
+  const penaltyPaymentAllocation = Math.min(remainingAfterPrev, penaltyAmount);
+  const newCycleAdvanceAllocation = Math.max(0, remainingAfterPrev - penaltyPaymentAllocation);
+
+  const remainingPrevDue = Math.max(0, allPrevDues - prevCyclePaymentAllocation);
+  const remainingPenalty = Math.max(0, penaltyAmount - penaltyPaymentAllocation);
+  const remainingNewCycleDue = Math.max(0, newBaseRent - newCycleAdvanceAllocation);
+  const remainingTotalDue = remainingPrevDue + remainingPenalty + remainingNewCycleDue;
+
+  return {
+    totalAccountDue,
+    prevCyclePaymentAllocation,
+    penaltyPaymentAllocation,
+    newCycleAdvanceAllocation,
+    remainingPrevDue,
+    remainingPenalty,
+    remainingNewCycleDue,
+    remainingTotalDue,
+  };
+}
+
+runTest('RenewWithPenalty', 'Full payment clears previous dues, penalty, and new cycle rent', () => {
+  const result = allocateRenewalWithPenalty(400, 1200, 100, 1700);
+  assert.strictEqual(result.totalAccountDue, 1700);
+  assert.strictEqual(result.prevCyclePaymentAllocation, 400);
+  assert.strictEqual(result.penaltyPaymentAllocation, 100);
+  assert.strictEqual(result.newCycleAdvanceAllocation, 1200);
+  assert.strictEqual(result.remainingPrevDue, 0);
+  assert.strictEqual(result.remainingPenalty, 0);
+  assert.strictEqual(result.remainingNewCycleDue, 0);
+  assert.strictEqual(result.remainingTotalDue, 0);
+});
+
+runTest('RenewWithPenalty', 'Partial payment clears previous dues first, remainder to penalty', () => {
+  const result = allocateRenewalWithPenalty(400, 1200, 100, 450);
+  assert.strictEqual(result.prevCyclePaymentAllocation, 400); // Clears 400 prior due
+  assert.strictEqual(result.penaltyPaymentAllocation, 50);   // 50 towards penalty
+  assert.strictEqual(result.newCycleAdvanceAllocation, 0);   // 0 for new cycle
+  assert.strictEqual(result.remainingPrevDue, 0);
+  assert.strictEqual(result.remainingPenalty, 50);
+  assert.strictEqual(result.remainingNewCycleDue, 1200);
+  assert.strictEqual(result.remainingTotalDue, 1250);
+});
+
+runTest('RenewWithPenalty', 'Excess payment clears dues + penalty, and credits advance to new cycle', () => {
+  const result = allocateRenewalWithPenalty(400, 1200, 100, 800);
+  assert.strictEqual(result.prevCyclePaymentAllocation, 400);
+  assert.strictEqual(result.penaltyPaymentAllocation, 100);
+  assert.strictEqual(result.newCycleAdvanceAllocation, 300);
+  assert.strictEqual(result.remainingPrevDue, 0);
+  assert.strictEqual(result.remainingPenalty, 0);
+  assert.strictEqual(result.remainingNewCycleDue, 900); // 1200 - 300
+  assert.strictEqual(result.remainingTotalDue, 900);
+});
+
+// =============================================================================
+// SUITE 12: FINANCIAL LEDGER INVARIANTS & DOUBLE-ENTRY BALANCE
+// =============================================================================
+console.log('\n📒 SUITE 12: Financial Ledger Invariants & Double-Entry Balance');
+
+runTest('LedgerInvariant', 'Sum of Debits - Sum of Credits equals Party Running Balance across full lifecycle', () => {
+  const ledgerEntries = [
+    { type: 'debit', amount: 1200, desc: 'Cycle 1 Initial Rent' },
+    { type: 'credit', amount: 500, desc: 'Initial Advance Payment' },
+    { type: 'debit', amount: 100, desc: 'Cycle Renewal Penalty Fee' },
+    { type: 'debit', amount: 1200, desc: 'Cycle 2 Base Rent' },
+    { type: 'credit', amount: 1000, desc: 'Cycle Renewal Payment' },
+    { type: 'debit', amount: 150, desc: 'Late/Damage Penalty on Return' },
+    { type: 'credit', amount: 1150, desc: 'Final Return Settlement Payment' },
+  ];
+
+  const totalDebits = ledgerEntries
+    .filter((e) => e.type === 'debit')
+    .reduce((sum, e) => sum + e.amount, 0);
+  const totalCredits = ledgerEntries
+    .filter((e) => e.type === 'credit')
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  assert.strictEqual(totalDebits, 2650);
+  assert.strictEqual(totalCredits, 2650);
+  const runningBalance = totalDebits - totalCredits;
+  assert.strictEqual(runningBalance, 0);
+});
+
+// =============================================================================
 // FINAL SUMMARY
 // =============================================================================
 console.log('\n' + '='.repeat(75));

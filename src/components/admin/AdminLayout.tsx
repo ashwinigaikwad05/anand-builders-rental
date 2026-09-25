@@ -1553,6 +1553,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         issuedQuantity: matchedRental.quantity,
         collectedAmount: newReturn.collectedAmount,
         paymentMode: newReturn.paymentMode,
+        penaltyAmount: newReturn.penaltyAmount,
       };
 
       setReturns((prev) => [created, ...prev]);
@@ -1606,6 +1607,35 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             debit: ledExtra.debit,
             credit: ledExtra.credit,
             balance: ledExtra.balance,
+          },
+          ...prev,
+        ]);
+      }
+
+      // If penalty was charged on return, post ledger debit for penalty
+      const returnPenalty = Number(newReturn.penaltyAmount || 0);
+      if (returnPenalty > 0) {
+        const partyPending = parties.find((p) => p.id === newReturn.partyId)?.pending || 0;
+        const ledPenalty = await insertLedgerEntry({
+          party_id: newReturn.partyId,
+          date: newReturn.returnDate,
+          description: `Late / Damage Penalty Fee on Material Return (${newReturn.returnedQuantity} Plates) [दंड]`,
+          debit: returnPenalty,
+          credit: 0,
+          balance: partyPending + (activeFinances?.extraAmount || 0) + returnPenalty,
+          reference_type: 'rental_penalty',
+          reference_id: inserted.id,
+        });
+
+        setLedger((prev) => [
+          {
+            id: ledPenalty.id,
+            partyId: ledPenalty.party_id,
+            date: ledPenalty.date,
+            description: ledPenalty.description,
+            debit: ledPenalty.debit,
+            credit: ledPenalty.credit,
+            balance: ledPenalty.balance,
           },
           ...prev,
         ]);
@@ -1794,7 +1824,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
 
       addToast(
         'success',
-        `Received ${newReturn.returnedQuantity} plates of ${matchedRental.plateType} from ${party.name}.${amountCollected > 0 ? ` Collected ₹${amountCollected.toLocaleString('en-IN')} (${newReturn.paymentMode || 'Cash'}).` : ''}`
+        `Received ${newReturn.returnedQuantity} plates of ${matchedRental.plateType} from ${party.name}.${returnPenalty > 0 ? ` Penalty: ₹${returnPenalty.toLocaleString('en-IN')}.` : ''}${amountCollected > 0 ? ` Collected ₹${amountCollected.toLocaleString('en-IN')} (${newReturn.paymentMode || 'Cash'}).` : ''}`
       );
     } catch (err: any) {
       addToast('error', err?.message || 'Failed to record return.');

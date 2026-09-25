@@ -88,6 +88,7 @@ export interface ReturnLog {
   returnDate: string;
   collectedAmount?: number;
   paymentMode?: string;
+  penaltyAmount?: number;
 }
 
 export interface Payment {
