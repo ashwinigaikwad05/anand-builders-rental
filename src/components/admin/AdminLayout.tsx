@@ -2201,6 +2201,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             onAddParty={handleAddParty}
             onEditParty={handleEditParty}
             onDeleteParty={handleDeleteParty}
+            appLanguage={appLanguage}
           />
         );
       case 'Plate Types':
@@ -2237,6 +2238,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             onRenewRental={handleRenewRental}
             onUpdateRentalStatus={handleUpdateRentalStatus}
             onInitiateReturn={handleInitiateReturn}
+            appLanguage={appLanguage}
           />
         );
       case 'Returns':
@@ -2249,6 +2251,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             onAddReturn={handleAddReturn}
             preselectedRentalId={preselectedRentalId}
             onClearPreselectedRental={() => setPreselectedRentalId(null)}
+            appLanguage={appLanguage}
           />
         );
       case 'Payments':

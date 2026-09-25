@@ -21,6 +21,7 @@ import {
 
 import { RenewRentalModal } from '../modals/RenewRentalModal';
 import { RentalBillModal } from '../modals/RentalBillModal';
+import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
 
 interface PlateRowItem {
   id: string;
@@ -53,6 +54,7 @@ interface RentalsTabProps {
     },
     penalty?: number
   ) => Promise<void>;
+  appLanguage?: AppLanguage;
 }
 
 export const RentalsTab: React.FC<RentalsTabProps> = ({
@@ -65,7 +67,9 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   onUpdateRentalStatus: _onUpdateRentalStatus,
   onInitiateReturn,
   onRenewRental,
+  appLanguage,
 }) => {
+  const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
   const todayStr = new Date().toISOString().split('T')[0];
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'active' | 'returned' | 'overdue'>('All');
@@ -421,7 +425,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by party name or size..."
+              placeholder={isMarathi ? 'ग्राहक नाव किंवा साईझने शोधा...' : 'Search by party name or size...'}
               className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none pl-10 pr-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium"
             />
           </div>
@@ -432,10 +436,10 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
             onChange={(e) => setStatusFilter(e.target.value as any)}
             className="bg-white border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700"
           >
-            <option value="All">All Statuses</option>
-            <option value="active">Active</option>
-            <option value="overdue">Overdue</option>
-            <option value="returned">Returned</option>
+            <option value="All">{isMarathi ? 'सर्व स्थिती' : 'All Statuses'}</option>
+            <option value="active">{isMarathi ? 'सक्रिय (Active)' : 'Active'}</option>
+            <option value="overdue">{isMarathi ? 'मुदत संपली (Overdue)' : 'Overdue'}</option>
+            <option value="returned">{isMarathi ? 'जमा (Returned)' : 'Returned'}</option>
           </select>
 
           {/* Party Filter */}
@@ -444,7 +448,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
             onChange={(e) => setPartyFilter(e.target.value)}
             className="bg-white border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 max-w-[180px]"
           >
-            <option value="All">All Parties</option>
+            <option value="All">{isMarathi ? 'सर्व ग्राहक' : 'All Parties'}</option>
             {parties.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -458,7 +462,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
             onChange={(e) => setPlateFilter(e.target.value)}
             className="bg-white border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700"
           >
-            <option value="All">All Sizes</option>
+            <option value="All">{isMarathi ? 'सर्व मापे' : 'All Sizes'}</option>
             {plates.map((p) => (
               <option key={p.plateType} value={p.plateType}>
                 {p.plateType}
@@ -475,10 +479,10 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
               className="bg-transparent focus:outline-none text-xs sm:text-sm font-semibold text-slate-700 cursor-pointer"
               title="Sort Rentals"
             >
-              <option value="customer-serial">👥 Customer Serial (Cust #1, #2... All Bills)</option>
-              <option value="bill-asc">🧾 Bill # (Ascending 1, 2, 3...)</option>
-              <option value="bill-desc">🧾 Bill # (Newest First)</option>
-              <option value="date-desc">📅 Issue Date (Newest First)</option>
+              <option value="customer-serial">{isMarathi ? '👥 ग्राहक क्र. व सर्व बिले (Serial)' : '👥 Customer Serial (Cust #1, #2... All Bills)'}</option>
+              <option value="bill-asc">{isMarathi ? '🧾 बिल क्र. (१, २, ३... क्रमाने)' : '🧾 Bill # (Ascending 1, 2, 3...)'}</option>
+              <option value="bill-desc">{isMarathi ? '🧾 नवीन बिले प्रथम' : '🧾 Bill # (Newest First)'}</option>
+              <option value="date-desc">{isMarathi ? '📅 वाटप दिनांक (नवीन प्रथम)' : '📅 Issue Date (Newest First)'}</option>
             </select>
           </div>
         </div>
@@ -489,7 +493,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
           className="bg-primary hover:bg-primary-dark text-white font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-orange-500/10 flex items-center justify-center gap-2 text-sm transition-all flex-shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>New Rental Dispatch</span>
+          <span>{isMarathi ? '+ नवीन भाडे वाटप' : 'New Rental Dispatch'}</span>
         </button>
       </div>
 
@@ -499,16 +503,16 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                <th className="px-5 py-4 min-w-[160px]">Party & Agreement</th>
-                <th className="px-4 py-4 min-w-[100px]">Size & Qty</th>
-                <th className="px-4 py-4 min-w-[90px]">Cycle</th>
-                <th className="px-4 py-4 min-w-[140px]">Cycle Dates</th>
-                <th className="px-4 py-4 min-w-[110px]">Duration</th>
-                <th className="px-4 py-4 min-w-[90px]">Total</th>
-                <th className="px-4 py-4 min-w-[80px]">Paid</th>
-                <th className="px-4 py-4 min-w-[100px]">Due</th>
-                <th className="px-4 py-4 min-w-[100px]">Status</th>
-                <th className="px-5 py-4 min-w-[270px] text-right">Actions</th>
+                <th className="px-5 py-4 min-w-[160px]">{isMarathi ? 'ग्राहक व भाडे करार' : 'Party & Agreement'}</th>
+                <th className="px-4 py-4 min-w-[100px]">{isMarathi ? 'माप व नग' : 'Size & Qty'}</th>
+                <th className="px-4 py-4 min-w-[90px]">{isMarathi ? 'सायकल' : 'Cycle'}</th>
+                <th className="px-4 py-4 min-w-[140px]">{isMarathi ? 'सायकल कालावधी' : 'Cycle Dates'}</th>
+                <th className="px-4 py-4 min-w-[110px]">{isMarathi ? 'कालावधी' : 'Duration'}</th>
+                <th className="px-4 py-4 min-w-[90px]">{isMarathi ? 'एकूण भाडे' : 'Total'}</th>
+                <th className="px-4 py-4 min-w-[80px]">{isMarathi ? 'जमा रक्कम' : 'Paid'}</th>
+                <th className="px-4 py-4 min-w-[100px]">{isMarathi ? 'येणे बाकी' : 'Due'}</th>
+                <th className="px-4 py-4 min-w-[100px]">{isMarathi ? 'स्थिती' : 'Status'}</th>
+                <th className="px-5 py-4 min-w-[270px] text-right">{isMarathi ? 'कृती' : 'Actions'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-light">
@@ -534,7 +538,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       <tr className="bg-slate-50/90 border-t-2 border-slate-200">
                         <td colSpan={10} className="px-5 py-2 text-xs font-bold text-slate-700 font-mono tracking-wide">
                           <span className="inline-flex items-center gap-2 bg-white border border-slate-200/90 px-3 py-1 rounded-lg shadow-2xs">
-                            <span className="font-black text-primary">Customer #{currentCustNum}</span>
+                            <span className="font-black text-primary">{isMarathi ? 'ग्राहक' : 'Customer'} #{currentCustNum}</span>
                             <span className="text-slate-300">•</span>
                             <span className="text-slate-800 font-bold uppercase">{rent.partyName}</span>
                           </span>
@@ -546,16 +550,16 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       <td className="px-5 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <span className="font-mono font-black text-xs px-2 py-0.5 rounded-lg bg-orange-100 text-primary border border-orange-200 shadow-2xs">
-                            Bill #{rent.billNumber || 1}
+                            {isMarathi ? 'बिल' : 'Bill'} #{rent.billNumber || 1}
                           </span>
                           <span className="font-bold text-slate-900 text-sm">{rent.partyName}</span>
                         </div>
                         <div className="text-[11px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
                           <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded text-[10px]">
-                            Cust #{currentCustNum}
+                            {isMarathi ? 'ग्राहक' : 'Cust'} #{currentCustNum}
                           </span>
                           <span>•</span>
-                          <span>Disp: {rent.issueDate}</span>
+                          <span>{isMarathi ? 'वाटप' : 'Disp'}: {rent.issueDate}</span>
                         </div>
                       </td>
 
@@ -572,14 +576,14 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                     {/* Active Cycle Badge */}
                     <td className="px-4 py-4 whitespace-nowrap">
                       <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded-lg">
-                        <span>Cycle {activeCycle.cycleNumber}</span>
+                        <span>{isMarathi ? 'सायकल' : 'Cycle'} {activeCycle.cycleNumber}</span>
                         {activeCycle.status === 'active' && (
                           <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
                         )}
                       </span>
                       {allCycles.length > 1 && (
                         <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
-                          {allCycles.length} cyc total
+                          {allCycles.length} {isMarathi ? 'सायकल्स' : 'cyc total'}
                         </div>
                       )}
                     </td>
@@ -595,14 +599,14 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                     {/* Duration & Extra */}
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="font-bold text-slate-800 text-xs">
-                        {finances.elapsedDays} Days
+                        {finances.elapsedDays} {isMarathi ? 'दिवस' : 'Days'}
                       </div>
                       <div className="text-[11px] text-slate-400 font-mono">
                         {finances.standardDays} / {activeCycle.days || 40}d
                       </div>
                       {hasExtra && (
                         <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold rounded">
-                          +{finances.extraDays}d Overdue
+                          +{finances.extraDays} {isMarathi ? 'दिवस जादा' : 'd Overdue'}
                         </span>
                       )}
                     </td>
@@ -683,7 +687,15 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                               : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                           }`}
                         >
-                          {effectiveStatus === 'overdue' ? 'OVERDUE' : effectiveStatus.toUpperCase()}
+                          {isMarathi
+                            ? effectiveStatus === 'overdue'
+                              ? 'मुदत संपली'
+                              : effectiveStatus === 'returned'
+                              ? 'जमा'
+                              : 'सक्रिय'
+                            : effectiveStatus === 'overdue'
+                            ? 'OVERDUE'
+                            : effectiveStatus.toUpperCase()}
                         </span>
                         {effectiveStatus === 'overdue' && finances.extraDays > 0 && (
                           <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
@@ -703,7 +715,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                           title={`Generate / Print Rental Bill #${rent.billNumber || 1}`}
                         >
                           <FileText className="w-3.5 h-3.5 text-orange-400" />
-                          <span>Bill #{rent.billNumber || 1}</span>
+                          <span>{isMarathi ? 'बिल' : 'Bill'} #{rent.billNumber || 1}</span>
                         </button>
 
                         {/* Return Action */}
@@ -714,7 +726,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                             title="Record plate return and collect remaining balance"
                           >
                             <RefreshCw className="w-3.5 h-3.5" />
-                            <span>Return</span>
+                            <span>{isMarathi ? 'जमा' : 'Return'}</span>
                           </button>
                         )}
 
@@ -726,7 +738,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                             title="Renew rental for another 40-day cycle"
                           >
                             <RotateCw className="w-3.5 h-3.5" />
-                            <span>Renew</span>
+                            <span>{isMarathi ? 'नूतनीकरण' : 'Renew'}</span>
                           </button>
                         )}
 

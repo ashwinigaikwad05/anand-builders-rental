@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Search, RefreshCw, X, Check, Info, IndianRupee, Wallet } from 'lucide-react';
 import type { Party, Rental, ReturnLog, RentalCycle } from '../../../data/adminMockData';
 import { calculateCalendarDays, calculateCycleFinances } from '../../../lib/supabase';
+import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
 
 export interface ReturnInputPayload extends Omit<ReturnLog, 'id' | 'partyName' | 'plateType' | 'issuedQuantity'> {
   collectedAmount?: number;
@@ -19,6 +20,7 @@ interface ReturnsTabProps {
   onAddReturn: (newReturn: ReturnInputPayload) => void;
   preselectedRentalId?: string | null;
   onClearPreselectedRental?: () => void;
+  appLanguage?: AppLanguage;
 }
 
 export const ReturnsTab: React.FC<ReturnsTabProps> = ({
@@ -29,7 +31,9 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
   onAddReturn,
   preselectedRentalId,
   onClearPreselectedRental,
+  appLanguage,
 }) => {
+  const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
   const todayStr = new Date().toISOString().split('T')[0];
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -318,7 +322,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search Returns by Party or Size..."
+            placeholder={isMarathi ? 'ग्राहक नाव किंवा साईझने शोधा...' : 'Search Returns by Party or Size...'}
             className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-primary focus:outline-none pl-11 pr-4 py-3 rounded-xl text-sm font-medium"
           />
         </div>
@@ -329,7 +333,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
           className="bg-primary hover:bg-primary-dark text-white font-bold px-5 py-3 rounded-xl shadow-md hover:shadow-orange-500/10 flex items-center justify-center gap-2 text-sm cursor-pointer transition-all"
         >
           <Plus className="w-4 h-4" />
-          <span>New Return Intake</span>
+          <span>{isMarathi ? '+ साहित्य जमा नोंद' : 'New Return Intake'}</span>
         </button>
       </div>
 
@@ -338,18 +342,18 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
         {/* Left: Returned Logs Table (7 Columns) */}
         <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-            <h4 className="text-sm font-bold text-charcoal">Material Return & Settlement Logs</h4>
+            <h4 className="text-sm font-bold text-charcoal">{isMarathi ? 'साहित्य जमा व हिशोब नोंदी' : 'Material Return & Settlement Logs'}</h4>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                  <th className="px-5 py-4">Return Date</th>
-                  <th className="px-5 py-4">Party Name</th>
-                  <th className="px-4 py-4">Size</th>
-                  <th className="px-4 py-4">Returned</th>
-                  <th className="px-4 py-4">Remaining</th>
-                  <th className="px-5 py-4 text-right">Payment Collected</th>
+                  <th className="px-5 py-4">{isMarathi ? 'जमा दिनांक' : 'Return Date'}</th>
+                  <th className="px-5 py-4">{isMarathi ? 'ग्राहकाचे नाव' : 'Party Name'}</th>
+                  <th className="px-4 py-4">{isMarathi ? 'माप' : 'Size'}</th>
+                  <th className="px-4 py-4">{isMarathi ? 'जमा नग' : 'Returned'}</th>
+                  <th className="px-4 py-4">{isMarathi ? 'शिल्लक' : 'Remaining'}</th>
+                  <th className="px-5 py-4 text-right">{isMarathi ? 'जमा रक्कम' : 'Payment Collected'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-light">

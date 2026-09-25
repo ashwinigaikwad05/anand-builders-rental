@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "test": "node tests/master_calculations.test.mjs",
+    "test": "node tests/master_calculations.test.mjs && node tests/marathi_language_formats.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

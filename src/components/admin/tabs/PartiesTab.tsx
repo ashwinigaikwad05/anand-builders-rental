@@ -27,6 +27,7 @@ import { calculatePartyBehaviour } from '../../../lib/partyBehaviour';
 import { getCleanPhoneNumber, buildGeneralPartyWhatsAppUrl } from '../../../utils/alertMessaging';
 import { DocumentUploadCard } from '../DocumentUploadCard';
 import { ImageLightboxModal } from '../ImageLightboxModal';
+import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
 
 interface PartiesTabProps {
   parties: Party[];
@@ -38,6 +39,7 @@ interface PartiesTabProps {
   onAddParty: (newParty: Omit<Party, 'id' | 'platesWithParty' | 'totalRent' | 'paid' | 'pending' | 'status'>) => void;
   onEditParty: (party: Party) => void;
   onDeleteParty: (partyId: string) => void;
+  appLanguage?: AppLanguage;
 }
 
 export const PartiesTab: React.FC<PartiesTabProps> = ({
@@ -50,7 +52,9 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
   onAddParty,
   onEditParty,
   onDeleteParty,
+  appLanguage,
 }) => {
+  const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -802,7 +806,7 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search Party Name or Mobile..."
+                placeholder={isMarathi ? 'ग्राहक नाव किंवा मोबाईल नंबर शोधा...' : 'Search Party Name or Mobile...'}
                 className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-primary focus:outline-none pl-11 pr-4 py-3 rounded-xl text-sm font-medium"
               />
             </div>
@@ -813,7 +817,7 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
               className="bg-primary hover:bg-primary-dark text-white font-bold px-5 py-3 rounded-xl shadow-md hover:shadow-orange-500/10 flex items-center justify-center gap-2 text-sm"
             >
               <UserPlus className="w-4 h-4" />
-              <span>Add Party</span>
+              <span>{isMarathi ? '+ नवीन ग्राहक' : 'Add Party'}</span>
             </button>
           </div>
 
@@ -823,16 +827,16 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                    <th className="px-4 py-4 text-center w-16">Cust #</th>
-                    <th className="px-6 py-4">Party Name</th>
-                    <th className="px-6 py-4">Mobile</th>
-                    <th className="px-6 py-4">Behaviour Rating</th>
-                    <th className="px-6 py-4">Plates Active</th>
-                    <th className="px-6 py-4">Accum. Rent</th>
-                    <th className="px-6 py-4">Paid</th>
-                    <th className="px-6 py-4">Outstanding Dues</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4 text-center">Actions</th>
+                    <th className="px-4 py-4 text-center w-16">{isMarathi ? 'ग्राहक क्र.' : 'Cust #'}</th>
+                    <th className="px-6 py-4">{isMarathi ? 'ग्राहकाचे नाव' : 'Party Name'}</th>
+                    <th className="px-6 py-4">{isMarathi ? 'मोबाईल' : 'Mobile'}</th>
+                    <th className="px-6 py-4">{isMarathi ? 'व्यवहार गुणवत्ता' : 'Behaviour Rating'}</th>
+                    <th className="px-6 py-4">{isMarathi ? 'सक्रिय प्लेट्स' : 'Plates Active'}</th>
+                    <th className="px-6 py-4">{isMarathi ? 'एकूण भाडे' : 'Accum. Rent'}</th>
+                    <th className="px-6 py-4">{isMarathi ? 'जमा रक्कम' : 'Paid'}</th>
+                    <th className="px-6 py-4">{isMarathi ? 'थकबाकी' : 'Outstanding Dues'}</th>
+                    <th className="px-6 py-4">{isMarathi ? 'स्थिती' : 'Status'}</th>
+                    <th className="px-6 py-4 text-center">{isMarathi ? 'कृती' : 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-light">

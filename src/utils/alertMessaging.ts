@@ -97,8 +97,20 @@ export function buildWhatsAppMessage(
   cycleNumber: number,
   statusType: CycleAlertStatusType,
   daysLeft: number,
-  extraDays: number
+  extraDays: number,
+  lang: 'marathi' | 'english' = 'marathi'
 ): string {
+  if (lang === 'marathi') {
+    if (statusType === '40_completed') {
+      return `नमस्कार ${partyName}जी, आनंद बिल्डर्स अँड डेव्हलपर्सकडून कळवण्यात येते की आपल्या सेन्टरिंग प्लेट्सची ४० दिवसांची भाडे मुदत (सायकल #${cycleNumber}) पूर्ण झाली आहे. कृपया साहित्य जमा किंवा नूतनीकरणासाठी आमच्याशी संपर्क साधावा. धन्यवाद!`;
+    }
+    if (statusType === 'overdue') {
+      return `नमस्कार ${partyName}जी, आनंद बिल्डर्सकडून कळवण्यात येते की आपल्या सेन्टरिंग प्लेट्सच्या ४० दिवसांच्या मुदतीनंतर +${extraDays} दिवस जादा झाले आहेत (सायकल #${cycleNumber}). कृपया साहित्य जमा किंवा नूतनीकरणासाठी त्वरित संपर्क साधावा. धन्यवाद!`;
+    }
+    const d = Math.max(1, daysLeft);
+    return `नमस्कार ${partyName}जी, आनंद बिल्डर्सकडून नम्र स्मरण: आपल्या सेन्टरिंग प्लेट्सच्या चालू सायकलचे (${cycleNumber}) केवळ ${d} दिवस बाकी आहेत. कृपया नोंद घ्यावी. धन्यवाद!`;
+  }
+
   if (statusType === '40_completed') {
     return `Hello ${partyName}, your shuttering plate rental cycle of 40 days has been completed. Please contact us regarding return or renewal of the plates. Thank you.`;
   }
@@ -117,17 +129,25 @@ export function buildWhatsAppUrl(
   cycleNumber: number,
   statusType: CycleAlertStatusType,
   daysLeft: number,
-  extraDays: number
+  extraDays: number,
+  lang: 'marathi' | 'english' = 'marathi'
 ): string {
   const { whatsappPhone } = getCleanPhoneNumber(mobile);
-  const msg = buildWhatsAppMessage(partyName, cycleNumber, statusType, daysLeft, extraDays);
+  const msg = buildWhatsAppMessage(partyName, cycleNumber, statusType, daysLeft, extraDays, lang);
   if (!whatsappPhone) return '#';
   return `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(msg)}`;
 }
 
-export function buildGeneralPartyWhatsAppUrl(mobile: string, partyName: string): string {
+export function buildGeneralPartyWhatsAppUrl(
+  mobile: string,
+  partyName: string,
+  lang: 'marathi' | 'english' = 'marathi'
+): string {
   const { whatsappPhone } = getCleanPhoneNumber(mobile);
   if (!whatsappPhone) return '#';
-  const msg = `Hello ${partyName}, greeting from Anand Builders Shuttering Material Service. Please contact us regarding your rental account and shuttering plates. Thank you.`;
+  const msg =
+    lang === 'marathi'
+      ? `नमस्कार ${partyName}जी, आनंद बिल्डर्स अँड डेव्हलपर्स सेन्टरिंग प्लेट्स सेवा. आपल्या भाडे खात्याच्या व साहित्याच्या माहितीसाठी संपर्क साधावा. धन्यवाद!`
+      : `Hello ${partyName}, greeting from Anand Builders Shuttering Material Service. Please contact us regarding your rental account and shuttering plates. Thank you.`;
   return `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(msg)}`;
 }
