@@ -722,7 +722,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     {selectedLanguage === 'marathi' ? 'INVOICE / पावती' : 'INVOICE'}
                   </h2>
                   <p className="text-xs font-mono font-bold text-slate-900">#{billNumber}</p>
-                  <p className="text-xs font-mono text-slate-800">{issueDateFormatted}</p>
+                  <div className="text-xs font-mono font-bold text-slate-900 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded mt-1 inline-block">
+                    <span className="text-slate-600 font-semibold">{selectedLanguage === 'marathi' ? 'बिल दिनांक:' : 'Bill Dated:'}</span>{' '}
+                    {issueDateFormatted}
+                  </div>
                 </div>
               </div>
 
@@ -738,7 +741,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     <span className="font-mono text-slate-800 ml-3">{party?.mobile || ''}</span>
                   </div>
                   <div className="text-right">
-                    <span className="font-bold text-black">{selectedLanguage === 'marathi' ? 'Delivery:' : 'Delivery:'}</span>{' '}
+                    <span className="font-bold text-black">{selectedLanguage === 'marathi' ? 'साहित्य वाटप:' : 'Dispatch Date:'}</span>{' '}
                     <span className="font-mono text-black font-semibold">{cycleStartFormatted !== '-' ? cycleStartFormatted : issueDateFormatted}</span>
                   </div>
                 </div>
@@ -757,12 +760,12 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                   </div>
                   <div className="text-right">
                     <span className="font-bold text-black">
-                      {selectedLanguage === 'marathi' ? 'भाडे कालावधी:' : 'Rental Duration:'}
+                      {selectedLanguage === 'marathi' ? 'भाडे कालावधी (Rental Period):' : 'Rental Period:'}
                     </span>{' '}
-                    <span className="font-mono text-black font-bold">{cycleDays} Days</span>
+                    <span className="font-mono text-black font-bold">{cycleDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'Days'}</span>
                     {cycleEndFormatted && cycleEndFormatted !== '40 Days from issue' && (
-                      <span className="font-mono text-slate-600 text-[11px] ml-1.5">
-                        ({cycleStartFormatted} to {cycleEndFormatted})
+                      <span className="font-mono text-slate-700 font-semibold text-[11px] ml-1.5">
+                        ({cycleStartFormatted} {selectedLanguage === 'marathi' ? 'ते' : 'to'} {cycleEndFormatted})
                       </span>
                     )}
                   </div>
@@ -785,21 +788,22 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     const rowRent = item.quantity * item.dailyRate * itemDays;
                     return (
                       <tr key={index}>
-                        <td className="py-2 pr-4 text-black">
-                          <div className="font-normal lowercase">
-                            {item.plateType.toLowerCase().includes('plate') ? item.plateType : `plates ${item.plateType}`}
+                        <td className="py-2.5 pr-4 text-black">
+                          <div className="font-bold uppercase text-[12px]">
+                            {item.plateType.toLowerCase().includes('plate') ? item.plateType : `Steel Plate ${item.plateType}`}
                           </div>
-                          <div className="text-[10px] font-mono text-slate-500">
-                            {selectedLanguage === 'marathi' ? 'मुदत:' : 'Duration:'} {itemDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'Days'} • ₹{Number(item.dailyRate).toFixed(2)}/day
+                          {/* Explicit Day-Wise Calculation Formula */}
+                          <div className="text-[11px] font-mono font-medium text-slate-700 bg-slate-100/90 border border-slate-300 px-2 py-0.5 rounded mt-1 inline-block">
+                            {item.quantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'plates'} × ₹{Number(item.dailyRate).toFixed(2)}/{selectedLanguage === 'marathi' ? 'दिवस' : 'day'} × {itemDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'days'}
                           </div>
                         </td>
-                        <td className="py-2 px-3 text-center font-mono text-black align-top">
+                        <td className="py-2.5 px-3 text-center font-mono text-black align-top font-bold text-sm">
                           {item.quantity}
                         </td>
-                        <td className="py-2 px-3 text-right font-mono text-black align-top">
-                          ₹{Number(item.dailyRate).toFixed(2)}
+                        <td className="py-2.5 px-3 text-right font-mono text-black align-top font-semibold">
+                          ₹{Number(item.dailyRate).toFixed(2)}/{selectedLanguage === 'marathi' ? 'दिवस' : 'd'}
                         </td>
-                        <td className="py-2 pl-4 text-right font-mono text-black align-top">
+                        <td className="py-2.5 pl-4 text-right font-mono text-black align-top font-black text-sm">
                           ₹{rowRent.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                       </tr>
@@ -970,22 +974,26 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     </>
                   ) : (
                     <>
-                      <div className="flex justify-between py-0.5">
-                        <span className="font-semibold text-black">
-                          Total ({cycleDays}d):
+                      <div className="flex justify-between py-0.5 text-black">
+                        <span className="font-bold">
+                          {selectedLanguage === 'marathi' ? `दिवसनिहाय एकूण भाडे (${cycleDays} दिवस):` : `Total Day-Wise Rent (${cycleDays} Days):`}
                         </span>
-                        <span className="font-mono text-black">
+                        <span className="font-mono text-black font-bold">
                           ₹{totalCycleAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
-                      <div className="flex justify-between py-0.5">
-                        <span className="font-semibold text-black">Paid:</span>
-                        <span className="font-mono text-black">
-                          ₹{allCyclesTotalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <div className="flex justify-between py-0.5 text-emerald-800">
+                        <span className="font-bold">
+                          {selectedLanguage === 'marathi' ? 'जमा रक्कम (Advance / Paid):' : 'Advance / Total Paid:'}
+                        </span>
+                        <span className="font-mono text-emerald-800 font-bold">
+                          - ₹{allCyclesTotalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
                       <div className="border-t-2 border-slate-900 pt-1.5 mt-1 flex justify-between items-baseline">
-                        <span className="text-base font-black text-black">Balance:</span>
+                        <span className="text-base font-black text-black">
+                          {selectedLanguage === 'marathi' ? 'शिल्लक बाकी (Balance Due):' : 'Balance Remaining Due:'}
+                        </span>
                         <span className="text-base sm:text-lg font-black font-mono text-black">
                           ₹{allCyclesBalanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
@@ -1122,10 +1130,11 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     <Calendar className="w-3 h-3 text-slate-500" /> {currentT.challanDetailsTitle}
                   </span>
                   <p className="text-slate-700">
-                    <span className="font-bold">{currentT.issueDateLabel}</span> {issueDateFormatted}
+                    <span className="font-bold">{selectedLanguage === 'marathi' ? 'बिल दिनांक:' : 'Bill Dated:'}</span>{' '}
+                    <span className="font-mono font-bold text-slate-900">{issueDateFormatted}</span>
                   </p>
                   <p className="text-slate-700">
-                    <span className="font-bold">{currentT.periodLabel}</span> {cycleStartFormatted} to {cycleEndFormatted}
+                    <span className="font-bold">{currentT.periodLabel}</span> {cycleStartFormatted} to {cycleEndFormatted} ({cycleDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'Days'})
                   </p>
                   <p className="text-slate-700">
                     <span className="font-bold">{currentT.paymentModeLabel}</span>{' '}
@@ -1149,18 +1158,22 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                   </thead>
                   <tbody className="divide-y divide-slate-200 font-medium">
                     {plateItems.map((item, index) => {
-                      const rowRent = item.quantity * item.dailyRate * (item.days || 40);
+                      const itemDays = item.days || cycleDays;
+                      const rowRent = item.quantity * item.dailyRate * itemDays;
                       return (
                         <tr key={index} className="hover:bg-slate-50/50">
-                          <td className="py-2 px-3 text-center text-slate-500">{index + 1}</td>
+                          <td className="py-2 px-3 text-center text-slate-500 font-bold">{index + 1}</td>
                           <td className="py-2 px-3">
-                            <span className="font-bold text-slate-900">{currentT.platePrefix} — {item.plateType}</span>
+                            <div className="font-bold text-slate-900">{currentT.platePrefix} — {item.plateType}</div>
+                            <div className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded mt-0.5 inline-block border border-slate-200">
+                              {item.quantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'plates'} × ₹{Number(item.dailyRate).toFixed(2)} × {itemDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'days'}
+                            </div>
                           </td>
                           <td className="py-2 px-3 text-center font-bold text-slate-800">{item.quantity} {currentT.nosSuffix}</td>
-                          <td className="py-2 px-3 text-right">₹{Number(item.dailyRate).toFixed(2)}</td>
-                          <td className="py-2 px-3 text-center">{item.days || 40} {currentT.daysSuffix}</td>
-                          <td className="py-2 px-3 text-right font-bold text-slate-900">
-                            ₹{rowRent.toLocaleString('en-IN')}
+                          <td className="py-2 px-3 text-right font-mono font-semibold">₹{Number(item.dailyRate).toFixed(2)}</td>
+                          <td className="py-2 px-3 text-center font-mono">{itemDays} {currentT.daysSuffix}</td>
+                          <td className="py-2 px-3 text-right font-bold text-slate-900 font-mono">
+                            ₹{rowRent.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                         </tr>
                       );

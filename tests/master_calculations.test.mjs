@@ -36,29 +36,64 @@ function calculateExpectedCycleEndDate(startDateStr, cycleDays = 40) {
   return addDaysToDate(startDateStr, cycleDays - 1);
 }
 
+function calculateDayWiseRent(days, quantity, dailyRate, items) {
+  if (days <= 0) return 0;
+  if (items && items.length > 0) {
+    const totalDaily = items.reduce((sum, it) => sum + (it.quantity || 0) * (it.dailyRate || 0), 0);
+    return Math.round(totalDaily * days * 100) / 100;
+  }
+  return Math.round((quantity || 0) * (dailyRate || 0) * days * 100) / 100;
+}
+
 function calculateCycleFinances(cycle, asOfDateStr = new Date().toISOString().split('T')[0]) {
   const effectiveEndDate = cycle.actualEndDate || asOfDateStr;
   const elapsedDays = calculateCalendarDays(cycle.startDate, effectiveEndDate);
   const cycleTermDays = cycle.days && cycle.days > 0 ? cycle.days : 40;
-  const standardDays = Math.min(elapsedDays, cycleTermDays);
-  const extraDays = Math.max(0, elapsedDays - cycleTermDays);
 
+  let dailyRateTotal = 0;
+  if (cycle.items && cycle.items.length > 0) {
+    dailyRateTotal = cycle.items.reduce(
+      (sum, it) => sum + (it.quantity || 0) * (it.dailyRate || 0),
+      0
+    );
+  } else {
+    dailyRateTotal = (cycle.quantity || 0) * (cycle.dailyRate || 0);
+  }
+
+  let standardDays = 0;
+  let extraDays = 0;
   let extraAmount = 0;
-  if (extraDays > 0) {
-    if (cycle.items && cycle.items.length > 0) {
-      extraAmount = cycle.items.reduce(
-        (sum, it) => sum + it.quantity * it.dailyRate * extraDays,
-        0
-      );
+  let totalAmount = 0;
+
+  if (cycle.actualEndDate) {
+    // Pure Day-Wise calculation upon return: strictly charge for actual days kept
+    standardDays = elapsedDays;
+    totalAmount = Math.round(dailyRateTotal * elapsedDays * 100) / 100;
+  } else {
+    // Active ongoing cycle
+    standardDays = Math.min(elapsedDays, cycleTermDays);
+    extraDays = Math.max(0, elapsedDays - cycleTermDays);
+    if (extraDays > 0) {
+      extraAmount = Math.round(dailyRateTotal * extraDays * 100) / 100;
+      totalAmount = Math.round((cycle.baseRent || dailyRateTotal * cycleTermDays) + extraAmount);
     } else {
-      extraAmount = cycle.quantity * cycle.dailyRate * extraDays;
+      totalAmount = cycle.baseRent > 0 ? cycle.baseRent : Math.round(dailyRateTotal * cycleTermDays * 100) / 100;
     }
   }
 
-  const totalAmount = cycle.baseRent + extraAmount;
-  const pendingAmount = Math.max(0, totalAmount - cycle.paidAmount);
+  const pendingAmount = Math.max(0, totalAmount - (cycle.paidAmount || 0));
+  const dayWiseRent = Math.round(dailyRateTotal * elapsedDays * 100) / 100;
 
-  return { elapsedDays, standardDays, extraDays, extraAmount, totalAmount, pendingAmount };
+  return {
+    elapsedDays,
+    standardDays,
+    extraDays,
+    extraAmount,
+    dailyRateTotal,
+    dayWiseRent,
+    totalAmount,
+    pendingAmount,
+  };
 }
 
 function determineRenewalStartDate(currentExpectedEndDateStr, confirmationDateStr = new Date().toISOString().split('T')[0]) {
@@ -641,6 +676,70 @@ runTest('CycleRemainingPayment', 'Multi-cycle pending dues accurately sums earli
   assert.strictEqual(earlierCyclesDue, 400);
   assert.strictEqual(activeCycleDue, 1000);
   assert.strictEqual(allPreviousPendingDue, 1400); // 400 + 1000
+});
+
+// =============================================================================
+// SUITE 14: PURE DAY-WISE RENTAL & PAYMENT CALCULATIONS
+// =============================================================================
+console.log('\n📅 SUITE 14: Pure Day-Wise Rental & Day-Wise Calculations of Money');
+
+runTest('DayWiseCalc', 'Pure day-wise rent: 100 plates @ ₹1.50/day for 7 days = ₹1,050', () => {
+  const rent = calculateDayWiseRent(7, 100, 1.5);
+  assert.strictEqual(rent, 1050);
+});
+
+runTest('DayWiseCalc', 'Material return on Day 7 charges strictly 7 days (₹1,050) instead of 40 days (₹6,000)', () => {
+  const fin = calculateCycleFinances({
+    startDate: '2026-09-17',
+    actualEndDate: '2026-09-23', // 7 calendar days
+    quantity: 100,
+    dailyRate: 1.5,
+    baseRent: 6000,
+    paidAmount: 1000,
+  });
+  assert.strictEqual(fin.elapsedDays, 7);
+  assert.strictEqual(fin.totalAmount, 1050); // 100 * 1.5 * 7 = 1,050
+  assert.strictEqual(fin.pendingAmount, 50); // 1,050 - 1,000 = 50
+});
+
+runTest('DayWiseCalc', 'Multi-item day-wise rent: (60 @ ₹1.50) + (40 @ ₹2.00) = ₹170/day × 15 days = ₹2,550', () => {
+  const items = [
+    { plateType: '24×3', quantity: 60, dailyRate: 1.5 },
+    { plateType: '21×3', quantity: 40, dailyRate: 2.0 },
+  ];
+  const rent = calculateDayWiseRent(15, 100, 1.7, items);
+  assert.strictEqual(rent, 2550);
+});
+
+runTest('DayWiseCalc', 'Day-wise return settlement with advance payment results in ₹0 due', () => {
+  const fin = calculateCycleFinances({
+    startDate: '2026-09-10',
+    actualEndDate: '2026-09-14', // 5 days
+    quantity: 100,
+    dailyRate: 1.5,
+    baseRent: 6000,
+    paidAmount: 1000, // Customer paid 1,000 upfront
+  });
+  // 5 days * 100 * 1.5 = 750
+  assert.strictEqual(fin.totalAmount, 750);
+  assert.strictEqual(fin.pendingAmount, 0); // Paid 1,000 > 750
+  const advanceRefund = 1000 - fin.totalAmount;
+  assert.strictEqual(advanceRefund, 250);
+});
+
+runTest('DayWiseCalc', 'Day-wise return with penalty: 7 days rent ₹1,050 + ₹200 penalty = ₹1,250 payable', () => {
+  const fin = calculateCycleFinances({
+    startDate: '2026-09-17',
+    actualEndDate: '2026-09-23', // 7 days
+    quantity: 100,
+    dailyRate: 1.5,
+    baseRent: 6000,
+    paidAmount: 0,
+  });
+  const penalty = 200;
+  const totalPayable = fin.totalAmount + penalty;
+  assert.strictEqual(fin.totalAmount, 1050);
+  assert.strictEqual(totalPayable, 1250);
 });
 
 // =============================================================================

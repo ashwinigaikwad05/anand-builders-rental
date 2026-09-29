@@ -655,9 +655,27 @@ export function calculateExpectedCycleEndDate(startDateStr: string, cycleDays = 
 }
 
 /**
- * Calculates extra days and finances for a 40-day rental cycle up to an evaluation date.
- * If actual elapsed days <= 40: extraDays = 0, extraAmount = 0.
- * If actual elapsed days > 40: extraDays = elapsed - 40, extraAmount = quantity * dailyRate * extraDays.
+ * Calculates day-wise rental amount: Quantity × Daily Rate × Number of Days.
+ * If multiple items, sum of (item.quantity * item.dailyRate * days).
+ */
+export function calculateDayWiseRent(
+  days: number,
+  quantity: number,
+  dailyRate: number,
+  items?: Array<{ quantity: number; dailyRate: number; plateType?: string }>
+): number {
+  if (days <= 0) return 0;
+  if (items && items.length > 0) {
+    const totalDaily = items.reduce((sum, it) => sum + (it.quantity || 0) * (it.dailyRate || 0), 0);
+    return Math.round(totalDaily * days * 100) / 100;
+  }
+  return Math.round((quantity || 0) * (dailyRate || 0) * days * 100) / 100;
+}
+
+/**
+ * Calculates day-wise finances for a rental cycle up to an evaluation or return date.
+ * If returned (actualEndDate provided): strictly charges for actual days kept (elapsedDays * dailyRate).
+ * If active: charges base rent or accrued day-wise rent beyond cycle term.
  */
 export function calculateCycleFinances(
   cycle: {
@@ -675,29 +693,49 @@ export function calculateCycleFinances(
   const effectiveEndDate = cycle.actualEndDate || asOfDateStr;
   const elapsedDays = calculateCalendarDays(cycle.startDate, effectiveEndDate);
   const cycleTermDays = cycle.days && cycle.days > 0 ? cycle.days : 40;
-  const standardDays = Math.min(elapsedDays, cycleTermDays);
-  const extraDays = Math.max(0, elapsedDays - cycleTermDays);
 
+  // Compute daily rate total across all itemized plates or single item
+  let dailyRateTotal = 0;
+  if (cycle.items && cycle.items.length > 0) {
+    dailyRateTotal = cycle.items.reduce(
+      (sum, it) => sum + (it.quantity || 0) * (it.dailyRate || 0),
+      0
+    );
+  } else {
+    dailyRateTotal = (cycle.quantity || 0) * (cycle.dailyRate || 0);
+  }
+
+  let standardDays = 0;
+  let extraDays = 0;
   let extraAmount = 0;
-  if (extraDays > 0) {
-    if (cycle.items && cycle.items.length > 0) {
-      extraAmount = cycle.items.reduce(
-        (sum, it) => sum + it.quantity * it.dailyRate * extraDays,
-        0
-      );
+  let totalAmount = 0;
+
+  if (cycle.actualEndDate) {
+    // Pure Day-Wise calculation upon return: strictly charge for actual days kept
+    standardDays = elapsedDays;
+    totalAmount = Math.round(dailyRateTotal * elapsedDays * 100) / 100;
+  } else {
+    // Active ongoing cycle
+    standardDays = Math.min(elapsedDays, cycleTermDays);
+    extraDays = Math.max(0, elapsedDays - cycleTermDays);
+    if (extraDays > 0) {
+      extraAmount = Math.round(dailyRateTotal * extraDays * 100) / 100;
+      totalAmount = Math.round((cycle.baseRent || dailyRateTotal * cycleTermDays) + extraAmount);
     } else {
-      extraAmount = cycle.quantity * cycle.dailyRate * extraDays;
+      totalAmount = cycle.baseRent > 0 ? cycle.baseRent : Math.round(dailyRateTotal * cycleTermDays * 100) / 100;
     }
   }
 
-  const totalAmount = cycle.baseRent + extraAmount;
-  const pendingAmount = Math.max(0, totalAmount - cycle.paidAmount);
+  const pendingAmount = Math.max(0, totalAmount - (cycle.paidAmount || 0));
+  const dayWiseRent = Math.round(dailyRateTotal * elapsedDays * 100) / 100;
 
   return {
     elapsedDays,
     standardDays,
     extraDays,
     extraAmount,
+    dailyRateTotal,
+    dayWiseRent,
     totalAmount,
     pendingAmount,
   };
