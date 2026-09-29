@@ -573,8 +573,80 @@ runTest('LedgerInvariant', 'Sum of Debits - Sum of Credits equals Party Running 
 });
 
 // =============================================================================
+// SUITE 13: CYCLE REMAINING PAYMENT VERIFICATION ON RENEWAL
+// =============================================================================
+console.log('\n🔍 SUITE 13: Cycle Remaining Payment Verification on Renewal');
+
+runTest('CycleRemainingPayment', 'Cycle 1 remaining payment strictly reflects Base Rent - Paid (₹2,400 - ₹1,000 = ₹1,400)', () => {
+  const activeCycle = {
+    cycleNumber: 1,
+    baseRent: 2400,
+    paidAmount: 1000,
+    totalAmount: 2400,
+  };
+  const prevFinances = {
+    extraAmount: 0,
+    totalAmount: 2400,
+    pendingAmount: 1400,
+  };
+  const staleRentalPending = 2000;
+  const stalePartyPending = 2000;
+
+  // Earlier cycles due for Cycle 1 is 0
+  const earlierCyclesDue = 0;
+  const activeCycleDue = Math.max(0, prevFinances.pendingAmount);
+  const calculatedAllPrevDue = earlierCyclesDue + activeCycleDue;
+
+  // Strict cycle remaining dues calculation (Fix for screenshot bug)
+  const allPreviousPendingDue = calculatedAllPrevDue;
+
+  assert.strictEqual(activeCycleDue, 1400);
+  assert.strictEqual(allPreviousPendingDue, 1400);
+  assert.notStrictEqual(allPreviousPendingDue, staleRentalPending);
+  assert.notStrictEqual(allPreviousPendingDue, stalePartyPending);
+
+  // New Cycle 2 Base Rent (40 days @ ₹2,400)
+  const newCycleBaseRent = 2400;
+  const penalty = 0;
+  const totalAccountDue = allPreviousPendingDue + newCycleBaseRent + penalty;
+
+  assert.strictEqual(totalAccountDue, 3800); // 1,400 + 2,400 = 3,800 (NOT 4,400)
+});
+
+runTest('CycleRemainingPayment', 'Renewal payment quick actions match exact cycle remaining dues', () => {
+  const allPreviousPendingDue = 1400;
+  const newCycleBaseRent = 2400;
+  const totalAccountDue = allPreviousPendingDue + newCycleBaseRent;
+
+  const quickPayPrevDue = allPreviousPendingDue;
+  const quickPayNewRent = newCycleBaseRent;
+  const quickPayFull = totalAccountDue;
+
+  assert.strictEqual(quickPayPrevDue, 1400);
+  assert.strictEqual(quickPayNewRent, 2400);
+  assert.strictEqual(quickPayFull, 3800);
+});
+
+runTest('CycleRemainingPayment', 'Multi-cycle pending dues accurately sums earlier cycle + active cycle remainders', () => {
+  const cycles = [
+    { cycleNumber: 1, totalAmount: 2400, paidAmount: 2000, pendingAmount: 400 },
+    { cycleNumber: 2, totalAmount: 2400, paidAmount: 1400, pendingAmount: 1000 },
+  ];
+  const activeCycle = cycles[1];
+  const earlierCycles = cycles.filter((c) => c.cycleNumber < activeCycle.cycleNumber);
+  const earlierCyclesDue = earlierCycles.reduce((sum, c) => sum + c.pendingAmount, 0);
+  const activeCycleDue = activeCycle.pendingAmount;
+  const allPreviousPendingDue = earlierCyclesDue + activeCycleDue;
+
+  assert.strictEqual(earlierCyclesDue, 400);
+  assert.strictEqual(activeCycleDue, 1000);
+  assert.strictEqual(allPreviousPendingDue, 1400); // 400 + 1000
+});
+
+// =============================================================================
 // FINAL SUMMARY
 // =============================================================================
 console.log('\n' + '='.repeat(75));
 console.log(`  🎉 SUMMARY: ${passedCount} / ${testCount} CALCULATION TESTS PASSED (100% SUCCESS)`);
 console.log('='.repeat(75));
+

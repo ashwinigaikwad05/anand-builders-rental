@@ -1346,7 +1346,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
                 dailyRate: newDailyRate,
                 items: finalNewItems,
                 paid: r.paid + paymentAmount,
-                pending: Math.max(0, (r.pending || 0) + newBaseRent + previousFinances.extraAmount + penaltyAmount - paymentAmount),
+                pending: earlierDues + finalPrevCyclePending + newCyclePending + Math.max(0, penaltyAmount - penaltyPaidFromPayment),
                 cycles: updatedCycleList.filter((c) => c.rentalId === r.id),
               }
             : r
@@ -2021,6 +2021,17 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
                 : c
             )
           );
+          setRentals((prev) =>
+            prev.map((r) =>
+              r.id === targetCycle.rentalId
+                ? {
+                    ...r,
+                    paid: (r.paid || 0) + newPayment.amount,
+                    pending: Math.max(0, (r.pending || 0) - newPayment.amount),
+                  }
+                : r
+            )
+          );
         }
       } else {
         // If general party payment, allocate to oldest pending cycle of this party
@@ -2045,7 +2056,32 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
                 : c
             )
           );
+          setRentals((prev) =>
+            prev.map((r) =>
+              r.id === cyc.rentalId
+                ? {
+                    ...r,
+                    paid: (r.paid || 0) + applyAmt,
+                    pending: Math.max(0, (r.pending || 0) - applyAmt),
+                  }
+                : r
+            )
+          );
           remainingToApply -= applyAmt;
+        }
+
+        if (newPayment.rentalId) {
+          setRentals((prev) =>
+            prev.map((r) =>
+              r.id === newPayment.rentalId
+                ? {
+                    ...r,
+                    paid: (r.paid || 0) + newPayment.amount,
+                    pending: Math.max(0, (r.pending || 0) - newPayment.amount),
+                  }
+                : r
+            )
+          );
         }
       }
 

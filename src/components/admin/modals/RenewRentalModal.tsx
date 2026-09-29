@@ -302,14 +302,11 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
   const activeCycleDue = Math.max(0, prevFinances.pendingAmount);
   const calculatedAllPrevDue = earlierCyclesDue + activeCycleDue;
 
-  // Previous all-time pending bill of this rental for collecting
-  const allPreviousPendingDue = Math.max(
-    calculatedAllPrevDue,
-    Math.max(0, (rental.pending || 0) + (prevFinances.extraAmount || 0)),
-    party && party.id === rental.partyId && party.pending > 0 && (!rentalCycles || rentalCycles.length <= 1)
-      ? party.pending
-      : 0
-  );
+  // Canonical previous pending bill for this rental's cycles
+  // Strictly uses calculatedAllPrevDue (prior cycles + active cycle remaining due)
+  const allPreviousPendingDue = calculatedAllPrevDue > 0
+    ? calculatedAllPrevDue
+    : (allRelatedCycles.length === 0 && (activeCycle.baseRent || 0) === 0 ? Math.max(0, rental.pending || 0) : 0);
 
   // Total Account Due = Previous All-time Pending + New Cycle Rent + Penalty
   const totalAccountDue = allPreviousPendingDue + newCycleBaseRent + (penaltyAmount || 0);
@@ -597,35 +594,76 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase">Elapsed Term</span>
-                <span className="font-bold text-slate-700">{prevFinances.elapsedDays} Days</span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 text-xs">
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200/70 shadow-2xs">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Elapsed Term</span>
+                <span className="font-bold text-slate-800">{prevFinances.elapsedDays} Days</span>
               </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase">Extra Days</span>
-                <span className={`font-bold ${prevFinances.extraDays > 0 ? 'text-amber-600' : 'text-slate-700'}`}>
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200/70 shadow-2xs">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Extra Days</span>
+                <span className={`font-bold ${prevFinances.extraDays > 0 ? 'text-amber-600' : 'text-slate-800'}`}>
                   {prevFinances.extraDays} Days
                 </span>
               </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase">Base Rent ({activeCycle.days || 40}d)</span>
-                <span className="font-bold text-slate-700">₹{activeCycle.baseRent.toLocaleString('en-IN')}</span>
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200/70 shadow-2xs">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Base Rent ({activeCycle.days || 40}d)</span>
+                <span className="font-bold text-slate-800">₹{activeCycle.baseRent.toLocaleString('en-IN')}</span>
               </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase">Extra Charge</span>
-                <span className={`font-bold ${prevFinances.extraAmount > 0 ? 'text-amber-600' : 'text-slate-700'}`}>
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200/70 shadow-2xs">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Extra Charge</span>
+                <span className={`font-bold ${prevFinances.extraAmount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>
                   ₹{prevFinances.extraAmount.toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200/70 shadow-2xs">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Total Cycle Rent</span>
+                <span className="font-black text-slate-900">₹{prevFinances.totalAmount.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200/70 shadow-2xs">
+                <span className="text-emerald-700 block text-[10px] uppercase font-bold">Paid / जमा</span>
+                <span className="font-black text-emerald-800 font-mono">₹{(activeCycle.paidAmount || 0).toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            {/* Clear calculation & remaining balance breakdown */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-2.5 border-t border-slate-200 text-xs gap-2">
+              <div className="flex items-center gap-1.5 text-slate-500 font-medium text-[11px]">
+                <span>हिशोब:</span>
+                <span className="font-mono text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">
+                  ₹{prevFinances.totalAmount.toLocaleString('en-IN')} (एकूण) - ₹{(activeCycle.paidAmount || 0).toLocaleString('en-IN')} (जमा)
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-700 font-bold">
+                  Cycle {activeCycle.cycleNumber} Remaining Due / शिल्लक बाकी:
+                </span>
+                <span className={`text-base font-black font-mono ${prevFinances.pendingAmount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                  ₹{prevFinances.pendingAmount.toLocaleString('en-IN')}
                 </span>
               </div>
             </div>
 
-            <div className="flex justify-between items-center pt-2 border-t border-slate-200 text-xs font-bold">
-              <span className="text-slate-500">Cycle {activeCycle.cycleNumber} Pending Balance:</span>
-              <span className={`text-sm ${prevFinances.pendingAmount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                ₹{prevFinances.pendingAmount.toLocaleString('en-IN')}
-              </span>
-            </div>
+            {/* Earlier Cycles Due Breakdown (if cycleNumber > 1) */}
+            {earlierCycles.length > 0 && (
+              <div className="pt-2 border-t border-slate-200/80 text-xs space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] text-slate-600 font-semibold">
+                  <span>Earlier Cycles Pending (मागील सायकल येणे बाकी):</span>
+                  <span className="font-mono font-bold text-rose-600">₹{earlierCyclesDue.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {earlierCycles.map((c) => {
+                    const cPending = typeof c.pendingAmount === 'number'
+                      ? c.pendingAmount
+                      : Math.max(0, (c.totalAmount || c.baseRent || 0) - (c.paidAmount || 0));
+                    return (
+                      <span key={c.id} className="text-[10px] bg-white border border-slate-200 px-2 py-0.5 rounded font-mono text-slate-700">
+                        Cycle {c.cycleNumber}: Total ₹{(c.totalAmount || c.baseRent || 0).toLocaleString('en-IN')} • Paid <strong className="text-emerald-700">₹{(c.paidAmount || 0).toLocaleString('en-IN')}</strong> • Pending <strong className={cPending > 0 ? 'text-rose-600' : 'text-emerald-600'}>₹{cPending.toLocaleString('en-IN')}</strong>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* SECTION 4: NEW CYCLE SUMMARY CARD (Dynamic Base Rent Recalculation) */}
@@ -692,8 +730,8 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
                   <span className="text-[10px] text-slate-500 font-bold uppercase block truncate" title="सर्व मागील येणे बाकी">
                     Prev Pending Dues (सर्व बाकी)
                   </span>
-                  <span className="text-[9px] text-slate-400 block truncate">
-                    {earlierCyclesDue > 0 ? `Cyc ${activeCycle.cycleNumber}: ₹${activeCycleDue} • Earlier: ₹${earlierCyclesDue}` : `Cycle ${activeCycle.cycleNumber} Balance`}
+                  <span className="text-[9px] text-slate-500 font-medium block truncate">
+                    {earlierCyclesDue > 0 ? `Cyc ${activeCycle.cycleNumber}: ₹${activeCycleDue.toLocaleString('en-IN')} • Earlier: ₹${earlierCyclesDue.toLocaleString('en-IN')}` : `Cycle ${activeCycle.cycleNumber} Remaining: ₹${activeCycleDue.toLocaleString('en-IN')}`}
                   </span>
                 </div>
                 <span className={`font-mono text-sm sm:text-base font-black mt-1 ${allPreviousPendingDue > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
