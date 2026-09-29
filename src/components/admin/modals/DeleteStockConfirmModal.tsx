@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Trash2, AlertTriangle, X, Loader2 } from 'lucide-react';
 import type { PlateSizeType, InventoryStockItem } from '../../../lib/supabase';
+import { formatMarathiDate } from '../../../utils/marathiUtils';
 
 interface DeleteStockConfirmModalProps {
   isOpen: boolean;
@@ -87,7 +88,7 @@ export const DeleteStockConfirmModal: React.FC<DeleteStockConfirmModalProps> = (
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500 font-medium">Received Date:</span>
-              <span className="font-semibold text-slate-700">{item.received_date}</span>
+              <span className="font-semibold text-slate-700 font-mono text-xs">{formatMarathiDate(item.received_date)}</span>
             </div>
             {item.notes && (
               <div className="flex justify-between border-t border-slate-200 pt-2">

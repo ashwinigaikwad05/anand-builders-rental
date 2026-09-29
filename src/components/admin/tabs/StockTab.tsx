@@ -23,6 +23,9 @@ import { AddStockModal } from '../modals/AddStockModal';
 import { EditStockModal } from '../modals/EditStockModal';
 import { DeleteStockConfirmModal } from '../modals/DeleteStockConfirmModal';
 
+import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
+import { formatMarathiDate } from '../../../utils/marathiUtils';
+
 interface StockTabProps {
   stockItems: InventoryStockItem[];
   rentals: Rental[];
@@ -44,6 +47,7 @@ interface StockTabProps {
     }
   ) => Promise<void>;
   onDeleteStock: (id: string) => Promise<void>;
+  appLanguage?: AppLanguage;
 }
 
 export const StockTab: React.FC<StockTabProps> = ({
@@ -54,7 +58,9 @@ export const StockTab: React.FC<StockTabProps> = ({
   onAddStock,
   onUpdateStock,
   onDeleteStock,
+  appLanguage,
 }) => {
+  const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryStockItem | null>(null);
@@ -412,18 +418,18 @@ export const StockTab: React.FC<StockTabProps> = ({
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                  <th className="px-6 py-3.5">Date</th>
-                  <th className="px-6 py-3.5">Size</th>
-                  <th className="px-6 py-3.5">Quantity</th>
-                  <th className="px-6 py-3.5">Notes</th>
-                  <th className="px-6 py-3.5 text-center">Actions</th>
+                  <th className="px-6 py-3.5">{isMarathi ? 'दिनांक' : 'Date'}</th>
+                  <th className="px-6 py-3.5">{isMarathi ? 'माप' : 'Size'}</th>
+                  <th className="px-6 py-3.5">{isMarathi ? 'नग' : 'Quantity'}</th>
+                  <th className="px-6 py-3.5">{isMarathi ? 'नोंद' : 'Notes'}</th>
+                  <th className="px-6 py-3.5 text-center">{isMarathi ? 'कृती' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-light">
                 {filteredStockItems.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-3.5 text-slate-500 font-mono text-xs">
-                      {item.received_date}
+                      {formatMarathiDate(item.received_date)}
                     </td>
                     <td className="px-6 py-3.5 font-bold text-slate-800 font-mono text-xs">
                       {item.plate_size}
@@ -522,7 +528,7 @@ export const StockTab: React.FC<StockTabProps> = ({
                       <p className="text-[11px] text-slate-500 font-mono">
                         {act.plateSize} • {act.notes}
                       </p>
-                      <span className="text-[10px] text-slate-400 block">{act.date}</span>
+                      <span className="text-[10px] text-slate-400 block font-mono">{formatMarathiDate(act.date)}</span>
                     </div>
                   </div>
                   <div className="text-right">

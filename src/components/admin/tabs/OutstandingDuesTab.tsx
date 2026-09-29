@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { Search, AlertCircle, CheckCircle2 } from 'lucide-react';
 import type { Party, Payment } from '../../../data/adminMockData';
+import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
+import { formatMarathiDate } from '../../../utils/marathiUtils';
 
 export interface OutstandingDuesTabProps {
   parties: Party[];
   payments: Payment[];
+  appLanguage?: AppLanguage;
 }
 
-export const OutstandingDuesTab: React.FC<OutstandingDuesTabProps> = ({ parties, payments }) => {
+export const OutstandingDuesTab: React.FC<OutstandingDuesTabProps> = ({ parties, payments, appLanguage }) => {
+  const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredParties = parties.filter((p) =>
@@ -22,7 +26,7 @@ export const OutstandingDuesTab: React.FC<OutstandingDuesTabProps> = ({ parties,
     const partyPayments = payments
       .filter((p) => p.partyId === partyId)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    return partyPayments[0]?.date || 'No payment yet';
+    return partyPayments[0]?.date ? formatMarathiDate(partyPayments[0].date) : (isMarathi ? 'अद्याप जमा नाही' : 'No payment yet');
   };
 
   return (
@@ -31,9 +35,13 @@ export const OutstandingDuesTab: React.FC<OutstandingDuesTabProps> = ({ parties,
       {/* Metrics Banner */}
       <div className="bg-rose-50 border border-rose-250 p-6 rounded-2xl flex items-center justify-between">
         <div className="space-y-1">
-          <span className="text-xs font-bold text-rose-500 uppercase tracking-wider">Total Outstanding Accounts Receivable</span>
+          <span className="text-xs font-bold text-rose-500 uppercase tracking-wider">
+            {isMarathi ? 'एकूण येणे शिल्लक थकबाकी' : 'Total Outstanding Accounts Receivable'}
+          </span>
           <h3 className="text-3xl font-black text-rose-600">₹{totalPending.toLocaleString('en-IN')}</h3>
-          <p className="text-[10px] text-rose-400 font-light">Outstanding dues balance across active customers</p>
+          <p className="text-[10px] text-rose-400 font-light">
+            {isMarathi ? 'सक्रिय ग्राहकांकडील एकूण येणे बाकी रक्कम' : 'Outstanding dues balance across active customers'}
+          </p>
         </div>
         <div className="p-4 bg-rose-500/10 rounded-2xl text-rose-600">
           <AlertCircle className="w-8 h-8" />
@@ -49,7 +57,7 @@ export const OutstandingDuesTab: React.FC<OutstandingDuesTabProps> = ({ parties,
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Filter Party by Name..."
+          placeholder={isMarathi ? 'ग्राहक नावाने शोधा...' : 'Filter Party by Name...'}
           className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none pl-11 pr-4 py-3 rounded-xl text-sm font-medium"
         />
       </div>
@@ -60,12 +68,12 @@ export const OutstandingDuesTab: React.FC<OutstandingDuesTabProps> = ({ parties,
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                <th className="px-6 py-4">Customer Party</th>
-                <th className="px-6 py-4">Total Accrued Rent</th>
-                <th className="px-6 py-4">Paid Amount</th>
-                <th className="px-6 py-4">Outstanding Dues</th>
-                <th className="px-6 py-4">Last Payment Date</th>
-                <th className="px-6 py-4 text-center">Status</th>
+                <th className="px-6 py-4">{isMarathi ? 'ग्राहक नाव' : 'Customer Party'}</th>
+                <th className="px-6 py-4">{isMarathi ? 'एकूण भाडे' : 'Total Accrued Rent'}</th>
+                <th className="px-6 py-4">{isMarathi ? 'जमा रक्कम' : 'Paid Amount'}</th>
+                <th className="px-6 py-4">{isMarathi ? 'शिल्लक बाकी' : 'Outstanding Dues'}</th>
+                <th className="px-6 py-4">{isMarathi ? 'शेवटची जमा तारीख' : 'Last Payment Date'}</th>
+                <th className="px-6 py-4 text-center">{isMarathi ? 'स्थिती' : 'Status'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-light">

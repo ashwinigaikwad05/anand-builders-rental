@@ -1,6 +1,7 @@
 import React from 'react';
 import { Bell, Check, Trash2, AlertTriangle, ShieldAlert } from 'lucide-react';
 import type { AdminNotification } from '../../../data/adminMockData';
+import { formatMarathiDate } from '../../../utils/marathiUtils';
 
 interface NotificationsTabProps {
   notifications: AdminNotification[];
@@ -72,7 +73,7 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({
               <div className="flex-grow space-y-1">
                 <div className="flex justify-between items-center">
                   <h4 className="text-sm font-bold text-slate-800">{not.title}</h4>
-                  <span className="text-[10px] text-slate-400 font-mono">{not.date}</span>
+                  <span className="text-[10px] text-slate-400 font-mono">{formatMarathiDate(not.date)}</span>
                 </div>
                 <p className="text-slate-600 text-xs sm:text-sm font-light leading-relaxed">
                   {not.message}

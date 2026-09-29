@@ -18,6 +18,7 @@ import {
   STANDARD_PLATE_SIZES,
   type PlateSizeType,
 } from '../../../lib/supabase';
+import { formatMarathiDate, formatDateRange } from '../../../utils/marathiUtils';
 
 export interface RenewPaymentPayload {
   amount: number;
@@ -456,7 +457,7 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
             {/* Clean Period Info */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-200/70 gap-1 font-medium">
               <span>
-                New Cycle Period: <span className="font-semibold text-slate-800 font-mono">{newStartDate}</span> to <span className="font-semibold text-slate-800 font-mono">{newExpectedEndDate}</span>
+                New Cycle Period: <span className="font-semibold text-slate-800 font-mono">{formatMarathiDate(newStartDate)}</span> to <span className="font-semibold text-slate-800 font-mono">{formatMarathiDate(newExpectedEndDate)}</span>
               </span>
               <span className="font-bold text-indigo-700">
                 Cycle {activeCycle.cycleNumber + 1} ({renewDays} Days)
@@ -686,7 +687,7 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
             <div className="flex justify-between items-center text-xs font-bold text-slate-700 pb-2 border-b border-slate-200">
               <span>Cycle {activeCycle.cycleNumber} Finalization ({activeCycle.days || 40} Days Term)</span>
               <span className="text-slate-500 font-mono text-[11px]">
-                {activeCycle.startDate} to {finalizedEndDate}
+                {formatDateRange(activeCycle.startDate, finalizedEndDate)}
               </span>
             </div>
 

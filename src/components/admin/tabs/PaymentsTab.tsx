@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Plus, Search, Wallet, X, Check, Info } from 'lucide-react';
 import type { Party, Payment, Rental, RentalCycle } from '../../../data/adminMockData';
 
+import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
+import { formatMarathiDate } from '../../../utils/marathiUtils';
+
 interface PaymentsTabProps {
   payments: Payment[];
   parties: Party[];
@@ -18,6 +21,7 @@ interface PaymentsTabProps {
     reference?: string;
     notes?: string;
   }) => void;
+  appLanguage?: AppLanguage;
 }
 
 export const PaymentsTab: React.FC<PaymentsTabProps> = ({
@@ -26,7 +30,9 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
   rentals = [],
   rentalCycles = [],
   onAddPayment,
+  appLanguage,
 }) => {
+  const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
 
@@ -176,19 +182,19 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                <th className="px-6 py-4">Payment Date</th>
-                <th className="px-6 py-4">Customer Party</th>
-                <th className="px-6 py-4">Cycle Target</th>
-                <th className="px-6 py-4">Amount</th>
-                <th className="px-6 py-4">Received In</th>
-                <th className="px-6 py-4">Ref. Voucher</th>
-                <th className="px-6 py-4 text-center">Status</th>
+                <th className="px-6 py-4">{isMarathi ? 'जमा दिनांक' : 'Payment Date'}</th>
+                <th className="px-6 py-4">{isMarathi ? 'ग्राहकाचे नाव' : 'Customer Party'}</th>
+                <th className="px-6 py-4">{isMarathi ? 'सायकल' : 'Cycle Target'}</th>
+                <th className="px-6 py-4">{isMarathi ? 'रक्कम' : 'Amount'}</th>
+                <th className="px-6 py-4">{isMarathi ? 'जमा खाते' : 'Received In'}</th>
+                <th className="px-6 py-4">{isMarathi ? 'पावती / संदर्भ' : 'Ref. Voucher'}</th>
+                <th className="px-6 py-4 text-center">{isMarathi ? 'स्थिती' : 'Status'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-light">
               {filteredPayments.map((pay) => (
                 <tr key={pay.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4 text-slate-500 font-mono text-xs">{pay.date}</td>
+                  <td className="px-6 py-4 text-slate-500 font-mono text-xs">{formatMarathiDate(pay.date)}</td>
                   <td className="px-6 py-4 font-bold text-slate-800">{pay.partyName}</td>
                   <td className="px-6 py-4">
                     {pay.cycleNumber ? (
@@ -304,7 +310,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                       const rent = rentals.find((r) => r.id === c.rentalId);
                       return (
                         <option key={c.id} value={c.id}>
-                          {rent ? `${rent.plateType} Width • ` : ''}Cycle {c.cycleNumber} ({c.startDate} to {c.expectedEndDate}) — Pending: ₹{c.pendingAmount.toLocaleString('en-IN')}
+                          {rent ? `${rent.plateType} Width • ` : ''}Cycle {c.cycleNumber} ({formatMarathiDate(c.startDate)} to {formatMarathiDate(c.expectedEndDate)}) — Pending: ₹{c.pendingAmount.toLocaleString('en-IN')}
                         </option>
                       );
                     })}

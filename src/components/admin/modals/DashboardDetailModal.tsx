@@ -30,6 +30,7 @@ import {
   buildWhatsAppUrl,
 } from '../../../utils/alertMessaging';
 import { t, type AppLanguage } from '../../../utils/appTranslations';
+import { formatMarathiDate } from '../../../utils/marathiUtils';
 
 export type DashboardDetailField =
   | 'total_stock'
@@ -766,14 +767,14 @@ const WithPartiesDetailView: React.FC<{
         const whatsappText = isMr
           ? `*आनंद सेंट्रिंग प्लेट्स - साहित्य वाटप*\n` +
             `ग्राहक: ${rent.partyName}\n` +
-            `दिनांक: ${rent.issueDate}\n` +
+            `दिनांक: ${formatMarathiDate(rent.issueDate)}\n` +
             `साहित्य: ${itemsSummary}\n` +
-            `एकूण भाडे: ₹${rent.totalRent} | जमा: ₹${rent.paid} | बाकी: ₹${rent.pending}`
+            `एकूण भाडे: ₹${rent.totalRent.toLocaleString('en-IN')} | जमा: ₹${rent.paid.toLocaleString('en-IN')} | बाकी: ₹${rent.pending.toLocaleString('en-IN')}`
           : `*Anand Centring Plates - Rental Dispatch*\n` +
             `Customer: ${rent.partyName}\n` +
-            `Date: ${rent.issueDate}\n` +
+            `Date: ${formatMarathiDate(rent.issueDate)}\n` +
             `Items: ${itemsSummary}\n` +
-            `Total Rent: ₹${rent.totalRent} | Paid: ₹${rent.paid} | Due: ₹${rent.pending}`;
+            `Total Rent: ₹${rent.totalRent.toLocaleString('en-IN')} | Paid: ₹${rent.paid.toLocaleString('en-IN')} | Due: ₹${rent.pending.toLocaleString('en-IN')}`;
 
         const whatsappMsg = encodeURIComponent(whatsappText);
 
@@ -827,7 +828,7 @@ const WithPartiesDetailView: React.FC<{
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px] font-semibold">{isMr ? 'वाटप दिनांक' : 'Issue Date'}</span>
-                <span className="font-semibold text-slate-700">{rent.issueDate}</span>
+                <span className="font-semibold text-slate-700 font-mono text-xs">{formatMarathiDate(rent.issueDate)}</span>
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px] font-semibold">{isMr ? 'वापरलेले दिवस' : 'Days Used'}</span>
@@ -1161,7 +1162,7 @@ const AccountPaymentsDetailView: React.FC<{
           <tbody className="divide-y divide-slate-100">
             {filtered.map((pay) => (
               <tr key={pay.id} className="hover:bg-slate-50/60 transition-colors">
-                <td className="px-4 py-3 text-slate-500 font-mono">{pay.date}</td>
+                <td className="px-4 py-3 text-slate-500 font-mono text-xs">{formatMarathiDate(pay.date)}</td>
                 <td className="px-4 py-3 font-bold text-slate-800">{pay.partyName}</td>
                 <td className="px-4 py-3 font-black text-right text-emerald-600 text-sm">
                   +₹{pay.amount.toLocaleString('en-IN')}
@@ -1216,14 +1217,14 @@ const TodayRentalsDetailView: React.FC<{
         const whatsappText = isMr
           ? `*आनंद सेंट्रिंग प्लेट्स - साहित्य वाटप*\n` +
             `ग्राहक: ${rent.partyName}\n` +
-            `दिनांक: ${rent.issueDate}\n` +
+            `दिनांक: ${formatMarathiDate(rent.issueDate)}\n` +
             `साहित्य: ${itemsSummary}\n` +
-            `एकूण भाडे: ₹${rent.totalRent} | जमा: ₹${rent.paid} | बाकी: ₹${rent.pending}`
+            `एकूण भाडे: ₹${rent.totalRent.toLocaleString('en-IN')} | जमा: ₹${rent.paid.toLocaleString('en-IN')} | बाकी: ₹${rent.pending.toLocaleString('en-IN')}`
           : `*Anand Centring Plates - Rental Dispatch*\n` +
             `Customer: ${rent.partyName}\n` +
-            `Date: ${rent.issueDate}\n` +
+            `Date: ${formatMarathiDate(rent.issueDate)}\n` +
             `Items: ${itemsSummary}\n` +
-            `Total Rent: ₹${rent.totalRent} | Paid: ₹${rent.paid} | Due: ₹${rent.pending}`;
+            `Total Rent: ₹${rent.totalRent.toLocaleString('en-IN')} | Paid: ₹${rent.paid.toLocaleString('en-IN')} | Due: ₹${rent.pending.toLocaleString('en-IN')}`;
 
         const whatsappMsg = encodeURIComponent(whatsappText);
 
@@ -1280,11 +1281,11 @@ const TodayRentalsDetailView: React.FC<{
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px] font-semibold">{isMr ? 'एकूण भाडे' : 'Total Rent'}</span>
-                <span className="font-bold text-slate-700">₹{rent.totalRent}</span>
+                <span className="font-bold text-slate-700">₹{rent.totalRent.toLocaleString('en-IN')}</span>
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px] font-semibold">{isMr ? 'जमा ॲडव्हान्स' : 'Paid Advance'}</span>
-                <span className="font-black text-emerald-600">₹{rent.paid}</span>
+                <span className="font-black text-emerald-600">₹{rent.paid.toLocaleString('en-IN')}</span>
               </div>
             </div>
           </div>
@@ -1322,7 +1323,7 @@ const TodayReturnsDetailView: React.FC<{
           <div className="flex justify-between items-start">
             <div>
               <h4 className="font-extrabold text-sm text-slate-800">{ret.partyName}</h4>
-              <p className="text-xs text-slate-400 font-mono">{ret.returnDate}</p>
+              <p className="text-xs text-slate-400 font-mono">{formatMarathiDate(ret.returnDate)}</p>
             </div>
             <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
               {isMr ? 'आज जमा' : 'Today Return'}

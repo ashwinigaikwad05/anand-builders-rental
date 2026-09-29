@@ -28,6 +28,7 @@ import { getCleanPhoneNumber, buildGeneralPartyWhatsAppUrl } from '../../../util
 import { DocumentUploadCard } from '../DocumentUploadCard';
 import { ImageLightboxModal } from '../ImageLightboxModal';
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
+import { formatMarathiDate, formatPhoneNumber } from '../../../utils/marathiUtils';
 
 interface PartiesTabProps {
   parties: Party[];
@@ -374,7 +375,7 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                 {/* Mobile Number & Call/WhatsApp Action Strip */}
                 <div className="flex flex-wrap items-center gap-3 pt-1">
                   <span className="text-slate-600 font-mono text-sm font-semibold flex items-center gap-1.5 bg-slate-100 px-3 py-1 rounded-xl">
-                    <Phone className="w-3.5 h-3.5 text-slate-500" /> +91 {selectedParty.mobile}
+                    <Phone className="w-3.5 h-3.5 text-slate-500" /> +91 {formatPhoneNumber(selectedParty.mobile)}
                   </span>
 
                   <a
@@ -678,11 +679,11 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                     <tbody className="divide-y divide-slate-100 font-light">
                       {partyLedger.map((led) => (
                         <tr key={led.id} className="hover:bg-slate-50/40">
-                          <td className="px-4 py-3 text-slate-500 font-mono">{led.date}</td>
+                          <td className="px-4 py-3 text-slate-500 font-mono">{formatMarathiDate(led.date)}</td>
                           <td className="px-4 py-3 text-slate-700 font-medium">{led.description}</td>
-                          <td className="px-4 py-3 text-rose-600 font-bold">{led.debit > 0 ? `₹${led.debit}` : '-'}</td>
-                          <td className="px-4 py-3 text-emerald-600 font-bold">{led.credit > 0 ? `₹${led.credit}` : '-'}</td>
-                          <td className="px-4 py-3 text-right font-bold text-slate-800">₹{led.balance}</td>
+                          <td className="px-4 py-3 text-rose-600 font-bold">{led.debit > 0 ? `₹${led.debit.toLocaleString('en-IN')}` : '-'}</td>
+                          <td className="px-4 py-3 text-emerald-600 font-bold">{led.credit > 0 ? `₹${led.credit.toLocaleString('en-IN')}` : '-'}</td>
+                          <td className="px-4 py-3 text-right font-bold text-slate-800">₹{led.balance.toLocaleString('en-IN')}</td>
                         </tr>
                       ))}
                       {partyLedger.length === 0 && (
@@ -716,10 +717,10 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                     <tbody className="divide-y divide-slate-100 font-light">
                       {partyRentals.map((rent) => (
                         <tr key={rent.id}>
-                          <td className="px-4 py-3 text-slate-500">{rent.issueDate}</td>
+                          <td className="px-4 py-3 text-slate-500 font-mono">{formatMarathiDate(rent.issueDate)}</td>
                           <td className="px-4 py-3 font-semibold text-slate-700">{rent.plateType}</td>
                           <td className="px-4 py-3 font-bold text-slate-800">{rent.quantity}</td>
-                          <td className="px-4 py-3 font-medium">₹{rent.totalRent}</td>
+                          <td className="px-4 py-3 font-medium">₹{rent.totalRent.toLocaleString('en-IN')}</td>
                           <td className="px-4 py-3">
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                               rent.status === 'returned'
@@ -773,7 +774,7 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                     <div key={pay.id} className="p-3.5 hover:bg-slate-50/50 transition flex justify-between items-center text-left">
                       <div>
                         <p className="text-xs font-bold text-slate-700">₹{pay.amount.toLocaleString('en-IN')}</p>
-                        <p className="text-[10px] text-slate-400 font-light mt-0.5">{pay.date} • {pay.paymentMode}</p>
+                        <p className="text-[10px] text-slate-400 font-light mt-0.5">{formatMarathiDate(pay.date)} • {pay.paymentMode}</p>
                       </div>
                       <span className="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-bold uppercase">
                         Verified
@@ -960,10 +961,10 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                         </td>
 
                         <td className="px-6 py-4 font-bold text-slate-800">{party.platesWithParty}</td>
-                        <td className="px-6 py-4 text-slate-600">₹{party.totalRent}</td>
-                        <td className="px-6 py-4 text-emerald-600 font-bold">₹{party.paid}</td>
+                        <td className="px-6 py-4 text-slate-600 font-semibold">₹{party.totalRent.toLocaleString('en-IN')}</td>
+                        <td className="px-6 py-4 text-emerald-600 font-bold">₹{party.paid.toLocaleString('en-IN')}</td>
                         <td className={`px-6 py-4 font-bold ${party.pending > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
-                          ₹{party.pending}
+                          ₹{party.pending.toLocaleString('en-IN')}
                         </td>
                         <td className="px-6 py-4">
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${

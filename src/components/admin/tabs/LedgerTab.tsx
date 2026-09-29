@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { User } from 'lucide-react';
 import type { Party, LedgerEntry } from '../../../data/adminMockData';
+import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
+import { formatMarathiDate } from '../../../utils/marathiUtils';
 
 interface LedgerTabProps {
   parties: Party[];
   ledger: LedgerEntry[];
+  appLanguage?: AppLanguage;
 }
 
-export const LedgerTab: React.FC<LedgerTabProps> = ({ parties, ledger }) => {
+export const LedgerTab: React.FC<LedgerTabProps> = ({ parties, ledger, appLanguage }) => {
+  const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
   const [selectedPartyId, setSelectedPartyId] = useState(parties[0]?.id || '');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -144,17 +148,17 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({ parties, ledger }) => {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                <th className="px-6 py-4">Transaction Date</th>
-                <th className="px-6 py-4">Description Detail</th>
-                <th className="px-6 py-4 text-rose-600">Debit (+)</th>
-                <th className="px-6 py-4 text-emerald-600">Credit (-)</th>
-                <th className="px-6 py-4 text-right">Running Balance</th>
+                <th className="px-6 py-4">{isMarathi ? 'नोंद दिनांक' : 'Transaction Date'}</th>
+                <th className="px-6 py-4">{isMarathi ? 'तपशील' : 'Description Detail'}</th>
+                <th className="px-6 py-4 text-rose-600">{isMarathi ? 'नावे / आकारणी (+)' : 'Debit (+)'}</th>
+                <th className="px-6 py-4 text-emerald-600">{isMarathi ? 'जमा / भरणा (-)' : 'Credit (-)'}</th>
+                <th className="px-6 py-4 text-right">{isMarathi ? 'शिल्लक बाकी' : 'Running Balance'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-light">
               {filteredLedger.map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4 text-slate-500 font-mono">{item.date}</td>
+                  <td className="px-6 py-4 text-slate-500 font-mono text-xs">{formatMarathiDate(item.date)}</td>
                   <td className="px-6 py-4 font-semibold text-slate-850">{item.description}</td>
                   <td className="px-6 py-4 text-rose-600 font-bold">
                     {item.debit > 0 ? `₹${item.debit.toLocaleString('en-IN')}` : '-'}

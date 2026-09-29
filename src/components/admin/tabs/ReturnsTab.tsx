@@ -3,6 +3,7 @@ import { Plus, Search, RefreshCw, X, Check, Info, IndianRupee, Wallet } from 'lu
 import type { Party, Rental, ReturnLog, RentalCycle } from '../../../data/adminMockData';
 import { calculateCalendarDays, calculateCycleFinances } from '../../../lib/supabase';
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
+import { formatMarathiDate, formatDateRange } from '../../../utils/marathiUtils';
 
 export interface ReturnInputPayload extends Omit<ReturnLog, 'id' | 'partyName' | 'plateType' | 'issuedQuantity'> {
   collectedAmount?: number;
@@ -359,12 +360,12 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
               <tbody className="divide-y divide-slate-100 font-light">
                 {filteredReturns.map((ret) => (
                   <tr key={ret.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-5 py-4 text-slate-500 font-mono text-xs">{ret.returnDate}</td>
+                    <td className="px-5 py-4 text-slate-500 font-mono text-xs">{formatMarathiDate(ret.returnDate)}</td>
                     <td className="px-5 py-4 font-bold text-slate-800">{ret.partyName}</td>
                     <td className="px-4 py-4 font-mono text-slate-500 text-xs">{ret.plateType}</td>
                     <td className="px-4 py-4 font-bold text-emerald-600">+{ret.returnedQuantity}</td>
                     <td className={`px-4 py-4 ${ret.remainingQuantity > 0 ? 'text-amber-600 font-bold' : 'text-slate-400 text-xs'}`}>
-                      {ret.remainingQuantity > 0 ? `${ret.remainingQuantity} left` : 'Fully Cleaned'}
+                      {ret.remainingQuantity > 0 ? (isMarathi ? `${ret.remainingQuantity} शिल्लक` : `${ret.remainingQuantity} left`) : (isMarathi ? 'पूर्ण जमा ✓' : 'Fully Cleaned')}
                     </td>
                     <td className="px-5 py-4 text-right">
                       {ret.collectedAmount && ret.collectedAmount > 0 ? (
@@ -375,7 +376,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                           </span>
                           {ret.penaltyAmount && ret.penaltyAmount > 0 ? (
                             <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                              Incl. Penalty ₹{ret.penaltyAmount}
+                              Incl. Penalty ₹{ret.penaltyAmount.toLocaleString('en-IN')}
                             </span>
                           ) : null}
                         </div>
@@ -384,7 +385,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                           <span className="text-slate-400 text-xs italic">Credit (₹0)</span>
                           {ret.penaltyAmount && ret.penaltyAmount > 0 ? (
                             <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                              Penalty ₹{ret.penaltyAmount}
+                              Penalty ₹{ret.penaltyAmount.toLocaleString('en-IN')}
                             </span>
                           ) : null}
                         </div>
@@ -550,7 +551,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                     <div className="pt-2 border-t border-slate-200 space-y-1 bg-white/70 p-2.5 rounded-xl">
                       <div className="flex justify-between text-slate-700">
                         <span className="font-semibold">Active Cycle #{selectedActiveCycle.cycleNumber}:</span>
-                        <span className="font-mono text-[11px]">{selectedActiveCycle.startDate} → {selectedActiveCycle.expectedEndDate}</span>
+                        <span className="font-mono text-[11px]">{formatDateRange(selectedActiveCycle.startDate, selectedActiveCycle.expectedEndDate)}</span>
                       </div>
                       <div className="flex justify-between text-slate-600">
                         <span>Elapsed on Return:</span>

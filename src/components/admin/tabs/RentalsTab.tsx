@@ -22,6 +22,7 @@ import {
 import { RenewRentalModal } from '../modals/RenewRentalModal';
 import { RentalBillModal } from '../modals/RentalBillModal';
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
+import { formatMarathiDate, formatDateRange } from '../../../utils/marathiUtils';
 
 interface PlateRowItem {
   id: string;
@@ -559,7 +560,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                             {isMarathi ? 'ग्राहक' : 'Cust'} #{currentCustNum}
                           </span>
                           <span>•</span>
-                          <span>{isMarathi ? 'वाटप' : 'Disp'}: {rent.issueDate}</span>
+                          <span>{isMarathi ? 'वाटप' : 'Disp'}: {formatMarathiDate(rent.issueDate)}</span>
                         </div>
                       </td>
 
@@ -590,9 +591,9 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
 
                     {/* Cycle Dates */}
                     <td className="px-4 py-4 text-xs font-mono text-slate-700 whitespace-nowrap">
-                      <div className="font-semibold text-slate-800">{activeCycle.startDate}</div>
+                      <div className="font-semibold text-slate-800">{formatMarathiDate(activeCycle.startDate)}</div>
                       <div className="text-slate-400 text-[11px]">
-                        → {activeCycle.actualEndDate || activeCycle.expectedEndDate}
+                        → {formatMarathiDate(activeCycle.actualEndDate || activeCycle.expectedEndDate)}
                       </div>
                     </td>
 
@@ -812,7 +813,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       Rental Cycle History — {historyTarget.partyName}
                     </h4>
                     <p className="text-[11px] text-slate-400 font-light">
-                      {historyTarget.plateType} • {historyTarget.quantity} Plates • Dispatched {historyTarget.issueDate}
+                      {historyTarget.plateType} • {historyTarget.quantity} Plates • Dispatched {formatMarathiDate(historyTarget.issueDate)}
                     </p>
                   </div>
                 </div>
@@ -882,7 +883,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                               </span>
                             </td>
                             <td className="px-4 py-3 font-mono text-slate-600">
-                              {cyc.startDate} → {cyc.actualEndDate || cyc.expectedEndDate}
+                              {formatDateRange(cyc.startDate, cyc.actualEndDate || cyc.expectedEndDate)}
                             </td>
                             <td className="px-4 py-3 font-mono">
                               {liveData.elapsedDays}d ({liveData.standardDays} + {liveData.extraDays}ex)

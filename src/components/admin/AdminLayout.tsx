@@ -2260,6 +2260,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             onAddStock={handleAddStock}
             onUpdateStock={handleUpdateStock}
             onDeleteStock={handleDeleteStock}
+            appLanguage={appLanguage}
           />
         );
       case 'Rentals':
@@ -2298,13 +2299,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             rentals={rentals}
             rentalCycles={rentalCycles}
             onAddPayment={handleAddPayment}
+            appLanguage={appLanguage}
           />
         );
       case 'Outstanding Dues':
       case 'Udhari':
-        return <OutstandingDuesTab parties={parties} payments={payments} />;
+        return <OutstandingDuesTab parties={parties} payments={payments} appLanguage={appLanguage} />;
       case 'Ledger':
-        return <LedgerTab parties={parties} ledger={ledger} />;
+        return <LedgerTab parties={parties} ledger={ledger} appLanguage={appLanguage} />;
       case 'Notifications':
         return (
           <NotificationsTab

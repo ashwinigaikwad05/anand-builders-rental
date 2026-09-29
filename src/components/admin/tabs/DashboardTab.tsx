@@ -38,6 +38,7 @@ import {
   t,
   type AppLanguage,
 } from '../../../utils/appTranslations';
+import { formatMarathiDate, formatDateRange } from '../../../utils/marathiUtils';
 
 interface DashboardTabProps {
   parties: Party[];
@@ -534,7 +535,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                         <div className="flex justify-between text-slate-600">
                           <span className="font-semibold text-slate-500">{curT.cycleAlerts.termDates}</span>
                           <span className="font-mono text-[11px] text-slate-700">
-                            {activeCycle.startDate} → {activeCycle.expectedEndDate}
+                            {formatDateRange(activeCycle.startDate, activeCycle.expectedEndDate)}
                           </span>
                         </div>
                         <div className="flex justify-between text-slate-600">
@@ -824,7 +825,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                       <td className="px-6 py-4 font-bold text-slate-800">{rent.partyName}</td>
                       <td className="px-6 py-4 text-slate-500 font-mono">{rent.plateType}</td>
                       <td className="px-6 py-4 font-bold text-slate-800">{rent.quantity}</td>
-                      <td className="px-6 py-4 text-slate-500">{rent.issueDate}</td>
+                      <td className="px-6 py-4 text-slate-500 font-mono text-xs">{formatMarathiDate(rent.issueDate)}</td>
                       <td className="px-6 py-4">
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded ${
@@ -918,7 +919,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   <div className="space-y-0.5">
                     <p className="text-sm font-bold text-slate-800">{pay.partyName}</p>
                     <p className="text-xs text-slate-400 font-light">
-                      {pay.date} • {pay.paymentMode} {pay.cycleNumber ? `(${curT.cycleAlerts.cycle} ${pay.cycleNumber})` : ''}
+                      {formatMarathiDate(pay.date)} • {pay.paymentMode} {pay.cycleNumber ? `(${curT.cycleAlerts.cycle} ${pay.cycleNumber})` : ''}
                     </p>
                   </div>
                   <div className="text-right">
