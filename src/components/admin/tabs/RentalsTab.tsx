@@ -12,6 +12,7 @@ import {
   RefreshCw,
   FileText,
   ArrowUpDown,
+  Edit2,
 } from 'lucide-react';
 import type { Party, PlateStock, Rental, RentalItem, RentalCycle, Payment, ReturnLog } from '../../../data/adminMockData';
 import {
@@ -41,6 +42,7 @@ interface RentalsTabProps {
   returns?: ReturnLog[];
   onAddRental: (newRental: Omit<Rental, 'id' | 'totalRent' | 'pending' | 'status'>) => void;
   onUpdateRentalStatus?: (rentalId: string, status: 'active' | 'returned' | 'overdue') => void;
+  onUpdateBillNumber?: (rentalId: string, newBillNumber: number | string) => void;
   onInitiateReturn?: (rental: Rental) => void;
   onRenewRental?: (
     rentalId: string,
@@ -68,6 +70,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   returns = [],
   onAddRental,
   onUpdateRentalStatus: _onUpdateRentalStatus,
+  onUpdateBillNumber,
   onInitiateReturn,
   onRenewRental,
   appLanguage,
@@ -75,6 +78,8 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
   const todayStr = new Date().toISOString().split('T')[0];
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingBillRentalId, setEditingBillRentalId] = useState<string | null>(null);
+  const [inlineBillNo, setInlineBillNo] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'active' | 'returned' | 'overdue'>('All');
   const [partyFilter, setPartyFilter] = useState<string>('All');
   const [plateFilter, setPlateFilter] = useState<string>('All');
@@ -203,8 +208,8 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
     if (matchedParty?.customerNumber) {
       return matchedParty.customerNumber;
     }
-    if (rental.customerNumber && rental.customerNumber > 0) {
-      return rental.customerNumber;
+    if (rental.customerNumber && Number(rental.customerNumber) > 0) {
+      return Number(rental.customerNumber);
     }
     return 1;
   };
@@ -226,24 +231,24 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
     return [...filteredRentals].sort((a, b) => {
       const custA = getCustomerNumberForRental(a);
       const custB = getCustomerNumberForRental(b);
-      const billA = a.billNumber || 0;
-      const billB = b.billNumber || 0;
+      const numBillA = typeof a.billNumber === 'number' ? a.billNumber : parseFloat(String(a.billNumber || '0')) || 0;
+      const numBillB = typeof b.billNumber === 'number' ? b.billNumber : parseFloat(String(b.billNumber || '0')) || 0;
 
       if (sortBy === 'customer-serial') {
         // Primary: Serial customer order (Cust #1, Cust #2...)
         if (custA !== custB) return custA - custB;
         // Secondary: Serial bills of that customer together (Bill #1, Bill #2, Bill #3...)
-        if (billA !== billB) return billA - billB;
+        if (numBillA !== numBillB) return numBillA - numBillB;
         return (a.issueDate || '').localeCompare(b.issueDate || '');
       }
 
       if (sortBy === 'bill-asc') {
-        if (billA !== billB) return billA - billB;
+        if (numBillA !== numBillB) return numBillA - numBillB;
         return (a.issueDate || '').localeCompare(b.issueDate || '');
       }
 
       if (sortBy === 'bill-desc') {
-        if (billA !== billB) return billB - billA;
+        if (numBillA !== numBillB) return numBillB - numBillA;
         return (b.issueDate || '').localeCompare(a.issueDate || '');
       }
 
@@ -251,7 +256,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
         const timeA = new Date(a.issueDate || 0).getTime();
         const timeB = new Date(b.issueDate || 0).getTime();
         if (timeA !== timeB) return timeB - timeA;
-        return billB - billA;
+        return numBillB - numBillA;
       }
 
       return 0;
@@ -552,9 +557,57 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       {/* Party & Agreement */}
                       <td className="px-5 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-black text-xs px-2 py-0.5 rounded-lg bg-orange-100 text-primary border border-orange-200 shadow-2xs">
-                            {isMarathi ? 'बिल' : 'Bill'} #{rent.billNumber || 1}
-                          </span>
+                          {editingBillRentalId === rent.id ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="text"
+                                value={inlineBillNo}
+                                onChange={(e) => setInlineBillNo(e.target.value)}
+                                className="w-16 bg-white border border-primary px-1.5 py-0.5 rounded text-xs font-mono font-bold text-slate-900 shadow-2xs"
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (inlineBillNo.trim() && onUpdateBillNumber) {
+                                    onUpdateBillNumber(rent.id, inlineBillNo.trim());
+                                  }
+                                  setEditingBillRentalId(null);
+                                }}
+                                className="p-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 cursor-pointer"
+                                title="Save Bill #"
+                              >
+                                <Check className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingBillRentalId(null)}
+                                className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+                                title="Cancel"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 group/bill">
+                              <span className="font-mono font-black text-xs px-2 py-0.5 rounded-lg bg-orange-100 text-primary border border-orange-200 shadow-2xs">
+                                {isMarathi ? 'बिल' : 'Bill'} #{rent.billNumber || 1}
+                              </span>
+                              {onUpdateBillNumber && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setInlineBillNo(String(rent.billNumber || 1));
+                                    setEditingBillRentalId(rent.id);
+                                  }}
+                                  className="opacity-0 group-hover/bill:opacity-100 p-0.5 hover:bg-slate-100 rounded text-slate-400 hover:text-primary transition-opacity cursor-pointer"
+                                  title="Edit Bill Number / बिल नंबर बदला"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          )}
                           <span className="font-bold text-slate-900 text-sm">{rent.partyName}</span>
                         </div>
                         <div className="text-[11px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
@@ -1296,6 +1349,12 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
           billNumber={billTarget.billNumber}
           customerNumber={getCustomerNumberForRental(billTarget)}
           onClose={() => setBillTarget(null)}
+          onUpdateBillNumber={(rentalId, newBill) => {
+            if (onUpdateBillNumber) {
+              onUpdateBillNumber(rentalId, newBill);
+            }
+            setBillTarget((prev) => (prev ? { ...prev, billNumber: newBill } : null));
+          }}
         />
       )}
     </div>

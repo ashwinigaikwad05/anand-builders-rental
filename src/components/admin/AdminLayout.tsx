@@ -407,7 +407,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           const computedStatus: 'active' | 'returned' | 'overdue' =
             r.status === 'returned' ? 'returned' : isOverdue ? 'overdue' : 'active';
 
-          const rentalBillNumber = chronologicalRentals.findIndex((x) => x.id === r.id) + 1 || 1;
+          let savedCustomBillNumbers: Record<string, number | string> = {};
+          try {
+            savedCustomBillNumbers = JSON.parse(localStorage.getItem('anand_custom_bill_numbers') || '{}');
+          } catch {
+            savedCustomBillNumbers = {};
+          }
+          const customBillNum = savedCustomBillNumbers[r.id];
+          const rentalBillNumber = customBillNum !== undefined
+            ? customBillNum
+            : chronologicalRentals.findIndex((x) => x.id === r.id) + 1 || 1;
           const rentalCustomerNumber = partyCustNumberMap.get(r.party_id)
             || partyNameToNumberMap.get(r.party_name?.trim().toLowerCase())
             || 1;
@@ -1001,7 +1010,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
 
       setRentalCycles((prev) => [initialCycle, ...prev]);
 
-      const maxBill = rentals.reduce((max, r) => Math.max(max, r.billNumber || 0), 0);
+      const maxBill = rentals.reduce((max, r) => Math.max(max, Number(r.billNumber) || 0), 0);
       const nextBillNumber = maxBill + 1;
       const normPartyName = (newRental.partyName || '').trim().toLowerCase().replace(/\s+/g, ' ');
       const matchedParty = parties.find(
@@ -1650,6 +1659,30 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
     }
   };
 
+  const handleUpdateBillNumber = (rentalId: string, newBillNumber: number | string) => {
+    try {
+      let saved: Record<string, number | string> = {};
+      try {
+        saved = JSON.parse(localStorage.getItem('anand_custom_bill_numbers') || '{}');
+      } catch {
+        saved = {};
+      }
+      saved[rentalId] = newBillNumber;
+      localStorage.setItem('anand_custom_bill_numbers', JSON.stringify(saved));
+
+      setRentals((prev) =>
+        prev.map((r) =>
+          r.id === rentalId
+            ? { ...r, billNumber: newBillNumber }
+            : r
+        )
+      );
+      addToast('success', `Bill number updated to #${newBillNumber} successfully!`);
+    } catch {
+      addToast('error', 'Failed to update bill number.');
+    }
+  };
+
   // 4. Returns: Finalizes active cycle, marks rental returned, collects remaining balance if provided, and restores physical inventory
   const handleAddReturn = async (newReturn: ReturnInputPayload) => {
     try {
@@ -2275,6 +2308,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             onAddRental={handleAddRental}
             onRenewRental={handleRenewRental}
             onUpdateRentalStatus={handleUpdateRentalStatus}
+            onUpdateBillNumber={handleUpdateBillNumber}
             onInitiateReturn={handleInitiateReturn}
             appLanguage={appLanguage}
           />
@@ -2325,6 +2359,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             rentals={rentals}
             returns={returns}
             payments={payments}
+            rentalCycles={rentalCycles}
             appLanguage={appLanguage}
           />
         );

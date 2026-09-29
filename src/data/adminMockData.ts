@@ -72,8 +72,8 @@ export interface Rental {
   currentCycleStartDate?: string;
   currentCycleEndDate?: string;
   cycles?: RentalCycle[];
-  billNumber?: number;
-  customerNumber?: number;
+  billNumber?: number | string;
+  customerNumber?: number | string;
 }
 
 export interface ReturnLog {

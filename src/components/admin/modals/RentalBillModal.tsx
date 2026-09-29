@@ -10,6 +10,8 @@ import {
   Package,
   Landmark,
   Languages,
+  Edit2,
+  Check,
 } from 'lucide-react';
 import type { Rental, RentalCycle, Party, Payment } from '../../../data/adminMockData';
 import {
@@ -40,6 +42,7 @@ interface RentalBillModalProps {
   };
   billNumber?: number | string;
   customerNumber?: number | string;
+  onUpdateBillNumber?: (rentalId: string, newBillNumber: number | string) => void;
   onClose: () => void;
 }
 
@@ -53,6 +56,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   finances,
   billNumber: billNumberProp,
   customerNumber: customerNumberProp,
+  onUpdateBillNumber,
   onClose,
 }) => {
   const config = templateConfig || getBillTemplateConfig();
@@ -133,9 +137,43 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   const phones = localStorage.getItem('anand_business_phones') || '7020914957, 9881985058, 9021519582';
 
   // Sequential Bill Number (1, 2, 3...) and Customer Number (1, 2, 3...)
-  const assignedBillNumber = billNumberProp ?? rental.billNumber ?? 1;
+  const initialBillNo = String(billNumberProp ?? rental.billNumber ?? 1);
+  const [currentBillNo, setCurrentBillNo] = useState<string>(initialBillNo);
+  const [tempBillNo, setTempBillNo] = useState<string>(initialBillNo);
+  const [isEditingBillNo, setIsEditingBillNo] = useState<boolean>(false);
+
+  useEffect(() => {
+    const b = String(billNumberProp ?? rental.billNumber ?? 1);
+    setCurrentBillNo(b);
+    setTempBillNo(b);
+  }, [billNumberProp, rental.billNumber]);
+
+  const handleSaveBillNumber = () => {
+    const trimmed = tempBillNo.trim();
+    if (!trimmed) return;
+    setCurrentBillNo(trimmed);
+    setIsEditingBillNo(false);
+
+    try {
+      let saved: Record<string, number | string> = {};
+      try {
+        saved = JSON.parse(localStorage.getItem('anand_custom_bill_numbers') || '{}');
+      } catch {
+        saved = {};
+      }
+      saved[rental.id] = trimmed;
+      localStorage.setItem('anand_custom_bill_numbers', JSON.stringify(saved));
+    } catch {
+      // ignore
+    }
+
+    if (onUpdateBillNumber) {
+      onUpdateBillNumber(rental.id, trimmed);
+    }
+  };
+
   const assignedCustomerNumber = customerNumberProp ?? party?.customerNumber ?? rental.customerNumber ?? 1;
-  const billNumber = String(assignedBillNumber);
+  const billNumber = currentBillNo;
 
   const issueDateFormatted = rental.issueDate
     ? new Date(rental.issueDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -552,12 +590,79 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                   {selectedStyle.replace('_', ' ')}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 font-medium">{currentT.billNoLabel} #{billNumber}</p>
+              <div className="flex items-center gap-1">
+                <p className="text-[11px] text-slate-500 font-medium">{currentT.billNoLabel} #{billNumber}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTempBillNo(currentBillNo);
+                    setIsEditingBillNo(true);
+                  }}
+                  className="p-0.5 text-slate-400 hover:text-primary transition-colors cursor-pointer"
+                  title="Edit Bill Number"
+                >
+                  <Edit2 className="w-3 h-3" />
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Language and Format controls */}
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Edit Bill Number Control */}
+            <div className="flex items-center bg-slate-200/90 p-1 rounded-xl text-xs font-bold shadow-xs">
+              <span className="text-[10px] text-slate-500 uppercase px-2 font-black">
+                {selectedLanguage === 'marathi' ? 'बिल क्र.:' : 'Bill #:'}
+              </span>
+              {!isEditingBillNo ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-xs font-black text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-300">
+                    #{currentBillNo}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempBillNo(currentBillNo);
+                      setIsEditingBillNo(true);
+                    }}
+                    className="p-1 hover:bg-white text-slate-700 hover:text-primary rounded-lg transition-colors cursor-pointer"
+                    title={selectedLanguage === 'marathi' ? 'बिल नंबर बदला (Edit Bill Number)' : 'Edit Bill Number'}
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={tempBillNo}
+                    onChange={(e) => setTempBillNo(e.target.value)}
+                    className="w-20 bg-white border border-primary focus:ring-1 focus:ring-primary focus:outline-none px-2 py-0.5 rounded-lg text-xs font-bold font-mono text-slate-900 shadow-2xs"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveBillNumber}
+                    className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors cursor-pointer"
+                    title="Save Bill Number"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempBillNo(currentBillNo);
+                      setIsEditingBillNo(false);
+                    }}
+                    className="p-1 hover:bg-slate-300 text-slate-500 rounded-lg transition-colors cursor-pointer"
+                    title="Cancel"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Language Selector */}
             <div className="flex items-center bg-slate-200/90 p-1 rounded-xl text-xs font-bold shadow-xs">
               <span className="text-[10px] text-slate-500 uppercase px-2 font-black flex items-center gap-1">
@@ -721,7 +826,20 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                   <h2 className="text-xl sm:text-2xl font-black tracking-wider text-black uppercase">
                     {selectedLanguage === 'marathi' ? 'INVOICE / पावती' : 'INVOICE'}
                   </h2>
-                  <p className="text-xs font-mono font-bold text-slate-900">#{billNumber}</p>
+                  <div className="flex items-center justify-end gap-1.5 group">
+                    <p className="text-xs font-mono font-bold text-slate-900">#{billNumber}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTempBillNo(currentBillNo);
+                        setIsEditingBillNo(true);
+                      }}
+                      className="no-print p-0.5 text-slate-400 hover:text-primary transition-colors cursor-pointer"
+                      title="Edit Bill Number / बिल नंबर बदला"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </button>
+                  </div>
                   <div className="text-xs font-mono font-bold text-slate-900 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded mt-1 inline-block">
                     <span className="text-slate-600 font-semibold">{selectedLanguage === 'marathi' ? 'बिल दिनांक:' : 'Bill Dated:'}</span>{' '}
                     {issueDateFormatted}
@@ -1100,8 +1218,20 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     {currentT.billTitle}
                   </span>
                 </div>
-                <div className="text-xs font-bold tracking-wide">
-                  {currentT.billNoLabel} <span className="text-orange-400 font-mono font-black">{billNumber}</span>
+                <div className="text-xs font-bold tracking-wide flex items-center gap-1.5">
+                  <span>{currentT.billNoLabel}</span>
+                  <span className="text-orange-400 font-mono font-black">#{billNumber}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempBillNo(currentBillNo);
+                      setIsEditingBillNo(true);
+                    }}
+                    className="no-print p-0.5 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    title="Edit Bill Number / बिल नंबर बदला"
+                  >
+                    <Edit2 className="w-3 h-3" />
+                  </button>
                 </div>
               </div>
 

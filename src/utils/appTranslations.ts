@@ -159,6 +159,7 @@ export const t = {
       allSizes: 'सर्व मापे',
       types: {
         all: 'सर्व अहवाल',
+        bill_history: 'बिल निहाय इतिहास',
         rental: 'भाडे पावती अहवाल',
         return: 'साहित्य जमा अहवाल',
         payment: 'पेमेंट अहवाल',
@@ -333,6 +334,7 @@ export const t = {
       allSizes: 'All Sizes',
       types: {
         all: 'All Reports',
+        bill_history: 'Bill-Wise History',
         rental: 'Rental Dispatches',
         return: 'Return Intakes',
         payment: 'Payments',

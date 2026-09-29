@@ -1,9 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Printer, Download, RefreshCw, Layout, Layers, ArrowDownLeft, ArrowUpRight, DollarSign, Users } from 'lucide-react';
-import type { Party, PlateStock, Rental, ReturnLog, Payment } from '../../../data/adminMockData';
+import {
+  FileText,
+  Printer,
+  Download,
+  RefreshCw,
+  Layout,
+  Layers,
+  ArrowDownLeft,
+  ArrowUpRight,
+  DollarSign,
+  Users,
+  Search,
+  ArrowLeft,
+  Hash,
+  Clock,
+  Package,
+  Eye,
+} from 'lucide-react';
+import type { Party, PlateStock, Rental, ReturnLog, Payment, RentalCycle } from '../../../data/adminMockData';
 import { getStoredAppLanguage, t, type AppLanguage } from '../../../utils/appTranslations';
 
-export type ReportType = 'all' | 'rental' | 'return' | 'payment' | 'outstanding';
+export type ReportType = 'all' | 'rental' | 'return' | 'payment' | 'outstanding' | 'bill_history';
 
 interface ReportsTabProps {
   parties: Party[];
@@ -11,6 +28,7 @@ interface ReportsTabProps {
   rentals: Rental[];
   returns: ReturnLog[];
   payments: Payment[];
+  rentalCycles?: RentalCycle[];
   appLanguage?: AppLanguage;
 }
 
@@ -20,6 +38,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
   rentals,
   returns,
   payments,
+  rentalCycles = [],
   appLanguage: propLanguage,
 }) => {
   const [lang, setLang] = useState<AppLanguage>(() => propLanguage || getStoredAppLanguage());
@@ -47,6 +66,8 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
   const [reportType, setReportType] = useState<ReportType>('all');
   const [selectedPartyId, setSelectedPartyId] = useState('');
   const [selectedPlateType, setSelectedPlateType] = useState('');
+  const [searchBillNumber, setSearchBillNumber] = useState('');
+  const [selectedRentalIdForHistory, setSelectedRentalIdForHistory] = useState<string | null>(null);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [pageOrientation, setPageOrientation] = useState<'portrait' | 'landscape'>('portrait');
@@ -60,6 +81,8 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
   const handleReset = () => {
     setSelectedPartyId('');
     setSelectedPlateType('');
+    setSearchBillNumber('');
+    setSelectedRentalIdForHistory(null);
     setFromDate('');
     setToDate('');
   };
@@ -90,10 +113,47 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
       .join(' ');
   };
 
+  // Helper to fetch all cycles for a rental
+  const getCyclesForRental = (rental: Rental): RentalCycle[] => {
+    const list = rentalCycles.filter((c) => c.rentalId === rental.id);
+    if (list.length > 0) {
+      return [...list].sort((a, b) => a.cycleNumber - b.cycleNumber);
+    }
+    if (rental.cycles && rental.cycles.length > 0) {
+      return [...rental.cycles].sort((a, b) => a.cycleNumber - b.cycleNumber);
+    }
+    // Fallback baseline cycle
+    return [
+      {
+        id: `c1-${rental.id}`,
+        rentalId: rental.id,
+        partyId: rental.partyId,
+        cycleNumber: rental.currentCycleNumber || 1,
+        startDate: rental.currentCycleStartDate || rental.issueDate,
+        expectedEndDate: rental.currentCycleEndDate || rental.issueDate,
+        days: rental.days || 40,
+        extraDays: 0,
+        dailyRate: rental.dailyRate,
+        quantity: rental.quantity,
+        baseRent: rental.totalRent,
+        extraAmount: 0,
+        totalAmount: rental.totalRent,
+        paidAmount: rental.paid,
+        pendingAmount: rental.pending,
+        status: (rental.status === 'returned' ? 'completed' : 'active') as 'completed' | 'active',
+      },
+    ];
+  };
+
   // Filtered sub-datasets based on parameters
   const filteredRentals = rentals.filter((r) => {
     if (selectedPartyId && r.partyId !== selectedPartyId) return false;
     if (selectedPlateType && r.plateType !== selectedPlateType) return false;
+    if (searchBillNumber.trim()) {
+      const q = searchBillNumber.trim().toLowerCase().replace(/^#/, '');
+      const b = String(r.billNumber || '').toLowerCase().replace(/^#/, '');
+      if (b !== q && !b.includes(q)) return false;
+    }
     if (fromDate && new Date(r.issueDate) < new Date(fromDate)) return false;
     if (toDate && new Date(r.issueDate) > new Date(toDate)) return false;
     return true;
@@ -120,6 +180,13 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
     return true;
   });
 
+  // Active rental for Bill-Wise History view
+  const activeHistoryRental = selectedRentalIdForHistory
+    ? rentals.find((r) => r.id === selectedRentalIdForHistory) || null
+    : searchBillNumber.trim() && filteredRentals.length === 1
+    ? filteredRentals[0]
+    : null;
+
   // Grand summary figures
   const totalRentBilled = filteredRentals.reduce((sum, r) => sum + Number(r.totalRent || 0), 0);
   const totalRentPaid = filteredRentals.reduce((sum, r) => sum + Number(r.paid || 0), 0);
@@ -132,6 +199,8 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
   const totalRecordsCount =
     reportType === 'all'
       ? filteredRentals.length + filteredReturns.length + filteredPayments.length + filteredOutstanding.length
+      : reportType === 'bill_history'
+      ? activeHistoryRental ? 1 : filteredRentals.length
       : reportType === 'rental'
       ? filteredRentals.length
       : reportType === 'return'
@@ -151,6 +220,183 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
   const handleExportCSV = () => {
     if (totalRecordsCount === 0) return;
 
+    // 1. Single Bill Comprehensive History Export
+    if ((reportType === 'bill_history' || searchBillNumber.trim()) && activeHistoryRental) {
+      const r = activeHistoryRental;
+      const cust = parties.find(
+        (p) =>
+          (r.partyId && p.id === r.partyId) ||
+          p.name.trim().toLowerCase() === r.partyName?.trim().toLowerCase()
+      );
+      const cycles = getCyclesForRental(r);
+      const items =
+        r.items && r.items.length > 0
+          ? r.items
+          : [
+              {
+                plateType: r.plateType,
+                quantity: r.quantity,
+                dailyRate: r.dailyRate,
+                days: r.days,
+                totalRent: r.totalRent,
+              },
+            ];
+      const rReturns = returns.filter(
+        (ret) =>
+          (ret.rentalId && ret.rentalId === r.id) ||
+          (ret.partyId === r.partyId &&
+            ret.plateType === r.plateType &&
+            new Date(ret.returnDate) >= new Date(r.issueDate))
+      );
+      const rPayments = payments.filter(
+        (p) => (p.rentalId && p.rentalId === r.id) || (p.partyId && p.partyId === r.partyId)
+      );
+
+      const lines: string[] = [];
+      const titleBanner = isMr
+        ? `आनंद बिल्डर्स अँड डेव्हलपर्स — बिल क्रमांक #${r.billNumber || 1} सर्वंकष भाडे इतिहास`
+        : `ANAND BUILDERS & DEVELOPERS — BILL #${r.billNumber || 1} COMPLETE RENTAL HISTORY`;
+      lines.push(`"${titleBanner}"`);
+      lines.push(`"${isMr ? 'ग्राहक नाव' : 'Customer'}: ${formatName(r.partyName).replace(/"/g, '""')}"`);
+      lines.push(`"${isMr ? 'मोबाईल' : 'Mobile'}: ${cust?.mobile || ''}"`);
+      lines.push(`"${isMr ? 'नोंद दिनांक' : 'Issue Date'}: ${formatDate(r.issueDate)}"`);
+      lines.push(`"${isMr ? 'स्थिती' : 'Status'}: ${r.status}"`);
+      lines.push('');
+
+      // 1. Dispatched
+      lines.push(`"=== ${isMr ? '१. वाटप साहित्य तपशील' : '1. Dispatched Material Particulars'} ==="`);
+      lines.push(
+        isMr
+          ? 'अ.क्र.,प्लेट साईझ,नग,दर (रु/दिवस),दिवस,एकूण भाडे (रु)'
+          : 'Sr No,Plate Size,Quantity,Daily Rate (Rs),Days,Total Rent (Rs)'
+      );
+      items.forEach((it, idx) => {
+        lines.push(
+          [
+            String(idx + 1),
+            it.plateType,
+            String(it.quantity),
+            String(it.dailyRate),
+            String(it.days),
+            String((Number(it.quantity) || 0) * (Number(it.dailyRate) || 0) * (Number(it.days) || 0)),
+          ].join(',')
+        );
+      });
+      lines.push('');
+
+      // 2. Cycles
+      lines.push(`"=== ${isMr ? '२. भाडे सायकल कालक्रम' : '2. Rental Cycles Timeline'} ==="`);
+      lines.push(
+        isMr
+          ? 'सायकल क्र.,सुरुवात दिनांक,समाप्ती दिनांक,दिवस,नग,सायकल भाडे (रु),जमा (रु),बाकी (रु),स्थिती'
+          : 'Cycle No,Start Date,End Date,Days,Quantity,Cycle Rent (Rs),Paid (Rs),Pending (Rs),Status'
+      );
+      cycles.forEach((c) => {
+        lines.push(
+          [
+            `"${isMr ? 'सायकल' : 'Cycle'} ${c.cycleNumber}"`,
+            formatDate(c.startDate),
+            formatDate(c.expectedEndDate),
+            String(c.days + (c.extraDays || 0)),
+            String(c.quantity),
+            String(c.totalAmount),
+            String(c.paidAmount),
+            String(c.pendingAmount),
+            c.status,
+          ].join(',')
+        );
+      });
+      lines.push('');
+
+      // 3. Returns
+      lines.push(`"=== ${isMr ? '३. साहित्य परत जमा नोंद' : '3. Returns Intake Log'} ==="`);
+      lines.push(isMr ? 'अ.क्र.,जमा दिनांक,जमा नग,शिल्लक नग' : 'Sr No,Return Date,Returned Qty,Remaining Qty');
+      rReturns.forEach((ret, idx) => {
+        lines.push(
+          [
+            String(idx + 1),
+            formatDate(ret.returnDate),
+            String(ret.returnedQuantity),
+            String(ret.remainingQuantity),
+          ].join(',')
+        );
+      });
+      lines.push('');
+
+      // 4. Payments
+      lines.push(`"=== ${isMr ? '४. जमा पावत्या तपशील' : '4. Payment Receipts'} ==="`);
+      lines.push(isMr ? 'अ.क्र.,पेमेंट दिनांक,रक्कम (रु),प्रकार,संदर्भ' : 'Sr No,Payment Date,Amount (Rs),Mode,Reference');
+      rPayments.forEach((p, idx) => {
+        lines.push(
+          [
+            String(idx + 1),
+            formatDate(p.date),
+            String(p.amount),
+            p.paymentMode,
+            `"${(p.reference || '').replace(/"/g, '""')}"`,
+          ].join(',')
+        );
+      });
+      lines.push('');
+
+      // 5. Balance
+      const totalCyclesRent = cycles.reduce((sum, c) => sum + (Number(c.totalAmount) || 0), 0) || r.totalRent;
+      const totalPaidSum = rPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || r.paid;
+      const netPendingSum = Math.max(0, totalCyclesRent - totalPaidSum);
+      lines.push(`"=== ${isMr ? '५. अंतिम ताळेबंद गोषवारा' : '5. Final Financial Settlement'} ==="`);
+      lines.push(`"${isMr ? 'एकूण भाडे आकारणी' : 'Total Accrued Rent'}",${totalCyclesRent}`);
+      lines.push(`"${isMr ? 'एकूण जमा रक्कम' : 'Total Amount Paid'}",${totalPaidSum}`);
+      lines.push(`"${isMr ? 'शिल्लक येणे बाकी' : 'Net Balance Due'}",${netPendingSum}`);
+
+      const csvContent = lines.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Anand_Plates_Bill_${r.billNumber || 1}_History_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    // 2. Bill-Wise Directory Index CSV Export
+    if (reportType === 'bill_history') {
+      const headers = isMr
+        ? ['अ.क्र.', 'बिल क्र.', 'नोंद दिनांक', 'ग्राहकाचे नाव', 'मोबाईल', 'प्लेट साईझ', 'नग', 'एकूण भाडे (₹)', 'जमा रक्कम (₹)', 'बाकी रक्कम (₹)', 'स्थिती']
+        : ['Sr No', 'Bill No', 'Issue Date', 'Customer Name', 'Mobile', 'Plate Size', 'Quantity', 'Total Rent (Rs)', 'Paid Amount (Rs)', 'Balance Due (Rs)', 'Status'];
+      const rows = filteredRentals.map((r, idx) => {
+        const cust = parties.find((p) => p.id === r.partyId);
+        return [
+          String(idx + 1),
+          `"#${r.billNumber || 1}"`,
+          formatDate(r.issueDate),
+          `"${formatName(r.partyName).replace(/"/g, '""')}"`,
+          cust?.mobile || '',
+          r.plateType,
+          String(r.quantity),
+          String(r.totalRent),
+          String(r.paid),
+          String(Math.max(0, r.totalRent - r.paid)),
+          r.status,
+        ];
+      });
+
+      const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Anand_Plates_Bills_Directory_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    // 3. All Reports Master CSV Export
     if (reportType === 'all') {
       const lines: string[] = [];
       const titleBanner = isMr ? 'आनंद बिल्डर्स अँड डेव्हलपर्स — सर्व अहवाल (सर्वंकष हिशोब)' : 'ANAND BUILDERS & DEVELOPERS — ALL REPORTS STATEMENT';
@@ -162,12 +408,13 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
       // 1. Rentals
       lines.push(`"=== ${curT.sectionRentals} (${filteredRentals.length} ${isMr ? 'नोंदी' : 'Records'}) ==="`);
       const rentalHeaders = isMr
-        ? ['अ.क्र.', 'नोंद दिनांक', 'ग्राहकाचे नाव', 'प्लेट साईझ', 'नग', 'एकूण भाडे (₹)', 'जमा रक्कम (₹)', 'बाकी रक्कम (₹)']
-        : ['Sr No', 'Issue Date', 'Customer Name', 'Plate Size', 'Quantity', 'Total Rent (Rs)', 'Paid Amount (Rs)', 'Balance Due (Rs)'];
+        ? ['अ.क्र.', 'बिल क्र.', 'नोंद दिनांक', 'ग्राहकाचे नाव', 'प्लेट साईझ', 'नग', 'एकूण भाडे (₹)', 'जमा रक्कम (₹)', 'बाकी रक्कम (₹)']
+        : ['Sr No', 'Bill No', 'Issue Date', 'Customer Name', 'Plate Size', 'Quantity', 'Total Rent (Rs)', 'Paid Amount (Rs)', 'Balance Due (Rs)'];
       lines.push(rentalHeaders.join(','));
       filteredRentals.forEach((r, idx) => {
         lines.push([
           String(idx + 1),
+          `"#${r.billNumber || 1}"`,
           formatDate(r.issueDate),
           `"${formatName(r.partyName).replace(/"/g, '""')}"`,
           r.plateType,
@@ -255,15 +502,17 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
       return;
     }
 
+    // 4. Standard Reports CSV
     let headers: string[] = [];
     let rows: string[][] = [];
 
     if (reportType === 'rental') {
       headers = isMr
-        ? ['अ.क्र.', 'नोंद दिनांक', 'ग्राहकाचे नाव', 'प्लेट साईझ', 'नग', 'एकूण भाडे (₹)', 'जमा रक्कम (₹)', 'बाकी रक्कम (₹)']
-        : ['Sr No', 'Issue Date', 'Customer Name', 'Plate Size', 'Quantity', 'Total Rent (Rs)', 'Paid Amount (Rs)', 'Balance Due (Rs)'];
+        ? ['अ.क्र.', 'बिल क्र.', 'नोंद दिनांक', 'ग्राहकाचे नाव', 'प्लेट साईझ', 'नग', 'एकूण भाडे (₹)', 'जमा रक्कम (₹)', 'बाकी रक्कम (₹)']
+        : ['Sr No', 'Bill No', 'Issue Date', 'Customer Name', 'Plate Size', 'Quantity', 'Total Rent (Rs)', 'Paid Amount (Rs)', 'Balance Due (Rs)'];
       rows = filteredRentals.map((r, idx) => [
         String(idx + 1),
+        `"#${r.billNumber || 1}"`,
         formatDate(r.issueDate),
         `"${formatName(r.partyName).replace(/"/g, '""')}"`,
         r.plateType,
@@ -326,6 +575,14 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
   };
 
   const getReportHeaderTitle = () => {
+    if (reportType === 'bill_history') {
+      if (activeHistoryRental) {
+        return isMr
+          ? `बिल #${activeHistoryRental.billNumber || 1} सर्वंकष भाडे इतिहास`
+          : `Bill #${activeHistoryRental.billNumber || 1} Complete History Statement`;
+      }
+      return curT.types.bill_history || (isMr ? 'बिल निहाय इतिहास' : 'Bill-Wise History');
+    }
     return curT.types[reportType] || reportType;
   };
 
@@ -353,6 +610,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
           <thead>
             <tr className="bg-slate-50 text-slate-600 text-xs font-bold border-b border-slate-200 uppercase tracking-wider">
               <th className="px-3 py-2.5 text-center w-12">{curT.headers.srNo}</th>
+              <th className="px-3 py-2.5 text-center w-16"># {isMr ? 'बिल' : 'Bill'}</th>
               <th className="px-4 py-2.5">{curT.headers.issueDate}</th>
               <th className="px-4 py-2.5">{curT.headers.partyName}</th>
               <th className="px-3 py-2.5">{curT.headers.plateSize}</th>
@@ -370,6 +628,9 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
               return (
                 <tr key={r.id} className="hover:bg-slate-50/50">
                   <td className="px-3 py-2 text-center text-slate-500 font-mono">{idx + 1}</td>
+                  <td className="px-3 py-2 text-center font-mono font-bold text-primary">
+                    #{r.billNumber || 1}
+                  </td>
                   <td className="px-4 py-2 text-slate-600 font-mono">{formatDate(r.issueDate)}</td>
                   <td className="px-4 py-2 font-bold text-slate-900">
                     <div className="flex items-center gap-1.5">
@@ -391,7 +652,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
             })}
             {items.length === 0 && (
               <tr>
-                <td colSpan={8} className="p-4 text-center text-slate-400 italic text-xs">
+                <td colSpan={9} className="p-4 text-center text-slate-400 italic text-xs">
                   {curT.emptyRecords}
                 </td>
               </tr>
@@ -400,10 +661,10 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
           {items.length > 0 && (
             <tfoot>
               <tr className="bg-slate-100/80 font-black text-xs border-t-2 border-slate-300">
-                <td colSpan={4} className="px-4 py-2.5 text-slate-800 uppercase tracking-wide">
+                <td colSpan={5} className="px-4 py-2.5 text-slate-800 uppercase tracking-wide">
                   {curT.totalSummary} ({items.length} {lang === 'marathi' ? 'नोंदी' : 'Records'})
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono font-black">{totalQty.toLocaleString('en-IN')}</td>
+                <td className="px-3 py-2.5 text-right font-black font-mono">{totalQty}</td>
                 <td className="px-4 py-2.5 text-right text-slate-900 font-black font-mono">₹{totalAccrued.toLocaleString('en-IN')}</td>
                 <td className="px-4 py-2.5 text-right text-emerald-700 font-black font-mono">₹{totalPaid.toLocaleString('en-IN')}</td>
                 <td className="px-4 py-2.5 text-right text-rose-700 font-black font-mono">₹{totalPending.toLocaleString('en-IN')}</td>
@@ -417,7 +678,6 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
 
   const renderReturnsSection = (items: ReturnLog[], sectionHeader?: string) => {
     const totalReturned = items.reduce((sum, r) => sum + Number(r.returnedQuantity || 0), 0);
-    const totalRemaining = items.reduce((sum, r) => sum + Number(r.remainingQuantity || 0), 0);
 
     return (
       <div className="print-section overflow-hidden rounded-2xl border border-slate-200 print:rounded-none print:border-slate-800">
@@ -437,7 +697,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
             <tr className="bg-slate-50 text-slate-600 text-xs font-bold border-b border-slate-200 uppercase tracking-wider">
               <th className="px-3 py-2.5 text-center w-12">{curT.headers.srNo}</th>
               <th className="px-4 py-2.5">{curT.headers.returnDate}</th>
-              <th className="px-4 py-2.5">{curT.headers.partyName}</th>
+              <th className="px-5 py-2.5">{curT.headers.partyName}</th>
               <th className="px-4 py-2.5">{curT.headers.plateSize}</th>
               <th className="px-4 py-2.5 text-right">{curT.headers.returnedQty}</th>
               <th className="px-4 py-2.5 text-right">{curT.headers.remainingQty}</th>
@@ -452,7 +712,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
                 <tr key={r.id} className="hover:bg-slate-50/50">
                   <td className="px-3 py-2 text-center text-slate-500 font-mono">{idx + 1}</td>
                   <td className="px-4 py-2 text-slate-600 font-mono">{formatDate(r.returnDate)}</td>
-                  <td className="px-4 py-2 font-bold text-slate-900">
+                  <td className="px-5 py-2 font-bold text-slate-900">
                     <div className="flex items-center gap-1.5">
                       {custNum && (
                         <span className="font-mono text-[10px] px-1.5 py-0.2 bg-slate-100 text-slate-700 border border-slate-200 rounded">
@@ -463,8 +723,8 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
                     </div>
                   </td>
                   <td className="px-4 py-2 text-slate-700 font-mono">{r.plateType}</td>
-                  <td className="px-4 py-2 text-emerald-600 font-bold text-right font-mono">+{r.returnedQuantity}</td>
-                  <td className="px-4 py-2 text-slate-600 text-right font-mono">{r.remainingQuantity}</td>
+                  <td className="px-4 py-2 text-emerald-600 font-bold text-right font-mono">{r.returnedQuantity}</td>
+                  <td className="px-4 py-2 font-semibold text-slate-900 text-right font-mono">{r.remainingQuantity}</td>
                 </tr>
               );
             })}
@@ -482,8 +742,8 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
                 <td colSpan={4} className="px-4 py-2.5 text-slate-800 uppercase tracking-wide">
                   {curT.totalSummary} ({items.length} {lang === 'marathi' ? 'नोंदी' : 'Records'})
                 </td>
-                <td className="px-4 py-2.5 text-right text-emerald-700 font-mono font-black">+{totalReturned.toLocaleString('en-IN')}</td>
-                <td className="px-4 py-2.5 text-right text-slate-800 font-mono font-black">{totalRemaining.toLocaleString('en-IN')}</td>
+                <td className="px-4 py-2.5 text-right text-emerald-700 font-black font-mono">{totalReturned}</td>
+                <td></td>
               </tr>
             </tfoot>
           )}
@@ -638,6 +898,572 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
             </tfoot>
           )}
         </table>
+      </div>
+    );
+  };
+
+  // =========================================================================
+  // BILL-WISE COMPREHENSIVE HISTORY SECTION
+  // =========================================================================
+  const renderBillHistorySection = (rental: Rental) => {
+    const cust = parties.find(
+      (p) =>
+        (rental.partyId && p.id === rental.partyId) ||
+        p.name.trim().toLowerCase() === rental.partyName?.trim().toLowerCase()
+    );
+    const custNumber = cust?.customerNumber || rental.customerNumber;
+    const cycles = getCyclesForRental(rental);
+
+    const items =
+      rental.items && rental.items.length > 0
+        ? rental.items
+        : [
+            {
+              plateType: rental.plateType,
+              quantity: rental.quantity,
+              dailyRate: rental.dailyRate,
+              days: rental.days,
+              totalRent: rental.totalRent,
+            },
+          ];
+
+    const rentalReturns = returns.filter(
+      (ret) =>
+        (ret.rentalId && ret.rentalId === rental.id) ||
+        (ret.partyId === rental.partyId &&
+          ret.plateType === rental.plateType &&
+          new Date(ret.returnDate) >= new Date(rental.issueDate))
+    );
+
+    const rentalPayments = payments.filter(
+      (p) =>
+        (p.rentalId && p.rentalId === rental.id) ||
+        (p.partyId && p.partyId === rental.partyId)
+    );
+
+    const totalDispatched = items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+    const totalReturned = rentalReturns.reduce((sum, ret) => sum + (Number(ret.returnedQuantity) || 0), 0);
+    const remainingInField = Math.max(0, totalDispatched - totalReturned);
+
+    const totalCyclesRent = cycles.reduce((sum, c) => sum + (Number(c.totalAmount) || 0), 0) || rental.totalRent;
+    const totalPaidSum = rentalPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || rental.paid;
+    const netPendingSum = Math.max(0, totalCyclesRent - totalPaidSum);
+
+    return (
+      <div className="space-y-6">
+        {/* Navigation & Header Actions (Screen Only) */}
+        <div className="no-print flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-900 text-white p-4 rounded-2xl shadow-sm">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedRentalIdForHistory(null);
+                setSearchBillNumber('');
+              }}
+              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer text-slate-200"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>{isMr ? 'सर्व बिले पहा' : 'Back to All Bills'}</span>
+            </button>
+            <div className="h-4 w-px bg-white/20" />
+            <div className="flex items-center gap-2">
+              <span className="font-mono font-black text-xs px-2.5 py-1 rounded-lg bg-primary text-white shadow-2xs">
+                {isMr ? 'बिल क्रमांक' : 'Bill No'} #{rental.billNumber || 1}
+              </span>
+              <span className="text-sm font-bold text-white">{formatName(rental.partyName)}</span>
+              {custNumber && (
+                <span className="text-[10px] font-mono bg-white/20 px-2 py-0.5 rounded text-slate-200">
+                  #{custNumber}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span
+              className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
+                rental.status === 'returned'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                  : rental.status === 'overdue'
+                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                  : 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+              }`}
+            >
+              {rental.status === 'returned'
+                ? isMr ? 'साहित्य जमा (पूर्ण)' : 'Returned'
+                : rental.status === 'overdue'
+                ? isMr ? 'मुदत संपली' : 'Overdue'
+                : isMr ? 'सक्रिय भाडे' : 'Active'}
+            </span>
+          </div>
+        </div>
+
+        {/* 4 KPI SUMMARY CARDS FOR THIS SPECIFIC BILL */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 print:grid-cols-4 print:gap-2">
+          {/* KPI 1: Plates */}
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs print:border print:border-slate-800 print:rounded-none">
+            <span className="text-[10px] font-bold text-slate-500 uppercase block">
+              {isMr ? 'वाटप व शिल्लक प्लेट्स' : 'Dispatched vs In Field'}
+            </span>
+            <div className="text-lg font-black text-slate-900 mt-0.5 font-mono">
+              {remainingInField} <span className="text-xs text-slate-500 font-normal">/ {totalDispatched}</span>
+            </div>
+            <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
+              {totalReturned} {isMr ? 'जमा' : 'returned'} • {remainingInField} {isMr ? 'ग्राहकाकडे' : 'with party'}
+            </span>
+          </div>
+
+          {/* KPI 2: Total Rent Accrued */}
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs print:border print:border-slate-800 print:rounded-none">
+            <span className="text-[10px] font-bold text-slate-500 uppercase block">
+              {isMr ? 'एकूण भाडे आकारणी' : 'Total Billed Rent'}
+            </span>
+            <div className="text-lg font-black text-slate-900 mt-0.5 font-mono">
+              ₹{totalCyclesRent.toLocaleString('en-IN')}
+            </div>
+            <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
+              {cycles.length} {isMr ? 'भाडे सायकल' : 'cycles'}
+            </span>
+          </div>
+
+          {/* KPI 3: Total Paid */}
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs print:border print:border-slate-800 print:rounded-none">
+            <span className="text-[10px] font-bold text-slate-500 uppercase block">
+              {isMr ? 'एकूण जमा रक्कम' : 'Total Payments Received'}
+            </span>
+            <div className="text-lg font-black text-emerald-600 mt-0.5 font-mono">
+              ₹{totalPaidSum.toLocaleString('en-IN')}
+            </div>
+            <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
+              {rentalPayments.length} {isMr ? 'जमा पावत्या' : 'receipts'}
+            </span>
+          </div>
+
+          {/* KPI 4: Net Balance Due */}
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs print:border print:border-slate-800 print:rounded-none">
+            <span className="text-[10px] font-bold text-slate-500 uppercase block">
+              {isMr ? 'शिल्लक बाकी रक्कम' : 'Net Balance Due'}
+            </span>
+            <div className={`text-lg font-black mt-0.5 font-mono ${netPendingSum > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+              ₹{netPendingSum.toLocaleString('en-IN')}
+            </div>
+            <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
+              {netPendingSum === 0 ? (isMr ? 'हिशोब पूर्ण चुकता' : 'Settled in Full') : (isMr ? 'थकबाकी बाकी' : 'Outstanding')}
+            </span>
+          </div>
+        </div>
+
+        {/* SECTION 1: MATERIAL DISPATCHED PARTICULARS */}
+        <div className="print-section overflow-hidden rounded-2xl border border-slate-200 print:rounded-none print:border-slate-800">
+          <div className="px-5 py-2.5 bg-slate-100/90 border-b border-slate-200 flex justify-between items-center print:bg-slate-200 print:py-1 print:px-3">
+            <h5 className="text-xs font-black text-slate-900 uppercase tracking-wide flex items-center gap-1.5">
+              <Package className="w-3.5 h-3.5 text-primary" />
+              <span>{isMr ? '१. वाटप साहित्य तपशील' : '1. Dispatched Material Particulars'}</span>
+            </h5>
+            <span className="text-[10px] font-mono font-bold bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+              {formatDate(rental.issueDate)}
+            </span>
+          </div>
+          <table className="print-table w-full text-left text-sm">
+            <thead>
+              <tr className="bg-slate-50 text-slate-600 text-xs font-bold border-b border-slate-200 uppercase tracking-wider">
+                <th className="px-3 py-2.5 text-center w-12">{curT.headers.srNo}</th>
+                <th className="px-4 py-2.5">{curT.headers.plateSize}</th>
+                <th className="px-4 py-2.5 text-right">{curT.headers.quantity}</th>
+                <th className="px-4 py-2.5 text-right">{isMr ? 'दर / दिवस' : 'Daily Rate'}</th>
+                <th className="px-4 py-2.5 text-right">{isMr ? 'दिवस' : 'Days'}</th>
+                <th className="px-4 py-2.5 text-right">{curT.headers.totalRent}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium text-xs">
+              {items.map((it, idx) => (
+                <tr key={idx} className="hover:bg-slate-50/50">
+                  <td className="px-3 py-2 text-center text-slate-500 font-mono">{idx + 1}</td>
+                  <td className="px-4 py-2 font-mono font-bold text-slate-800">{it.plateType}</td>
+                  <td className="px-4 py-2 text-right font-mono font-black text-slate-900">{it.quantity}</td>
+                  <td className="px-4 py-2 text-right font-mono text-slate-600">₹{it.dailyRate}/day</td>
+                  <td className="px-4 py-2 text-right font-mono text-slate-600">{it.days} {isMr ? 'दिवस' : 'days'}</td>
+                  <td className="px-4 py-2 text-right font-mono font-black text-slate-900">
+                    ₹{((Number(it.quantity) || 0) * (Number(it.dailyRate) || 0) * (Number(it.days) || 0)).toLocaleString('en-IN')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="bg-slate-100/80 font-black text-xs border-t-2 border-slate-300">
+                <td colSpan={2} className="px-4 py-2 text-slate-800 uppercase">
+                  {isMr ? 'एकूण वाटप नग' : 'Total Dispatched'}
+                </td>
+                <td className="px-4 py-2 text-right font-mono font-black">{totalDispatched}</td>
+                <td colSpan={2}></td>
+                <td className="px-4 py-2 text-right text-slate-900 font-black font-mono">
+                  ₹{rental.totalRent.toLocaleString('en-IN')}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* SECTION 2: RENTAL CYCLES TIMELINE */}
+        <div className="print-section overflow-hidden rounded-2xl border border-slate-200 print:rounded-none print:border-slate-800">
+          <div className="px-5 py-2.5 bg-slate-100/90 border-b border-slate-200 flex justify-between items-center print:bg-slate-200 print:py-1 print:px-3">
+            <h5 className="text-xs font-black text-slate-900 uppercase tracking-wide flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-blue-600" />
+              <span>{isMr ? '२. भाडे सायकल कालक्रम व तपशील' : '2. Rental Cycles Timeline & Duration'}</span>
+            </h5>
+            <span className="text-[10px] font-mono font-bold bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+              {cycles.length} {isMr ? 'सायकल्स' : 'Cycles'}
+            </span>
+          </div>
+          <table className="print-table w-full text-left text-sm">
+            <thead>
+              <tr className="bg-slate-50 text-slate-600 text-xs font-bold border-b border-slate-200 uppercase tracking-wider">
+                <th className="px-3 py-2.5 text-center w-24">{isMr ? 'सायकल' : 'Cycle'}</th>
+                <th className="px-4 py-2.5">{isMr ? 'सुरुवात दिनांक' : 'Start Date'}</th>
+                <th className="px-4 py-2.5">{isMr ? 'समाप्ती दिनांक' : 'End Date'}</th>
+                <th className="px-3 py-2.5 text-right">{isMr ? 'कालावधी' : 'Duration'}</th>
+                <th className="px-3 py-2.5 text-right">{curT.headers.quantity}</th>
+                <th className="px-4 py-2.5 text-right">{isMr ? 'सायकल भाडे' : 'Cycle Rent'}</th>
+                <th className="px-4 py-2.5 text-right">{curT.headers.paidAmount}</th>
+                <th className="px-4 py-2.5 text-right">{curT.headers.pendingAmount}</th>
+                <th className="px-3 py-2.5 text-center">{isMr ? 'स्थिती' : 'Status'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium text-xs">
+              {cycles.map((c) => (
+                <tr key={c.id} className="hover:bg-slate-50/50">
+                  <td className="px-3 py-2 text-center font-bold text-slate-900">
+                    <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200 text-[11px]">
+                      {isMr ? 'सायकल' : 'Cycle'} #{c.cycleNumber}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-slate-600 font-mono">{formatDate(c.startDate)}</td>
+                  <td className="px-4 py-2 text-slate-600 font-mono">{formatDate(c.expectedEndDate)}</td>
+                  <td className="px-3 py-2 text-right font-mono text-slate-700">
+                    {c.days} {isMr ? 'दिवस' : 'd'}{c.extraDays ? ` + ${c.extraDays} ${isMr ? 'अतिरिक्त' : 'ext'}` : ''}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono font-bold">{c.quantity}</td>
+                  <td className="px-4 py-2 text-right font-mono font-black text-slate-900">
+                    ₹{c.totalAmount.toLocaleString('en-IN')}
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono font-semibold text-emerald-600">
+                    ₹{c.paidAmount.toLocaleString('en-IN')}
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono font-bold text-rose-600">
+                    ₹{c.pendingAmount.toLocaleString('en-IN')}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        c.status === 'completed'
+                          ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                          : 'bg-amber-100 text-amber-700 border border-amber-200'
+                      }`}
+                    >
+                      {c.status === 'completed' ? (isMr ? 'पूर्ण' : 'Completed') : (isMr ? 'सक्रिय' : 'Active')}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="bg-slate-100/80 font-black text-xs border-t-2 border-slate-300">
+                <td colSpan={5} className="px-4 py-2 text-slate-800 uppercase">
+                  {isMr ? 'सर्व सायकल्स एकूण' : 'All Cycles Total'}
+                </td>
+                <td className="px-4 py-2 text-right text-slate-900 font-black font-mono">
+                  ₹{totalCyclesRent.toLocaleString('en-IN')}
+                </td>
+                <td className="px-4 py-2 text-right text-emerald-700 font-black font-mono">
+                  ₹{cycles.reduce((s, c) => s + (c.paidAmount || 0), 0).toLocaleString('en-IN')}
+                </td>
+                <td className="px-4 py-2 text-right text-rose-700 font-black font-mono">
+                  ₹{cycles.reduce((s, c) => s + (c.pendingAmount || 0), 0).toLocaleString('en-IN')}
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* SECTION 3: MATERIAL RETURNS INTAKE LOG */}
+        <div className="print-section overflow-hidden rounded-2xl border border-slate-200 print:rounded-none print:border-slate-800">
+          <div className="px-5 py-2.5 bg-slate-100/90 border-b border-slate-200 flex justify-between items-center print:bg-slate-200 print:py-1 print:px-3">
+            <h5 className="text-xs font-black text-slate-900 uppercase tracking-wide flex items-center gap-1.5">
+              <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{isMr ? '३. साहित्य परत जमा नोंद' : '3. Material Returns Intake Log'}</span>
+            </h5>
+            <span className="text-[10px] font-mono font-bold bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+              {rentalReturns.length} {isMr ? 'नोंदी' : 'Entries'}
+            </span>
+          </div>
+          <table className="print-table w-full text-left text-sm">
+            <thead>
+              <tr className="bg-slate-50 text-slate-600 text-xs font-bold border-b border-slate-200 uppercase tracking-wider">
+                <th className="px-3 py-2.5 text-center w-12">{curT.headers.srNo}</th>
+                <th className="px-4 py-2.5">{curT.headers.returnDate}</th>
+                <th className="px-4 py-2.5">{curT.headers.plateSize}</th>
+                <th className="px-4 py-2.5 text-right">{isMr ? 'जमा केलेले नग' : 'Returned Qty'}</th>
+                <th className="px-4 py-2.5 text-right">{isMr ? 'ग्राहकाकडे शिल्लक नग' : 'Remaining In Field'}</th>
+                <th className="px-4 py-2.5 text-right">{isMr ? 'वसूल रक्कम' : 'Settlement Paid'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium text-xs">
+              {rentalReturns.map((ret, idx) => (
+                <tr key={ret.id} className="hover:bg-slate-50/50">
+                  <td className="px-3 py-2 text-center text-slate-500 font-mono">{idx + 1}</td>
+                  <td className="px-4 py-2 text-slate-600 font-mono">{formatDate(ret.returnDate)}</td>
+                  <td className="px-4 py-2 text-slate-700 font-mono font-bold">{ret.plateType}</td>
+                  <td className="px-4 py-2 text-emerald-600 font-black text-right font-mono">{ret.returnedQuantity}</td>
+                  <td className="px-4 py-2 text-slate-800 font-bold text-right font-mono">{ret.remainingQuantity}</td>
+                  <td className="px-4 py-2 text-right font-mono font-semibold text-slate-900">
+                    {ret.collectedAmount ? `₹${Number(ret.collectedAmount).toLocaleString('en-IN')}` : '-'}
+                  </td>
+                </tr>
+              ))}
+              {rentalReturns.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="p-4 text-center text-slate-400 italic text-xs">
+                    {isMr
+                      ? 'या बिलाचे कोणतेही साहित्य अद्याप परत जमा झालेले नाही (सर्व साहित्य ग्राहकाकडे सक्रिय आहे).'
+                      : 'No plates have been returned for this bill yet (all plates active with party).'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            {rentalReturns.length > 0 && (
+              <tfoot>
+                <tr className="bg-slate-100/80 font-black text-xs border-t-2 border-slate-300">
+                  <td colSpan={3} className="px-4 py-2 text-slate-800 uppercase">
+                    {isMr ? 'एकूण जमा साहित्य' : 'Total Returned'}
+                  </td>
+                  <td className="px-4 py-2 text-right text-emerald-700 font-black font-mono">{totalReturned}</td>
+                  <td className="px-4 py-2 text-right text-slate-900 font-black font-mono">{remainingInField}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+
+        {/* SECTION 4: PAYMENT RECEIPTS LOG */}
+        <div className="print-section overflow-hidden rounded-2xl border border-slate-200 print:rounded-none print:border-slate-800">
+          <div className="px-5 py-2.5 bg-slate-100/90 border-b border-slate-200 flex justify-between items-center print:bg-slate-200 print:py-1 print:px-3">
+            <h5 className="text-xs font-black text-slate-900 uppercase tracking-wide flex items-center gap-1.5">
+              <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{isMr ? '४. जमा पावत्या व पेमेंट इतिहास' : '4. Payment Receipts & Collection Log'}</span>
+            </h5>
+            <span className="text-[10px] font-mono font-bold bg-white text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+              {rentalPayments.length} {isMr ? 'पावत्या' : 'Receipts'}
+            </span>
+          </div>
+          <table className="print-table w-full text-left text-sm">
+            <thead>
+              <tr className="bg-slate-50 text-slate-600 text-xs font-bold border-b border-slate-200 uppercase tracking-wider">
+                <th className="px-3 py-2.5 text-center w-12">{curT.headers.srNo}</th>
+                <th className="px-4 py-2.5">{curT.headers.paymentDate}</th>
+                <th className="px-4 py-2.5 text-right">{curT.headers.paidAmount}</th>
+                <th className="px-4 py-2.5">{curT.headers.paymentMode}</th>
+                <th className="px-4 py-2.5">{curT.headers.reference}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium text-xs">
+              {rentalPayments.map((p, idx) => (
+                <tr key={p.id} className="hover:bg-slate-50/50">
+                  <td className="px-3 py-2 text-center text-slate-500 font-mono">{idx + 1}</td>
+                  <td className="px-4 py-2 text-slate-600 font-mono">{formatDate(p.date)}</td>
+                  <td className="px-4 py-2 text-emerald-600 font-black text-right font-mono">
+                    ₹{p.amount.toLocaleString('en-IN')}
+                  </td>
+                  <td className="px-4 py-2 font-semibold text-slate-700">{p.paymentMode}</td>
+                  <td className="px-4 py-2 text-slate-500 font-mono">{p.reference || p.notes || '-'}</td>
+                </tr>
+              ))}
+              {rentalPayments.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-4 text-center text-slate-400 italic text-xs">
+                    {isMr ? 'या बिलासाठी कोणतीही स्वतंत्र जमा पावती नोंदवलेली नाही.' : 'No payment receipts recorded for this bill.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            {rentalPayments.length > 0 && (
+              <tfoot>
+                <tr className="bg-slate-100/80 font-black text-xs border-t-2 border-slate-300">
+                  <td colSpan={2} className="px-4 py-2 text-slate-800 uppercase">
+                    {isMr ? 'एकूण जमा रक्कम' : 'Total Collected'}
+                  </td>
+                  <td className="px-4 py-2 text-right text-emerald-700 font-black font-mono">
+                    ₹{totalPaidSum.toLocaleString('en-IN')}
+                  </td>
+                  <td colSpan={2}></td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+
+        {/* SECTION 5: FINAL RECONCILED STATEMENT CARD */}
+        <div className="p-5 bg-gradient-to-br from-slate-900 to-slate-950 text-white rounded-2xl shadow-sm border border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 print:bg-white print:text-black print:border-2 print:border-slate-900 print:rounded-none">
+          <div>
+            <h5 className="text-xs font-black uppercase tracking-wider text-orange-400 print:text-black">
+              {isMr ? '५. अंतिम हिशोब व ताळेबंद गोषवारा' : '5. Final Financial Settlement Summary'}
+            </h5>
+            <p className="text-[11px] text-slate-400 mt-0.5 print:text-slate-700">
+              {isMr
+                ? `बिल #${rental.billNumber || 1} • सर्व सायकल्स, साहित्य जमा व पेमेंट्सचा अंतिम ताळेबंद`
+                : `Bill #${rental.billNumber || 1} • Reconciled summary across all cycles, returns and receipts`}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-6 text-center">
+            <div>
+              <span className="text-[10px] text-slate-400 uppercase block print:text-slate-600">
+                {isMr ? 'एकूण भाडे आकारणी' : 'Total Accrued'}
+              </span>
+              <span className="text-base font-black font-mono">₹{totalCyclesRent.toLocaleString('en-IN')}</span>
+            </div>
+            <div className="text-slate-600 font-mono text-lg font-bold">-</div>
+            <div>
+              <span className="text-[10px] text-slate-400 uppercase block print:text-slate-600">
+                {isMr ? 'एकूण जमा' : 'Total Paid'}
+              </span>
+              <span className="text-base font-black font-mono text-emerald-400 print:text-emerald-700">
+                ₹{totalPaidSum.toLocaleString('en-IN')}
+              </span>
+            </div>
+            <div className="text-slate-600 font-mono text-lg font-bold">=</div>
+            <div className="px-3.5 py-1.5 rounded-xl bg-white/10 border border-white/20 print:bg-slate-100 print:border-slate-800">
+              <span className="text-[10px] text-orange-300 uppercase block font-bold print:text-slate-800">
+                {isMr ? 'शिल्लक येणे बाकी' : 'Net Due Balance'}
+              </span>
+              <span className={`text-lg font-black font-mono ${netPendingSum > 0 ? 'text-rose-400 print:text-rose-700' : 'text-emerald-400 print:text-emerald-700'}`}>
+                ₹{netPendingSum.toLocaleString('en-IN')}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // =========================================================================
+  // BILL DIRECTORY / INDEX SECTION (When multiple bills match or browse all)
+  // =========================================================================
+  const renderBillDirectorySection = (items: Rental[]) => {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-3 bg-slate-100/80 rounded-2xl border border-slate-200">
+          <div>
+            <h5 className="text-xs font-black text-slate-900 uppercase tracking-wide flex items-center gap-2">
+              <Hash className="w-4 h-4 text-primary" />
+              <span>{isMr ? 'सर्व बिलांची यादी व इतिहास' : 'All Bills Directory & History'}</span>
+            </h5>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {isMr
+                ? 'खालील कोणत्याही बिलाचा संपूर्ण सायकल, जमा व पेमेंट इतिहास पाहण्यासाठी "इतिहास पहा" बटनावर क्लिक करा.'
+                : 'Click "View History" on any bill below to view full cycles, returns, and payment breakdown.'}
+            </p>
+          </div>
+          <span className="text-xs font-mono font-bold bg-white text-slate-700 px-3 py-1 rounded-xl border border-slate-200">
+            {items.length} {isMr ? 'बिले' : 'Bills'}
+          </span>
+        </div>
+
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
+                <th className="px-3 py-3 text-center"># {isMr ? 'बिल क्र.' : 'Bill #'}</th>
+                <th className="px-4 py-3">{curT.headers.issueDate}</th>
+                <th className="px-4 py-3">{curT.headers.partyName}</th>
+                <th className="px-3 py-3">{curT.headers.plateSize}</th>
+                <th className="px-3 py-3 text-right">{curT.headers.quantity}</th>
+                <th className="px-4 py-3 text-right">{curT.headers.totalRent}</th>
+                <th className="px-4 py-3 text-right">{curT.headers.paidAmount}</th>
+                <th className="px-4 py-3 text-right">{curT.headers.pendingAmount}</th>
+                <th className="px-3 py-3 text-center">{isMr ? 'स्थिती' : 'Status'}</th>
+                <th className="px-4 py-3 text-center no-print">{isMr ? 'कृती' : 'Action'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium">
+              {items.map((r) => {
+                const cust = parties.find((p) => p.id === r.partyId);
+                const custNo = cust?.customerNumber || r.customerNumber;
+                const pending = Math.max(0, r.totalRent - r.paid);
+                return (
+                  <tr key={r.id} className="hover:bg-slate-50/70 transition">
+                    <td className="px-3 py-2.5 text-center font-mono font-black text-primary">
+                      <span className="px-2 py-0.5 rounded bg-orange-100 border border-orange-200">
+                        #{r.billNumber || 1}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-600 font-mono">{formatDate(r.issueDate)}</td>
+                    <td className="px-4 py-2.5 font-bold text-slate-900">
+                      <div className="flex items-center gap-1.5">
+                        {custNo && (
+                          <span className="font-mono text-[10px] px-1.5 py-0.2 bg-slate-100 text-slate-700 border border-slate-200 rounded">
+                            #{custNo}
+                          </span>
+                        )}
+                        <span>{formatName(r.partyName)}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-700 font-mono">{r.plateType}</td>
+                    <td className="px-3 py-2.5 text-right font-bold font-mono">{r.quantity}</td>
+                    <td className="px-4 py-2.5 text-right font-semibold text-slate-900 font-mono">
+                      ₹{r.totalRent.toLocaleString('en-IN')}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-emerald-600 font-semibold font-mono">
+                      ₹{r.paid.toLocaleString('en-IN')}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-rose-600 font-bold font-mono">
+                      ₹{pending.toLocaleString('en-IN')}
+                    </td>
+                    <td className="px-3 py-2.5 text-center">
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          r.status === 'returned'
+                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                            : r.status === 'overdue'
+                            ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                            : 'bg-blue-100 text-blue-700 border border-blue-200'
+                        }`}
+                      >
+                        {r.status === 'returned'
+                          ? isMr ? 'जमा झाले' : 'Returned'
+                          : r.status === 'overdue'
+                          ? isMr ? 'मुदत संपली' : 'Overdue'
+                          : isMr ? 'सक्रिय' : 'Active'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-center no-print">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRentalIdForHistory(r.id);
+                          setSearchBillNumber(String(r.billNumber || ''));
+                        }}
+                        className="px-2.5 py-1 bg-slate-900 hover:bg-primary text-white text-xs font-bold rounded-lg transition flex items-center gap-1 mx-auto cursor-pointer shadow-2xs"
+                        title={isMr ? 'या बिलाचा संपूर्ण इतिहास पहा' : 'View Full History for this Bill'}
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>{isMr ? 'इतिहास पहा' : 'View History'}</span>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {items.length === 0 && (
+                <tr>
+                  <td colSpan={10} className="p-6 text-center text-slate-400 italic text-xs">
+                    {curT.emptyRecords}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   };
@@ -797,21 +1623,56 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
         </div>
 
         {/* Filter Inputs Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
           {/* Report Type */}
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-500 uppercase">{curT.reportType}</label>
             <select
               value={reportType}
-              onChange={(e) => setReportType(e.target.value as ReportType)}
+              onChange={(e) => {
+                const newType = e.target.value as ReportType;
+                setReportType(newType);
+                if (newType !== 'bill_history') {
+                  setSelectedRentalIdForHistory(null);
+                }
+              }}
               className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs font-semibold cursor-pointer text-slate-900"
             >
               <option value="all">{curT.types.all}</option>
+              <option value="bill_history">{curT.types.bill_history || (isMr ? 'बिल निहाय इतिहास' : 'Bill-Wise History')}</option>
               <option value="rental">{curT.types.rental}</option>
               <option value="return">{curT.types.return}</option>
               <option value="payment">{curT.types.payment}</option>
               <option value="outstanding">{curT.types.outstanding}</option>
             </select>
+          </div>
+
+          {/* Search Bill Number */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
+              <Search className="w-3 h-3 text-primary" />
+              <span>{isMr ? 'बिल नंबर शोधा' : 'Search Bill #'}</span>
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                list="available-bill-numbers"
+                value={searchBillNumber}
+                onChange={(e) => {
+                  setSearchBillNumber(e.target.value);
+                  setSelectedRentalIdForHistory(null);
+                }}
+                placeholder={isMr ? 'उदा. 1, 2 किंवा #101' : 'e.g. 1, 2 or #101'}
+                className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs font-semibold font-mono text-slate-900"
+              />
+              <datalist id="available-bill-numbers">
+                {rentals.map((r) => (
+                  <option key={r.id} value={String(r.billNumber || '')}>
+                    #{r.billNumber || 1} — {r.partyName} (₹{r.totalRent})
+                  </option>
+                ))}
+              </datalist>
+            </div>
           </div>
 
           {/* Customer Party */}
@@ -958,7 +1819,11 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
                 {lang === 'marathi' ? 'ग्राहक:' : 'Customer Party:'}
               </span>
               <span className="font-bold text-slate-900">
-                {selectedParty ? `${selectedParty.name} ${selectedParty.mobile ? `(${selectedParty.mobile})` : ''}` : curT.allParties}
+                {activeHistoryRental
+                  ? `${activeHistoryRental.partyName} (Bill #${activeHistoryRental.billNumber || 1})`
+                  : selectedParty
+                  ? `${selectedParty.name} ${selectedParty.mobile ? `(${selectedParty.mobile})` : ''}`
+                  : curT.allParties}
               </span>
             </div>
             <div>
@@ -976,7 +1841,9 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
                 {lang === 'marathi' ? 'तपशील:' : 'Details:'}
               </span>
               <span className="font-semibold text-slate-900">
-                {reportType === 'all'
+                {activeHistoryRental
+                  ? (lang === 'marathi' ? `नोंद दिनांक: ${formatDate(activeHistoryRental.issueDate)}` : `Issue Date: ${formatDate(activeHistoryRental.issueDate)}`)
+                  : reportType === 'all'
                   ? (lang === 'marathi' ? `४ विभाग • एकूण नोंदी: ${totalRecordsCount}` : `4 Sections • Total: ${totalRecordsCount}`)
                   : `${selectedPlateType ? `${selectedPlateType} • ` : `${curT.allSizes} • `}${curT.totalRecords} ${totalRecordsCount}`}
               </span>
@@ -997,15 +1864,24 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
               </span>
             </h4>
             <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-              {totalRecordsCount} {curT.recordsFound} • {curT.selectedCustomer} <span className="font-bold text-slate-800">{selectedPartyName}</span>
+              {activeHistoryRental ? (
+                <>
+                  {isMr ? 'बिल क्रमांक' : 'Bill No'} <strong className="text-primary font-mono font-bold">#{activeHistoryRental.billNumber || 1}</strong>
+                  {' • '}{isMr ? 'ग्राहक:' : 'Customer:'} <strong className="text-slate-800">{activeHistoryRental.partyName}</strong>
+                </>
+              ) : (
+                <>
+                  {totalRecordsCount} {curT.recordsFound} • {curT.selectedCustomer} <span className="font-bold text-slate-800">{selectedPartyName}</span>
+                </>
+              )}
             </p>
           </div>
         </div>
 
         {/* ========================================================= */}
-        {/* MASTER SUMMARY KPI DASHBOARD (Shown when 'all' selected)  */}
+        {/* MASTER SUMMARY KPI DASHBOARD (Shown when 'all' selected & no single bill) */}
         {/* ========================================================= */}
-        {reportType === 'all' && (
+        {reportType === 'all' && !activeHistoryRental && (
           <div className="p-4 sm:p-6 border-b border-slate-200 bg-slate-50/50 print:p-2 print:bg-white print:border-b-2 print:border-slate-800">
             <div className="flex items-center justify-between mb-3">
               <h5 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
@@ -1069,18 +1945,33 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
         {/* REPORT DATA TABLES (Formatted for both screen & A4 print)  */}
         {/* ========================================================= */}
         <div className="p-4 sm:p-6 space-y-6 print:p-4 print:space-y-4">
-          {/* ALL REPORTS: Render all 4 sections in order */}
+          {/* BILL-WISE HISTORY MODE */}
+          {reportType === 'bill_history' && (
+            activeHistoryRental
+              ? renderBillHistorySection(activeHistoryRental)
+              : renderBillDirectorySection(filteredRentals)
+          )}
+
+          {/* ALL REPORTS: If a single bill is searched, show that bill history, otherwise show the 4 master sections */}
           {reportType === 'all' && (
-            <>
-              {renderRentalsSection(filteredRentals, curT.sectionRentals)}
-              {renderReturnsSection(filteredReturns, curT.sectionReturns)}
-              {renderPaymentsSection(filteredPayments, curT.sectionPayments)}
-              {renderOutstandingSection(filteredOutstanding, curT.sectionOutstanding)}
-            </>
+            activeHistoryRental && searchBillNumber.trim() ? (
+              renderBillHistorySection(activeHistoryRental)
+            ) : (
+              <>
+                {renderRentalsSection(filteredRentals, curT.sectionRentals)}
+                {renderReturnsSection(filteredReturns, curT.sectionReturns)}
+                {renderPaymentsSection(filteredPayments, curT.sectionPayments)}
+                {renderOutstandingSection(filteredOutstanding, curT.sectionOutstanding)}
+              </>
+            )
           )}
 
           {/* INDIVIDUAL REPORTS */}
-          {reportType === 'rental' && renderRentalsSection(filteredRentals)}
+          {reportType === 'rental' && (
+            activeHistoryRental && searchBillNumber.trim()
+              ? renderBillHistorySection(activeHistoryRental)
+              : renderRentalsSection(filteredRentals)
+          )}
           {reportType === 'return' && renderReturnsSection(filteredReturns)}
           {reportType === 'payment' && renderPaymentsSection(filteredPayments)}
           {reportType === 'outstanding' && renderOutstandingSection(filteredOutstanding)}
