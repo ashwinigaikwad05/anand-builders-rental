@@ -10,7 +10,7 @@ import {
   CheckCircle2,
   IndianRupee,
 } from 'lucide-react';
-import type { Rental, RentalCycle, PlateStock, RentalItem, Party } from '../../../data/adminMockData';
+import type { Rental, RentalCycle, PlateStock, RentalItem, Party, ReturnLog } from '../../../data/adminMockData';
 import {
   calculateCycleFinances,
   determineRenewalStartDate,
@@ -34,6 +34,7 @@ interface RenewRentalModalProps {
   plates: PlateStock[];
   rentalCycles?: RentalCycle[];
   party?: Party;
+  returns?: ReturnLog[];
   onClose: () => void;
   onConfirm: (
     rentalId: string,
@@ -51,6 +52,7 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
   plates,
   rentalCycles = [],
   party,
+  returns = [],
   onClose,
   onConfirm,
 }) => {
@@ -71,20 +73,112 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
   const [paymentReference, setPaymentReference] = useState<string>('');
   const [paymentNotes, setPaymentNotes] = useState<string>('');
 
-  // Extract initial plate items from rental.items or construct fallback from single plateType & quantity
+  // Filter returns related to this rental agreement
+  const rentalReturns = (returns || []).filter(
+    (r) => r.rentalId === rental.id || (!r.rentalId && r.partyId === rental.partyId)
+  );
+
+  // Total plates originally issued/rented for this rental
+  const totalIssuedForRental = rental.items && rental.items.length > 0
+    ? rental.items.reduce((sum, it) => sum + Number(it.quantity || 0), 0)
+    : Number(rental.quantity || 0);
+
+  // Total plates returned by party for this rental
+  const totalReturnedForRental = rentalReturns.reduce(
+    (sum, r) => sum + Number(r.returnedQuantity || 0),
+    0
+  );
+
+  // Total remaining plates held on site by customer
+  const totalRemainingOnSite = Math.max(0, totalIssuedForRental - totalReturnedForRental);
+
+  // Helper to determine issued, returned, and remaining counts for a specific plate type
+  const getPlateStockStatus = (plateSize: string) => {
+    // 1. Issued quantity for this size
+    let issued = 0;
+    if (rental.items && rental.items.length > 0) {
+      const match = rental.items.find((it) => it.plateType === plateSize);
+      issued = match ? Number(match.quantity || 0) : 0;
+    } else {
+      issued = rental.plateType === plateSize ? Number(rental.quantity || 0) : 0;
+    }
+
+    // 2. Returned quantity for this size
+    const sizeSpecificReturns = rentalReturns.filter((r) => r.plateType === plateSize);
+    let returned = 0;
+    if (sizeSpecificReturns.length > 0) {
+      returned = sizeSpecificReturns.reduce((sum, r) => sum + Number(r.returnedQuantity || 0), 0);
+    } else if (!rental.items || rental.items.length <= 1) {
+      returned = totalReturnedForRental;
+    } else {
+      const totalRented = totalIssuedForRental || 1;
+      returned = Math.min(issued, Math.round((issued / totalRented) * totalReturnedForRental));
+    }
+
+    const remaining = Math.max(0, issued - returned);
+    return { issued, returned, remaining };
+  };
+
+  // Extract initial plate items: default quantity to remaining on-site plates (issued - returned)
+  // E.g. rented 100 plates, returned 50 plates -> new renewal cycle defaults to 50 plates!
   const initialItems: RentalItem[] = (() => {
     if (rental.items && rental.items.length > 0) {
-      return rental.items.map((it) => ({
-        plateType: it.plateType,
-        quantity: it.quantity,
-        dailyRate: it.dailyRate || plates.find((p) => p.plateType === it.plateType)?.dailyRate || 1.5,
-        days: renewDays,
-      }));
+      if (rental.items.length === 1) {
+        const it = rental.items[0];
+        const remainingQty = Math.max(0, Number(it.quantity || 0) - totalReturnedForRental);
+        return [
+          {
+            plateType: it.plateType,
+            quantity: remainingQty,
+            dailyRate: it.dailyRate || plates.find((p) => p.plateType === it.plateType)?.dailyRate || 1.5,
+            days: renewDays,
+          },
+        ];
+      }
+
+      // Check if size-specific return logs exist
+      const hasSizeMatches = rentalReturns.some((r) =>
+        rental.items!.some((it) => it.plateType === r.plateType)
+      );
+
+      if (hasSizeMatches) {
+        return rental.items.map((it) => {
+          const retQty = rentalReturns
+            .filter((r) => r.plateType === it.plateType)
+            .reduce((sum, r) => sum + Number(r.returnedQuantity || 0), 0);
+          const remainingQty = Math.max(0, Number(it.quantity || 0) - retQty);
+          return {
+            plateType: it.plateType,
+            quantity: remainingQty,
+            dailyRate: it.dailyRate || plates.find((p) => p.plateType === it.plateType)?.dailyRate || 1.5,
+            days: renewDays,
+          };
+        });
+      }
+
+      // If generic return quantity, deduct sequentially
+      let unallocated = totalReturnedForRental;
+      return rental.items.map((it) => {
+        const itemQty = Number(it.quantity || 0);
+        const deduct = Math.min(itemQty, unallocated);
+        unallocated -= deduct;
+        const remainingQty = Math.max(0, itemQty - deduct);
+        return {
+          plateType: it.plateType,
+          quantity: remainingQty,
+          dailyRate: it.dailyRate || plates.find((p) => p.plateType === it.plateType)?.dailyRate || 1.5,
+          days: renewDays,
+        };
+      });
     }
+
+    // Single plateType fallback
+    const issuedQty = Number(rental.quantity || 0);
+    const remainingQty = Math.max(0, issuedQty - totalReturnedForRental);
     return [
       {
-        plateType: rental.plateType as PlateSizeType,
-        quantity: rental.quantity,
+        plateType: (rental.plateType as PlateSizeType) || '24×3',
+        quantity: remainingQty,
         dailyRate: rental.dailyRate || plates.find((p) => p.plateType === rental.plateType)?.dailyRate || 1.5,
         days: renewDays,
       },
@@ -97,6 +191,12 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
   const [newPlateSize, setNewPlateSize] = useState<PlateSizeType>('21×3');
   const [newPlateQty, setNewPlateQty] = useState<number>(10);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
+  // Helper to reset items back to on-site remaining count
+  const handleResetToRemaining = () => {
+    setRenewItems(initialItems);
+    setValidationError('');
+  };
 
   // Previous cycle date finalization evaluation
   const { newStartDate, isOverdueRenewal } = determineRenewalStartDate(
@@ -120,16 +220,13 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
     finalizedEndDate
   );
 
-  // Helper to find previous cycle quantity for a specific plate type in this rental
+  // Helper to find on-site remaining quantity for a specific plate type in this rental
   const getPreviousQtyForPlateType = (plateSize: string): number => {
-    if (rental.items && rental.items.length > 0) {
-      const match = rental.items.find((it) => it.plateType === plateSize);
-      return match ? match.quantity : 0;
-    }
-    return rental.plateType === plateSize ? rental.quantity : 0;
+    return getPlateStockStatus(plateSize).remaining;
   };
 
   // Live recalculation of New Cycle Base Rent using configurable rates and selected renewal days
+  // E.g. remaining 50 plates × dailyRate × renewDays
   const totalNewPlatesCount = renewItems.reduce((sum, it) => sum + Number(it.quantity || 0), 0);
   const newCycleBaseRent = renewItems.reduce(
     (sum, it) => sum + Number(it.quantity || 0) * Number(it.dailyRate || 1.5) * renewDays,
@@ -465,59 +562,104 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
             </div>
           </div>
 
-          {/* SECTION 2: NEW CYCLE PLATES (Edit / Add / Remove & Stock Availability) */}
+          {/* SECTION 2: NEW CYCLE PLATES (Party On-Site Plates Status & Renewal Calculation) */}
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/90 space-y-3">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                New Cycle Plates / साहित्याची यादी
-              </span>
-              <span className="text-[11px] text-slate-500 font-bold">
-                Total: {totalNewPlatesCount} Plates ({renewDays} Days)
-              </span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-200 gap-2">
+              <div>
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                  New Cycle Plates / साहित्याची यादी
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  शिल्लक साहित्यावरून नवीन सायकलचे भाडे मोजले जाते
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 font-bold">
+                  Total: {totalNewPlatesCount} Plates ({renewDays} Days)
+                </span>
+                {totalReturnedForRental > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleResetToRemaining}
+                    className="text-[10px] text-slate-600 hover:text-indigo-600 underline font-semibold cursor-pointer"
+                    title="Reset to on-site remaining plates"
+                  >
+                    Reset ({totalRemainingOnSite} नग)
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* LIVE YARD AVAILABLE STOCK BAR */}
-            <div className="bg-white p-2.5 rounded-xl border border-slate-200/90 shadow-2xs">
-              <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 mb-1.5">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span>यार्डमधील उपलब्ध साठा (Live Yard Available Plates):</span>
+            {/* PARTY ON-SITE STOCK & RETURN BALANCE CARD */}
+            <div className="bg-white p-3.5 rounded-2xl border border-blue-200/80 shadow-xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                  <span>ग्राहकाकडील प्लेट्स व परत जमा स्थिती (Party On-Site Plates Status):</span>
                 </span>
-                <span className="text-[10px] text-slate-400 font-normal">तात्काळ साठा स्थिती</span>
+                <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                  {party?.name || rental.partyName}
+                </span>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {(plates && plates.length > 0 ? plates : []).map((p) => {
-                  const isOutOfStock = p.available <= 0;
-                  const isLowStock = p.available > 0 && p.available <= 20;
-                  return (
-                    <span
-                      key={p.plateType}
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded-lg border font-bold flex items-center gap-1 ${
-                        isOutOfStock
-                          ? 'bg-rose-50 text-rose-700 border-rose-200'
-                          : isLowStock
-                          ? 'bg-amber-50 text-amber-800 border-amber-200'
-                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                      }`}
-                    >
-                      <span>{p.plateType}:</span>
-                      <strong className={isOutOfStock ? 'text-rose-700' : 'text-slate-900'}>{p.available}</strong>
-                      <span className="text-[9px] text-slate-500">avail</span>
-                    </span>
-                  );
-                })}
+
+              {/* 3 Metric Pills: Rented (वाटप), Returned (परत जमा), Remaining (सध्या शिल्लक) */}
+              <div className="grid grid-cols-3 gap-2.5">
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/70 text-center">
+                  <span className="text-[10px] font-bold text-slate-500 block uppercase">एकूण वाटप (Rented)</span>
+                  <div className="text-sm font-black text-slate-900 mt-0.5 font-mono">
+                    {totalIssuedForRental} <span className="text-[11px] font-normal text-slate-500">नग</span>
+                  </div>
+                  <span className="text-[9px] text-slate-400 block mt-0.5">Original Issue</span>
+                </div>
+
+                <div className="bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/70 text-center">
+                  <span className="text-[10px] font-bold text-amber-700 block uppercase">परत जमा (Returned)</span>
+                  <div className="text-sm font-black text-amber-900 mt-0.5 font-mono">
+                    {totalReturnedForRental} <span className="text-[11px] font-normal text-amber-700">नग</span>
+                  </div>
+                  <span className="text-[9px] text-amber-600 block mt-0.5">{totalReturnedForRental > 0 ? 'Returned Intake' : 'No returns'}</span>
+                </div>
+
+                <div className="bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-300 text-center ring-1 ring-emerald-400/30">
+                  <span className="text-[10px] font-bold text-emerald-800 block uppercase">सध्या शिल्लक (Remaining)</span>
+                  <div className="text-sm font-black text-emerald-900 mt-0.5 font-mono">
+                    {totalRemainingOnSite} <span className="text-[11px] font-normal text-emerald-800">नग</span>
+                  </div>
+                  <span className="text-[9px] text-emerald-700 font-semibold block mt-0.5">On Site</span>
+                </div>
+              </div>
+
+              {/* Live Calculation explanation banner */}
+              <div className="bg-gradient-to-r from-blue-50 via-indigo-50/40 to-slate-50 p-2.5 rounded-xl border border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                  <span className="text-slate-700 text-[11px] leading-tight">
+                    {totalReturnedForRental > 0 ? (
+                      <>
+                        ग्राहकाने <strong>{totalReturnedForRental}</strong> प्लेट्स परत केल्याने, नवीन सायकलचे भाडे फक्त शिल्लक <strong>{totalRemainingOnSite}</strong> प्लेट्सवर <strong>{renewDays}</strong> दिवसांसाठी मोजले जात आहे.
+                      </>
+                    ) : (
+                      <>
+                        ग्राहकाकडे सर्व <strong>{totalRemainingOnSite}</strong> प्लेट्स शिल्लक आहेत. नवीन सायकलचे भाडे <strong>{renewDays}</strong> दिवसांसाठी मोजले जात आहे.
+                      </>
+                    )}
+                  </span>
+                </div>
+                <div className="flex-shrink-0 self-end sm:self-auto bg-white px-2.5 py-1 rounded-lg border border-blue-200/80 text-right">
+                  <span className="text-[10px] text-slate-500 block font-medium">नवीन सायकल भाडे ({renewDays} दिवस):</span>
+                  <span className="text-xs font-black text-indigo-900 font-mono">
+                    ₹{newCycleBaseRent.toLocaleString('en-IN')}
+                  </span>
+                </div>
               </div>
             </div>
 
             {/* List of Plate Rows */}
             <div className="space-y-2">
               {renewItems.map((item, idx) => {
-                const prevQty = getPreviousQtyForPlateType(item.plateType);
-                const diff = item.quantity - prevQty;
+                const plateStatus = getPlateStockStatus(item.plateType);
                 const isEditing = editingIndex === idx;
                 const rowTotal = Number(item.quantity || 0) * Number(item.dailyRate || 1.5) * renewDays;
-                const matchedStock = plates.find((p) => p.plateType === item.plateType);
-                const availableStock = matchedStock ? matchedStock.available : 0;
 
                 return (
                   <div
@@ -533,41 +675,38 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
                       {!isEditing ? (
                         <div className="text-xs space-y-0.5">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-slate-800">{item.quantity} Plates</span>
+                            <span className="font-bold text-slate-900">{item.quantity} Plates</span>
                             <span className="text-slate-400 font-normal">•</span>
                             <span className="text-slate-600 font-medium">₹{item.dailyRate}/day</span>
                             <span className="text-slate-400 font-normal">•</span>
                             <span className="font-bold text-indigo-900">
                               ₹{rowTotal.toLocaleString('en-IN')} ({renewDays}d)
                             </span>
-                            {/* Stock availability indicator badge */}
-                            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
-                              availableStock > 0
-                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                : 'bg-rose-50 text-rose-700 border border-rose-200'
-                            }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${availableStock > 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                              <span>उपलब्ध: <strong>{availableStock}</strong> ({availableStock} Avail)</span>
+                            {/* Party plate status badge */}
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-slate-100 text-slate-700 border border-slate-200">
+                              <span>वाटप: {plateStatus.issued} | जमा: {plateStatus.returned} | शिल्लक: <strong className="text-emerald-700">{plateStatus.remaining}</strong> नग</span>
                             </span>
                           </div>
-                          <span className="text-[11px] text-slate-400 block font-mono">
-                            Prev: {prevQty} {diff > 0 ? `(+${diff} new)` : diff < 0 ? `(${diff} released)` : '(no change)'}
+                          <span className="text-[11px] text-slate-500 block font-mono">
+                            हिशोब: {item.quantity} प्लेट्स × ₹{item.dailyRate}/दिवस × {renewDays} दिवस = ₹{rowTotal.toLocaleString('en-IN')}
                           </span>
                         </div>
                       ) : (
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-600 font-medium">Current with Party: <strong>{prevQty}</strong> → New Qty:</span>
+                            <span className="text-xs text-slate-600 font-medium">
+                              सध्या शिल्लक: <strong className="text-emerald-700">{plateStatus.remaining}</strong> → Renewal Qty:
+                            </span>
                             <input
                               type="number"
-                              min="1"
+                              min="0"
                               value={item.quantity}
                               onChange={(e) => handleItemQtyChange(idx, Number(e.target.value))}
                               className="w-24 bg-slate-50 border border-indigo-300 focus:border-indigo-600 focus:outline-none px-2.5 py-1 rounded-lg text-xs font-bold text-slate-900 shadow-2xs"
                             />
                           </div>
                           <span className="text-[11px] text-slate-600 font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                            यार्ड उपलब्ध: <strong>{availableStock}</strong> प्लेट्स
+                            वाटप: {plateStatus.issued} | जमा: {plateStatus.returned}
                           </span>
                         </div>
                       )}
@@ -785,15 +924,22 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
                 <span className="font-bold text-indigo-950 font-mono">{newExpectedEndDate}</span>
               </div>
               <div>
-                <span className="text-indigo-600/80 block text-[10px] uppercase">New {renewDays}-Day Base Rent</span>
-                <span className="font-black text-indigo-950 text-base">₹{newCycleBaseRent.toLocaleString('en-IN')}</span>
+                <span className="text-indigo-600/80 block text-[10px] uppercase font-bold">New {renewDays}-Day Base Rent ({totalNewPlatesCount} Plates)</span>
+                <span className="font-black text-indigo-950 text-base font-mono">₹{newCycleBaseRent.toLocaleString('en-IN')}</span>
               </div>
             </div>
 
-            <div className="text-[11px] text-indigo-700 bg-white/60 p-2.5 rounded-xl border border-indigo-100 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-indigo-600 flex-shrink-0" />
-              <span>
-                Cycle {activeCycle.cycleNumber + 1} ({renewDays} days) base rent is ₹{newCycleBaseRent.toLocaleString('en-IN')}.
+            <div className="text-[11px] text-indigo-700 bg-white/70 p-2.5 rounded-xl border border-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 font-medium">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+                <span>
+                  {totalReturnedForRental > 0
+                    ? `शिल्लक ${totalNewPlatesCount} प्लेट्सवर ${renewDays} दिवसांचे Cycle ${activeCycle.cycleNumber + 1} भाडे: ₹${newCycleBaseRent.toLocaleString('en-IN')}`
+                    : `Cycle ${activeCycle.cycleNumber + 1} (${renewDays} days) base rent for ${totalNewPlatesCount} plates: ₹${newCycleBaseRent.toLocaleString('en-IN')}`}
+                </span>
+              </div>
+              <span className="font-mono text-[10px] text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 self-start sm:self-center">
+                {totalNewPlatesCount} Plates × {renewDays} Days
               </span>
             </div>
           </div>

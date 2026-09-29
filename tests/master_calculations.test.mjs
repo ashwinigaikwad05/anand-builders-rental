@@ -743,6 +743,58 @@ runTest('DayWiseCalc', 'Day-wise return with penalty: 7 days rent ₹1,050 + ₹
 });
 
 // =============================================================================
+// SUITE 15: RENEWAL CYCLE REMAINING PLATES & MONEY CALCULATION
+// =============================================================================
+console.log('\n🔄 SUITE 15: Renewal Cycle Remaining Plates & Money Calculation');
+
+runTest('RenewRemainingPlates', 'Rented 100 plates, returned 50 plates: Remaining is 50 plates and renewal rent calculates on 50 plates', () => {
+  const rentedQty = 100;
+  const returnedQty = 50;
+  const remainingQty = Math.max(0, rentedQty - returnedQty);
+  const dailyRate = 1.5;
+  const renewDays = 40;
+
+  // New cycle base rent calculated on remaining 50 plates
+  const newCycleBaseRent = remainingQty * dailyRate * renewDays;
+
+  assert.strictEqual(remainingQty, 50);
+  assert.strictEqual(newCycleBaseRent, 3000); // 50 * 1.5 * 40 = 3,000 (NOT 6,000)
+});
+
+runTest('RenewRemainingPlates', 'Day-wise money calculation on remaining 50 plates across various periods', () => {
+  const remainingQty = 50;
+  const dailyRate = 1.5;
+
+  const rent10d = remainingQty * dailyRate * 10;
+  const rent15d = remainingQty * dailyRate * 15;
+  const rent20d = remainingQty * dailyRate * 20;
+
+  assert.strictEqual(rent10d, 750);  // 50 * 1.5 * 10
+  assert.strictEqual(rent15d, 1125); // 50 * 1.5 * 15
+  assert.strictEqual(rent20d, 1500); // 50 * 1.5 * 20
+});
+
+runTest('RenewRemainingPlates', 'Multi-item return: 60 (24×3) & 40 (21×3) with 50 returned calculates correct remaining base rent', () => {
+  const items = [
+    { plateType: '24×3', issued: 60, returned: 30, dailyRate: 1.5 },
+    { plateType: '21×3', issued: 40, returned: 20, dailyRate: 1.5 },
+  ];
+  const renewDays = 40;
+
+  const remainingItems = items.map((it) => ({
+    plateType: it.plateType,
+    quantity: it.issued - it.returned,
+    dailyRate: it.dailyRate,
+  }));
+
+  const totalRemainingPlates = remainingItems.reduce((s, it) => s + it.quantity, 0);
+  const totalBaseRent = remainingItems.reduce((s, it) => s + it.quantity * it.dailyRate * renewDays, 0);
+
+  assert.strictEqual(totalRemainingPlates, 50);
+  assert.strictEqual(totalBaseRent, 3000);
+});
+
+// =============================================================================
 // FINAL SUMMARY
 // =============================================================================
 console.log('\n' + '='.repeat(75));

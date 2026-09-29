@@ -2271,6 +2271,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             plates={derivedPlates}
             rentalCycles={rentalCycles}
             payments={payments}
+            returns={returns}
             onAddRental={handleAddRental}
             onRenewRental={handleRenewRental}
             onUpdateRentalStatus={handleUpdateRentalStatus}

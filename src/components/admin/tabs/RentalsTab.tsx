@@ -13,7 +13,7 @@ import {
   FileText,
   ArrowUpDown,
 } from 'lucide-react';
-import type { Party, PlateStock, Rental, RentalItem, RentalCycle, Payment } from '../../../data/adminMockData';
+import type { Party, PlateStock, Rental, RentalItem, RentalCycle, Payment, ReturnLog } from '../../../data/adminMockData';
 import {
   calculateCycleFinances,
   calculateExpectedCycleEndDate,
@@ -38,6 +38,7 @@ interface RentalsTabProps {
   plates: PlateStock[];
   rentalCycles?: RentalCycle[];
   payments?: Payment[];
+  returns?: ReturnLog[];
   onAddRental: (newRental: Omit<Rental, 'id' | 'totalRent' | 'pending' | 'status'>) => void;
   onUpdateRentalStatus?: (rentalId: string, status: 'active' | 'returned' | 'overdue') => void;
   onInitiateReturn?: (rental: Rental) => void;
@@ -64,6 +65,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   plates,
   rentalCycles = [],
   payments = [],
+  returns = [],
   onAddRental,
   onUpdateRentalStatus: _onUpdateRentalStatus,
   onInitiateReturn,
@@ -783,6 +785,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
           rentalCycles={getCyclesForRental(renewTarget)}
           party={parties.find((p) => p.id === renewTarget.partyId)}
           plates={plates}
+          returns={returns}
           onClose={() => setRenewTarget(null)}
           onConfirm={async (rentalId, renewalDate, newItems, renewDays, payment, penalty) => {
             if (onRenewRental) {

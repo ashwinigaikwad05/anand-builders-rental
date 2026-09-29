@@ -998,6 +998,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           rentalCycles={rentalCycles ? rentalCycles.filter((c) => c.rentalId === renewTarget.id) : (renewTarget.cycles || [])}
           party={parties.find((p) => p.id === renewTarget.partyId)}
           plates={plates}
+          returns={returns}
           onClose={() => setRenewTarget(null)}
           onConfirm={async (rentalId, renewalDate, newItems, renewDays, payment, penalty) => {
             if (onRenewRental) {
