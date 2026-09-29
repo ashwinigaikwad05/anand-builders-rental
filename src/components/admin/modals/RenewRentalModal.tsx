@@ -166,6 +166,17 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
   // Update quantity for an existing plate item in renewal list
   const handleItemQtyChange = (index: number, newQty: number) => {
     setValidationError('');
+    const targetItem = renewItems[index];
+    if (!targetItem) return;
+    const prevQty = getPreviousQtyForPlateType(targetItem.plateType);
+    const diff = newQty - prevQty;
+    const matchedStock = plates.find((p) => p.plateType === targetItem.plateType);
+    const avail = matchedStock ? matchedStock.available : 0;
+
+    if (diff > avail) {
+      setValidationError(`चेतावणी: यार्डमध्ये ${targetItem.plateType} च्या फक्त ${avail} प्लेट्स उपलब्ध आहेत (+${diff} जादा मागितल्या आहेत).`);
+    }
+
     setRenewItems((prev) =>
       prev.map((item, idx) => (idx === index ? { ...item, quantity: Math.max(0, newQty) } : item))
     );
@@ -190,6 +201,13 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
       return;
     }
 
+    const matchedStock = plates.find((p) => p.plateType === newPlateSize);
+    const avail = matchedStock ? matchedStock.available : 0;
+    if (newPlateQty > avail) {
+      setValidationError(`यार्डमध्ये ${newPlateSize} च्या फक्त ${avail} प्लेट्स उपलब्ध आहेत. कृपया ${avail} किंवा त्यापेक्षा कमी संख्या टाका.`);
+      return;
+    }
+
     // Check if plate type already exists in renewal list
     const existingIndex = renewItems.findIndex((it) => it.plateType === newPlateSize);
     if (existingIndex >= 0) {
@@ -199,8 +217,7 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
         )
       );
     } else {
-      const matchedPlate = plates.find((p) => p.plateType === newPlateSize);
-      const dailyRate = matchedPlate ? matchedPlate.dailyRate : 1.5;
+      const dailyRate = matchedStock ? matchedStock.dailyRate : 1.5;
       setRenewItems((prev) => [
         ...prev,
         {
@@ -385,11 +402,16 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
                 />
               </div>
 
-              {/* Renewal Days (Direct Manual Entry) */}
+              {/* Renewal Days (Direct Manual Entry & Instant Quick Sets) */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                  Rental Days (मुदत दिवस) *
-                </label>
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                    Rental Days (मुदत दिवस) *
+                  </label>
+                  <span className="text-[10px] text-indigo-700 font-bold bg-indigo-50 px-1.5 py-0.2 rounded">
+                    तात्काळ अपडेट (Auto Sync)
+                  </span>
+                </div>
                 <div className="relative flex items-center">
                   <input
                     type="number"
@@ -400,11 +422,33 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
                     onChange={(e) => handleManualDaysInputChange(e.target.value)}
                     onBlur={handleManualDaysInputBlur}
                     placeholder="e.g. 40"
-                    className="w-full bg-white border border-slate-200 focus:border-indigo-600 focus:outline-none px-4 py-2.5 rounded-xl text-sm font-bold text-slate-900 pr-16 shadow-xs"
+                    className="w-full bg-white border border-slate-200 focus:border-indigo-600 focus:outline-none px-4 py-2 rounded-xl text-sm font-bold text-slate-900 pr-16 shadow-xs"
                   />
                   <span className="absolute right-3.5 text-xs font-bold text-slate-400 pointer-events-none">
                     Days
                   </span>
+                </div>
+                {/* Instant Quick Presets */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] text-slate-500 font-bold uppercase">Quick Set:</span>
+                  {[7, 15, 30, 40, 60].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => {
+                        setRenewDays(d);
+                        setDaysInputStr(String(d));
+                        setValidationError('');
+                      }}
+                      className={`px-2 py-0.5 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                        renewDays === d
+                          ? 'bg-indigo-600 text-white shadow-2xs ring-1 ring-indigo-700'
+                          : 'bg-white text-slate-700 border border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/50'
+                      }`}
+                    >
+                      {d}d
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -420,7 +464,7 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
             </div>
           </div>
 
-          {/* SECTION 2: NEW CYCLE PLATES (Edit / Add / Remove) */}
+          {/* SECTION 2: NEW CYCLE PLATES (Edit / Add / Remove & Stock Availability) */}
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/90 space-y-3">
             <div className="flex justify-between items-center pb-2 border-b border-slate-200">
               <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
@@ -431,6 +475,39 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
               </span>
             </div>
 
+            {/* LIVE YARD AVAILABLE STOCK BAR */}
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200/90 shadow-2xs">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 mb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>यार्डमधील उपलब्ध साठा (Live Yard Available Plates):</span>
+                </span>
+                <span className="text-[10px] text-slate-400 font-normal">तात्काळ साठा स्थिती</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {(plates && plates.length > 0 ? plates : []).map((p) => {
+                  const isOutOfStock = p.available <= 0;
+                  const isLowStock = p.available > 0 && p.available <= 20;
+                  return (
+                    <span
+                      key={p.plateType}
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded-lg border font-bold flex items-center gap-1 ${
+                        isOutOfStock
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : isLowStock
+                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      }`}
+                    >
+                      <span>{p.plateType}:</span>
+                      <strong className={isOutOfStock ? 'text-rose-700' : 'text-slate-900'}>{p.available}</strong>
+                      <span className="text-[9px] text-slate-500">avail</span>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* List of Plate Rows */}
             <div className="space-y-2">
               {renewItems.map((item, idx) => {
@@ -438,21 +515,23 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
                 const diff = item.quantity - prevQty;
                 const isEditing = editingIndex === idx;
                 const rowTotal = Number(item.quantity || 0) * Number(item.dailyRate || 1.5) * renewDays;
+                const matchedStock = plates.find((p) => p.plateType === item.plateType);
+                const availableStock = matchedStock ? matchedStock.available : 0;
 
                 return (
                   <div
                     key={item.plateType}
                     className="bg-white p-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
                       <span className="font-mono text-sm font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg">
                         {item.plateType}
                       </span>
 
                       {/* Current / Prev vs New Qty Display */}
                       {!isEditing ? (
-                        <div className="text-xs">
-                          <div className="flex items-center gap-2">
+                        <div className="text-xs space-y-0.5">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-slate-800">{item.quantity} Plates</span>
                             <span className="text-slate-400 font-normal">•</span>
                             <span className="text-slate-600 font-medium">₹{item.dailyRate}/day</span>
@@ -460,21 +539,35 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
                             <span className="font-bold text-indigo-900">
                               ₹{rowTotal.toLocaleString('en-IN')} ({renewDays}d)
                             </span>
+                            {/* Stock availability indicator badge */}
+                            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
+                              availableStock > 0
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                : 'bg-rose-50 text-rose-700 border border-rose-200'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${availableStock > 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                              <span>उपलब्ध: <strong>{availableStock}</strong> ({availableStock} Avail)</span>
+                            </span>
                           </div>
                           <span className="text-[11px] text-slate-400 block font-mono">
                             Prev: {prevQty} {diff > 0 ? `(+${diff} new)` : diff < 0 ? `(${diff} released)` : '(no change)'}
                           </span>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-500">Current: {prevQty} → New:</span>
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => handleItemQtyChange(idx, Number(e.target.value))}
-                            className="w-20 bg-slate-50 border border-indigo-300 focus:border-indigo-600 focus:outline-none px-2 py-1 rounded-lg text-xs font-bold text-slate-900"
-                          />
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-600 font-medium">Current with Party: <strong>{prevQty}</strong> → New Qty:</span>
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => handleItemQtyChange(idx, Number(e.target.value))}
+                              className="w-24 bg-slate-50 border border-indigo-300 focus:border-indigo-600 focus:outline-none px-2.5 py-1 rounded-lg text-xs font-bold text-slate-900 shadow-2xs"
+                            />
+                          </div>
+                          <span className="text-[11px] text-slate-600 font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                            यार्ड उपलब्ध: <strong>{availableStock}</strong> प्लेट्स
+                          </span>
                         </div>
                       )}
                     </div>
@@ -527,24 +620,27 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
                 <span>+ Add Plate Size (नवीन प्लेट जोडा)</span>
               </button>
             ) : (
-              <div className="bg-indigo-50/70 p-3 rounded-xl border border-indigo-200 space-y-3">
-                <span className="text-xs font-bold text-indigo-900 block">Add New Plate Type</span>
+              <div className="bg-indigo-50/70 p-3.5 rounded-xl border border-indigo-200 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-indigo-900 block">Add New Plate Type (उपलब्ध साठ्यातून जोडा)</span>
+                  <span className="text-[10px] text-indigo-700 font-medium">Auto-updates calculations immediately</span>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
                     <label className="text-[10px] font-bold text-indigo-800 uppercase block mb-1">
-                      Plate Type
+                      Plate Type (आकार)
                     </label>
                     <select
                       value={newPlateSize}
                       onChange={(e) => setNewPlateSize(e.target.value as PlateSizeType)}
-                      className="w-full bg-white border border-indigo-200 focus:border-indigo-600 focus:outline-none px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
+                      className="w-full bg-white border border-indigo-200 focus:border-indigo-600 focus:outline-none px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer"
                     >
                       {(plates && plates.length > 0 ? plates.map((p) => p.plateType) : STANDARD_PLATE_SIZES).map((size) => {
                         const matched = plates.find((p) => p.plateType === size);
                         const avail = matched ? matched.available : 0;
                         return (
                           <option key={size} value={size}>
-                            {size} (Available: {avail})
+                            {size} — Available in Yard: {avail} plates {avail <= 0 ? '(Out of Stock)' : ''}
                           </option>
                         );
                       })}
@@ -553,14 +649,14 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
 
                   <div>
                     <label className="text-[10px] font-bold text-indigo-800 uppercase block mb-1">
-                      Quantity
+                      Quantity (संख्या)
                     </label>
                     <input
                       type="number"
                       min="1"
                       value={newPlateQty}
                       onChange={(e) => setNewPlateQty(Math.max(1, Number(e.target.value)))}
-                      className="w-full bg-white border border-indigo-200 focus:border-indigo-600 focus:outline-none px-3 py-1 rounded-lg text-xs font-bold"
+                      className="w-full bg-white border border-indigo-200 focus:border-indigo-600 focus:outline-none px-3 py-2 rounded-lg text-xs font-bold"
                     />
                   </div>
                 </div>
