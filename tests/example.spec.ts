@@ -1,18 +1,22 @@
 import { test, expect } from '@playwright/test';
 
-test('has title', async ({ page }) => {
-  await page.goto('https://playwright.dev/');
+test('application loads with title and branding', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
 
-  // Expect a title "to contain" a substring.
-  await expect(page).toHaveTitle(/Playwright/);
+  // Expect title to contain the company name
+  await expect(page).toHaveTitle(/ANAND BUILDERS/i);
+
+  // Expect main root container to be visible
+  await expect(page.locator('#root')).toBeVisible();
 });
 
-test('get started link', async ({ page }) => {
-  await page.goto('https://playwright.dev/');
+test('navigation bar and company header render correctly', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
 
-  // Click the get started link.
-  await page.getByRole('link', { name: 'Get started' }).click();
+  // Check that the body is rendered
+  await expect(page.locator('body')).toBeVisible();
 
-  // Expects page to have a heading with the name of Installation.
-  await expect(page.getByRole('heading', { name: 'Installation' })).toBeVisible();
+  // Check navigation is present
+  await expect(page.getByRole('navigation')).toBeVisible();
 });
+
