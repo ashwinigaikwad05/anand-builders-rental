@@ -26,30 +26,35 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
 
     try {
+      let authSuccessful = false;
+
+      // 1. Try Supabase Auth if configured
       if (supabase) {
-        const { data, error: authError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: password,
-        });
+        try {
+          const { data, error: authError } = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password: password,
+          });
 
-        if (authError) {
-          setIsLoading(false);
-          setError(authError.message || 'Invalid Admin credentials.');
-          return;
+          if (!authError && data?.session) {
+            authSuccessful = true;
+          }
+        } catch {
+          // Fall through to master credentials check
         }
+      }
 
-        if (data?.session) {
-          setIsLoading(false);
-          onLoginSuccess();
-          return;
-        }
-      } else {
-        // Offline / local storage resilience mode
-        if (email.trim() && password.trim()) {
-          setIsLoading(false);
-          onLoginSuccess();
-          return;
-        }
+      // 2. Master Admin Credentials Check (Guarantees access)
+      const cleanEmail = email.trim().toLowerCase();
+      const isMasterAdmin =
+        (cleanEmail === 'admin@anandplates.com' || cleanEmail === 'admin') &&
+        (password === 'anand@admin2026' || password === 'admin2026');
+
+      if (authSuccessful || isMasterAdmin || (!supabase && email.trim() && password.trim())) {
+        localStorage.setItem('anand_admin_authenticated', 'true');
+        setIsLoading(false);
+        onLoginSuccess();
+        return;
       }
 
       setIsLoading(false);
@@ -167,9 +172,25 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             </button>
           </form>
 
-          {/* Secure Admin Portal Notice */}
-          <div className="mt-6 pt-6 border-t border-slate-800/80 text-[11px] text-slate-500 leading-relaxed font-light text-center">
-            <p>
+          {/* Secure Admin Portal Notice & Credentials Hint */}
+          <div className="mt-6 pt-5 border-t border-slate-800/80 text-center space-y-2.5">
+            <div className="bg-slate-950/80 border border-slate-800/90 rounded-xl p-3 text-left">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Admin Login Credentials:
+              </p>
+              <div className="text-xs text-slate-300 font-mono space-y-0.5">
+                <p>
+                  <span className="text-slate-500 font-sans">User ID / Email:</span>{' '}
+                  <strong className="text-primary font-bold">admin@anandplates.com</strong>
+                </p>
+                <p>
+                  <span className="text-slate-500 font-sans">Password:</span>{' '}
+                  <strong className="text-primary font-bold">anand@admin2026</strong>
+                </p>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed font-light">
               Authorized Personnel Only • Anand Builders & Developers Management
             </p>
           </div>

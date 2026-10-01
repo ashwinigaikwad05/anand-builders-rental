@@ -43,27 +43,28 @@ function App() {
     // 2. Perform initial session check via getSession()
     async function checkInitialSession() {
       try {
+        const localAuth = localStorage.getItem('anand_admin_authenticated');
         if (supabase) {
           const { data, error } = await supabase.auth.getSession();
           if (!isCancelled) {
             if (error) {
               console.warn('Error fetching Supabase session:', error.message);
-              setIsAdminAuthenticated(false);
+              setIsAdminAuthenticated(localAuth === 'true');
             } else {
-              setIsAdminAuthenticated(Boolean(data?.session));
+              setIsAdminAuthenticated(Boolean(data?.session) || localAuth === 'true');
             }
           }
         } else {
           // Fallback resilience mode if Supabase is not configured
-          const localAuth = localStorage.getItem('anand_admin_authenticated');
           if (!isCancelled) {
             setIsAdminAuthenticated(localAuth === 'true');
           }
         }
       } catch (err) {
         console.error('Error verifying auth session:', err);
+        const localAuth = localStorage.getItem('anand_admin_authenticated');
         if (!isCancelled) {
-          setIsAdminAuthenticated(false);
+          setIsAdminAuthenticated(localAuth === 'true');
         }
       } finally {
         if (!isCancelled) {
@@ -98,18 +99,16 @@ function App() {
 
   const handleLoginSuccess = () => {
     setIsAdminAuthenticated(true);
-    if (!supabase) {
-      localStorage.setItem('anand_admin_authenticated', 'true');
-    }
+    localStorage.setItem('anand_admin_authenticated', 'true');
     navigateTo('/admin/dashboard');
   };
 
   const handleLogout = async () => {
     try {
+      localStorage.removeItem('anand_admin_authenticated');
+      localStorage.removeItem('admin_session');
       if (supabase) {
         await supabase.auth.signOut();
-      } else {
-        localStorage.removeItem('anand_admin_authenticated');
       }
     } catch (err) {
       console.error('Error signing out:', err);
