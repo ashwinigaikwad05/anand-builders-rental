@@ -18,7 +18,10 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     setError('');
 
     // Field Validation
-    if (!email.trim() || !password.trim()) {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
       setError('Please fill in all fields.');
       return;
     }
@@ -26,42 +29,56 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
 
     try {
-      let authSuccessful = false;
-
-      // 1. Try Supabase Auth if configured
-      if (supabase) {
-        try {
-          const { data, error: authError } = await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password: password,
-          });
-
-          if (!authError && data?.session) {
-            authSuccessful = true;
-          }
-        } catch {
-          // Fall through to master credentials check
-        }
-      }
-
-      // 2. Master Admin Credentials Check (Guarantees access)
-      const cleanEmail = email.trim().toLowerCase();
+      // 1. Instant Master Admin Credentials Check (0 network latency, guaranteed access)
       const isMasterAdmin =
         (cleanEmail === 'admin@anandplates.com' || cleanEmail === 'admin') &&
-        (password === 'anand@admin2026' || password === 'admin2026');
+        (cleanPassword === 'anand@admin2026' || cleanPassword === 'admin2026');
 
-      if (authSuccessful || isMasterAdmin || (!supabase && email.trim() && password.trim())) {
+      if (isMasterAdmin) {
         localStorage.setItem('anand_admin_authenticated', 'true');
         setIsLoading(false);
         onLoginSuccess();
         return;
       }
 
+      // 2. Try Supabase Auth if configured for other user accounts
+      if (supabase) {
+        try {
+          const { data, error: authError } = await supabase.auth.signInWithPassword({
+            email: cleanEmail,
+            password: password,
+          });
+
+          if (!authError && data?.session) {
+            localStorage.setItem('anand_admin_authenticated', 'true');
+            setIsLoading(false);
+            onLoginSuccess();
+            return;
+          }
+
+          if (authError) {
+            setIsLoading(false);
+            setError(authError.message || 'Invalid Admin credentials.');
+            return;
+          }
+        } catch (netErr: any) {
+          console.warn('Supabase auth network unreachable:', netErr);
+        }
+      } else {
+        // Offline / local resilience fallback
+        if (cleanEmail && cleanPassword) {
+          localStorage.setItem('anand_admin_authenticated', 'true');
+          setIsLoading(false);
+          onLoginSuccess();
+          return;
+        }
+      }
+
       setIsLoading(false);
       setError('Invalid Admin credentials. Please check your email and password.');
     } catch (err: any) {
       setIsLoading(false);
-      setError(err?.message || 'Login failed. Please try again.');
+      setError(err?.message || 'Login failed. Please check credentials.');
     }
   };
 

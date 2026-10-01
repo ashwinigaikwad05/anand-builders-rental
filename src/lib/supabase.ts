@@ -229,18 +229,23 @@ const setLocal = <T>(key: string, data: T[]) => {
 
 export async function fetchParties(): Promise<PartyRecord[]> {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('parties')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('parties')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.warn('Failed to fetch parties from Supabase:', error.message);
+      if (error) {
+        console.warn('Failed to fetch parties from Supabase:', error.message);
+        return getLocal<PartyRecord>('parties');
+      }
+      if (data) {
+        setLocal('parties', data);
+        return data as PartyRecord[];
+      }
+    } catch (err: any) {
+      console.warn('Network error in fetchParties, using local:', err?.message || err);
       return getLocal<PartyRecord>('parties');
-    }
-    if (data) {
-      setLocal('parties', data);
-      return data as PartyRecord[];
     }
   }
   return getLocal<PartyRecord>('parties');
@@ -361,14 +366,19 @@ export async function deleteParty(id: string): Promise<boolean> {
 
 export async function fetchPlateTypes(): Promise<PlateTypeRecord[]> {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('plate_types')
-      .select('*')
-      .order('plate_size', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('plate_types')
+        .select('*')
+        .order('plate_size', { ascending: false });
 
-    if (!error && data && data.length > 0) {
-      setLocal('plate_types', data);
-      return data as PlateTypeRecord[];
+      if (!error && data && data.length > 0) {
+        setLocal('plate_types', data);
+        return data as PlateTypeRecord[];
+      }
+    } catch (err: any) {
+      console.warn('Network error in fetchPlateTypes, using local:', err?.message || err);
+      return getLocal<PlateTypeRecord>('plate_types');
     }
   }
   return getLocal<PlateTypeRecord>('plate_types');
@@ -506,19 +516,24 @@ export function saveCustomPlateSizes(sizes: string[]): void {
 
 export async function fetchStockItems(): Promise<InventoryStockItem[]> {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('inventory_stock')
-      .select('*')
-      .order('received_date', { ascending: false })
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('inventory_stock')
+        .select('*')
+        .order('received_date', { ascending: false })
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.warn('Failed to fetch inventory stock from Supabase:', error.message);
+      if (error) {
+        console.warn('Failed to fetch inventory stock from Supabase:', error.message);
+        return getLocal<InventoryStockItem>('inventory_stock');
+      }
+      if (data) {
+        setLocal('inventory_stock', data);
+        return data as InventoryStockItem[];
+      }
+    } catch (err: any) {
+      console.warn('Network error in fetchStockItems, using local:', err?.message || err);
       return getLocal<InventoryStockItem>('inventory_stock');
-    }
-    if (data) {
-      setLocal('inventory_stock', data);
-      return data as InventoryStockItem[];
     }
   }
   return getLocal<InventoryStockItem>('inventory_stock');
@@ -1008,19 +1023,24 @@ export function determineRenewalStartDate(
 
 export async function fetchRentalCycles(): Promise<RentalCycleRecord[]> {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('rental_cycles')
-      .select('*')
-      .order('start_date', { ascending: false })
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('rental_cycles')
+        .select('*')
+        .order('start_date', { ascending: false })
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.warn('Failed to fetch rental cycles from Supabase:', error.message);
+      if (error) {
+        console.warn('Failed to fetch rental cycles from Supabase:', error.message);
+        return getLocal<RentalCycleRecord>('rental_cycles');
+      }
+      if (data) {
+        setLocal('rental_cycles', data);
+        return data as RentalCycleRecord[];
+      }
+    } catch (err: any) {
+      console.warn('Network error in fetchRentalCycles, using local:', err?.message || err);
       return getLocal<RentalCycleRecord>('rental_cycles');
-    }
-    if (data) {
-      setLocal('rental_cycles', data);
-      return data as RentalCycleRecord[];
     }
   }
   return getLocal<RentalCycleRecord>('rental_cycles');
@@ -1147,19 +1167,24 @@ export async function updateRentalCycle(
 
 export async function fetchRentals(): Promise<RentalRecord[]> {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('rentals')
-      .select('*')
-      .order('issue_date', { ascending: false })
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('rentals')
+        .select('*')
+        .order('issue_date', { ascending: false })
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.warn('Failed to fetch rentals from Supabase:', error.message);
+      if (error) {
+        console.warn('Failed to fetch rentals from Supabase:', error.message);
+        return getLocal<RentalRecord>('rentals');
+      }
+      if (data) {
+        setLocal('rentals', data);
+        return data as RentalRecord[];
+      }
+    } catch (err: any) {
+      console.warn('Network error in fetchRentals, using local:', err?.message || err);
       return getLocal<RentalRecord>('rentals');
-    }
-    if (data) {
-      setLocal('rentals', data);
-      return data as RentalRecord[];
     }
   }
   return getLocal<RentalRecord>('rentals');
@@ -1433,19 +1458,24 @@ export async function updateRentalCyclePointerAndItems(
 
 export async function fetchReturns(): Promise<ReturnRecord[]> {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('returns')
-      .select('*')
-      .order('return_date', { ascending: false })
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('returns')
+        .select('*')
+        .order('return_date', { ascending: false })
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.warn('Failed to fetch returns from Supabase:', error.message);
+      if (error) {
+        console.warn('Failed to fetch returns from Supabase:', error.message);
+        return getLocal<ReturnRecord>('returns');
+      }
+      if (data) {
+        setLocal('returns', data);
+        return data as ReturnRecord[];
+      }
+    } catch (err: any) {
+      console.warn('Network error in fetchReturns, using local:', err?.message || err);
       return getLocal<ReturnRecord>('returns');
-    }
-    if (data) {
-      setLocal('returns', data);
-      return data as ReturnRecord[];
     }
   }
   return getLocal<ReturnRecord>('returns');
@@ -1528,19 +1558,24 @@ export async function insertReturn(returnLog: {
 
 export async function fetchPayments(): Promise<PaymentRecord[]> {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('payments')
-      .select('*')
-      .order('payment_date', { ascending: false })
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .order('payment_date', { ascending: false })
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.warn('Failed to fetch payments from Supabase:', error.message);
+      if (error) {
+        console.warn('Failed to fetch payments from Supabase:', error.message);
+        return getLocal<PaymentRecord>('payments');
+      }
+      if (data) {
+        setLocal('payments', data);
+        return data as PaymentRecord[];
+      }
+    } catch (err: any) {
+      console.warn('Network error in fetchPayments, using local:', err?.message || err);
       return getLocal<PaymentRecord>('payments');
-    }
-    if (data) {
-      setLocal('payments', data);
-      return data as PaymentRecord[];
     }
   }
   return getLocal<PaymentRecord>('payments');
@@ -1616,19 +1651,24 @@ export async function insertPayment(payment: {
 
 export async function fetchLedgerEntries(): Promise<LedgerEntryRecord[]> {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('ledger_entries')
-      .select('*')
-      .order('date', { ascending: false })
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('ledger_entries')
+        .select('*')
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.warn('Failed to fetch ledger entries from Supabase:', error.message);
+      if (error) {
+        console.warn('Failed to fetch ledger entries from Supabase:', error.message);
+        return getLocal<LedgerEntryRecord>('ledger_entries');
+      }
+      if (data) {
+        setLocal('ledger_entries', data);
+        return data as LedgerEntryRecord[];
+      }
+    } catch (err: any) {
+      console.warn('Network error in fetchLedgerEntries, using local:', err?.message || err);
       return getLocal<LedgerEntryRecord>('ledger_entries');
-    }
-    if (data) {
-      setLocal('ledger_entries', data);
-      return data as LedgerEntryRecord[];
     }
   }
   return getLocal<LedgerEntryRecord>('ledger_entries');
@@ -1696,19 +1736,24 @@ export async function insertLedgerEntry(entry: {
 
 export async function fetchNotifications(): Promise<NotificationRecord[]> {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .order('date', { ascending: false })
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.warn('Failed to fetch notifications from Supabase:', error.message);
+      if (error) {
+        console.warn('Failed to fetch notifications from Supabase:', error.message);
+        return getLocal<NotificationRecord>('notifications');
+      }
+      if (data) {
+        setLocal('notifications', data);
+        return data as NotificationRecord[];
+      }
+    } catch (err: any) {
+      console.warn('Network error in fetchNotifications, using local:', err?.message || err);
       return getLocal<NotificationRecord>('notifications');
-    }
-    if (data) {
-      setLocal('notifications', data);
-      return data as NotificationRecord[];
     }
   }
   return getLocal<NotificationRecord>('notifications');
