@@ -91,12 +91,12 @@ export const t = {
       todayReturns: 'आजचे साहित्य जमा',
       todayReturnsSub: 'आज परत आलेले साहित्य',
       overdueRentals: 'मुदत संपलेले (थकबाकी)',
-      overdueRentalsSub: '४० दिवसांपेक्षा जास्त कालावधी',
+      overdueRentalsSub: 'मुदत संपलेल्या सर्व नोंदी',
     },
-    // 40-day cycle alerts
+    // भाडे मुदत समाप्ती इशारे (Rental cycle expiration alerts across all durations)
     cycleAlerts: {
-      title: '४०-दिवस भाडे मुदत समाप्ती इशारे',
-      subtitle: '४० दिवसांची मुदत पूर्ण झालेल्या नोंदींचे रिअल-टाइम ट्रॅकिंग व थेट संपर्क',
+      title: 'सर्व भाडे मुदत समाप्ती इशारे',
+      subtitle: 'मुदत संपलेल्या व लवकरच संपणाऱ्या सर्व नोंदींचे रिअल-टाइम ट्रॅकिंग व थेट संपर्क',
       attentionRequired: 'लक्ष देणे आवश्यक',
       allGoodTitle: 'सर्व भाडे नोंदी नियमित मुदतीत आहेत',
       allGoodSub: 'कोणतीही भाडे नोंद सध्या थकबाकी किंवा ७ दिवसांत संपणारी नाही.',
@@ -266,14 +266,14 @@ export const t = {
       todayReturns: "Today's Returns",
       todayReturnsSub: 'Intakes received today',
       overdueRentals: 'Overdue Rentals',
-      overdueRentalsSub: 'Exceeding 40-day rental terms',
+      overdueRentalsSub: 'Agreements past agreed rental term',
     },
-    // 40-day cycle alerts
+    // Rental cycle expiration alerts across all durations
     cycleAlerts: {
-      title: '40-Day Rental Cycle Expiration Alerts',
-      subtitle: 'Real-time tracking of active 40-day cycles with instant Call and WhatsApp actions',
+      title: 'Rental Expiration & Overdue Alerts',
+      subtitle: 'Real-time tracking of expired and upcoming term completions with instant Call and WhatsApp actions',
       attentionRequired: 'Attention Required',
-      allGoodTitle: 'All Cycles Within Normal 40-Day Term',
+      allGoodTitle: 'All Rentals Within Normal Terms',
       allGoodSub: 'No active rental agreements are currently overdue or expiring within 7 days.',
       plateAndQty: 'Plates & Qty:',
       activeCycle: 'Active Cycle:',

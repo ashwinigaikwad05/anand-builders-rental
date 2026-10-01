@@ -125,6 +125,12 @@ export interface ReturnRecord {
   returned_quantity: number;
   remaining_quantity: number;
   return_date: string;
+  collected_amount?: number | null;
+  refund_amount?: number | null;
+  payment_mode?: string | null;
+  penalty_amount?: number | null;
+  days_kept?: number | null;
+  batch_rent?: number | null;
   notes?: string | null;
   created_at?: string;
 }
@@ -142,6 +148,7 @@ export interface PaymentRecord {
   reference?: string | null;
   notes?: string | null;
   status: 'verified' | 'pending';
+  type?: 'payment' | 'refund';
   created_at?: string;
 }
 
@@ -672,8 +679,190 @@ export function calculateDayWiseRent(
   return Math.round((quantity || 0) * (dailyRate || 0) * days * 100) / 100;
 }
 
+export interface ReturnedBatchDetail {
+  id?: string;
+  returnedQuantity: number;
+  returnDate: string;
+  elapsedDays: number;
+  dailyRate: number;
+  rentAmount: number;
+  collectedAmount?: number;
+  refundAmount?: number;
+  penaltyAmount?: number;
+  paymentMode?: string;
+}
+
+export interface PartialReturnsBreakdownResult {
+  initialQuantity: number;
+  dailyRate: number;
+  cycleDays: number;
+  startDate: string;
+  returnedBatches: ReturnedBatchDetail[];
+  totalReturnedQuantity: number;
+  remainingQuantity: number;
+  returnedBatchesRentTotal: number;
+  remainingPlatesDays: number;
+  remainingPlatesRent: number;
+  totalRent: number;
+  totalPaid: number;
+  netBalance: number;
+  refundDue: number;
+  pendingDue: number;
+  isFullyReturned: boolean;
+}
+
+/**
+ * Calculates continuous day-wise finances for partial returns and remaining plates:
+ * - Each returned batch of Q_i plates returned on Day D_i is charged: Q_i * dailyRate * D_i
+ * - Remaining plates (initialQuantity - sum(Q_i)) continue running on the 40-day cycle (or elapsed days)
+ * - If advance/total paid > total rent: Admin refunds remaining excess amount to customer
+ * - If total rent > advance/total paid: Customer owes remaining dues
+ */
+export function calculatePartialReturnsBreakdown(params: {
+  startDate: string;
+  initialQuantity: number;
+  dailyRate: number;
+  cycleDays?: number;
+  paidAmount?: number;
+  items?: Array<{ plateType?: string; quantity: number; dailyRate: number }>;
+  returns?: Array<{
+    id?: string;
+    returnedQuantity: number;
+    returnDate: string;
+    collectedAmount?: number;
+    refundAmount?: number;
+    penaltyAmount?: number;
+    paymentMode?: string;
+    daysKept?: number;
+    batchRent?: number;
+  }>;
+  currentReturn?: {
+    returnedQuantity: number;
+    returnDate: string;
+    penaltyAmount?: number;
+  };
+  asOfDate?: string;
+}): PartialReturnsBreakdownResult {
+  const startDate = params.startDate;
+  const initialQuantity = Number(params.initialQuantity || 0);
+  const cycleDays = params.cycleDays && params.cycleDays > 0 ? Number(params.cycleDays) : 40;
+  const asOfDate = params.asOfDate || new Date().toISOString().split('T')[0];
+
+  let effectiveDailyRate = Number(params.dailyRate || 0);
+  if (params.items && params.items.length > 0) {
+    const totalQty = params.items.reduce((s, it) => s + (it.quantity || 0), 0);
+    const totalRate = params.items.reduce((s, it) => s + (it.quantity || 0) * (it.dailyRate || 0), 0);
+    if (totalQty > 0) {
+      effectiveDailyRate = totalRate / totalQty;
+    }
+  }
+
+  const allReturnsToProcess: Array<{
+    id?: string;
+    returnedQuantity: number;
+    returnDate: string;
+    collectedAmount?: number;
+    refundAmount?: number;
+    penaltyAmount?: number;
+    paymentMode?: string;
+  }> = [];
+
+  if (params.returns && params.returns.length > 0) {
+    params.returns.forEach((r) => {
+      allReturnsToProcess.push({
+        id: r.id,
+        returnedQuantity: Number(r.returnedQuantity || 0),
+        returnDate: r.returnDate,
+        collectedAmount: r.collectedAmount ? Number(r.collectedAmount) : undefined,
+        refundAmount: r.refundAmount ? Number(r.refundAmount) : undefined,
+        penaltyAmount: r.penaltyAmount ? Number(r.penaltyAmount) : undefined,
+        paymentMode: r.paymentMode,
+      });
+    });
+  }
+
+  if (params.currentReturn && params.currentReturn.returnedQuantity > 0) {
+    allReturnsToProcess.push({
+      id: 'current-pending-return',
+      returnedQuantity: Number(params.currentReturn.returnedQuantity),
+      returnDate: params.currentReturn.returnDate,
+      penaltyAmount: params.currentReturn.penaltyAmount ? Number(params.currentReturn.penaltyAmount) : undefined,
+    });
+  }
+
+  let totalReturnedQuantity = 0;
+  let returnedBatchesRentTotal = 0;
+  let totalPenalties = 0;
+  const returnedBatches: ReturnedBatchDetail[] = [];
+
+  for (const ret of allReturnsToProcess) {
+    const qty = ret.returnedQuantity;
+    if (qty <= 0) continue;
+    const elapsedDays = Math.max(1, calculateCalendarDays(startDate, ret.returnDate));
+    const rentAmount = Math.round(qty * effectiveDailyRate * elapsedDays * 100) / 100;
+    const penalty = ret.penaltyAmount ? Number(ret.penaltyAmount) : 0;
+
+    totalReturnedQuantity += qty;
+    returnedBatchesRentTotal += rentAmount;
+    totalPenalties += penalty;
+
+    returnedBatches.push({
+      id: ret.id,
+      returnedQuantity: qty,
+      returnDate: ret.returnDate,
+      elapsedDays,
+      dailyRate: effectiveDailyRate,
+      rentAmount,
+      collectedAmount: ret.collectedAmount,
+      refundAmount: ret.refundAmount,
+      penaltyAmount: ret.penaltyAmount,
+      paymentMode: ret.paymentMode,
+    });
+  }
+
+  const remainingQuantity = Math.max(0, initialQuantity - totalReturnedQuantity);
+  const isFullyReturned = remainingQuantity === 0;
+
+  let remainingPlatesDays = 0;
+  let remainingPlatesRent = 0;
+
+  if (remainingQuantity > 0) {
+    const elapsedSinceStart = calculateCalendarDays(startDate, asOfDate);
+    const extraDays = Math.max(0, elapsedSinceStart - cycleDays);
+    remainingPlatesDays = cycleDays + extraDays;
+    remainingPlatesRent = Math.round(remainingQuantity * effectiveDailyRate * remainingPlatesDays * 100) / 100;
+  }
+
+  const totalRent = Math.round((returnedBatchesRentTotal + remainingPlatesRent + totalPenalties) * 100) / 100;
+  const totalPaid = Number(params.paidAmount || 0);
+  const netBalance = Math.round((totalRent - totalPaid) * 100) / 100;
+
+  const refundDue = netBalance < 0 ? Math.round(Math.abs(netBalance) * 100) / 100 : 0;
+  const pendingDue = netBalance > 0 ? Math.round(netBalance * 100) / 100 : 0;
+
+  return {
+    initialQuantity,
+    dailyRate: effectiveDailyRate,
+    cycleDays,
+    startDate,
+    returnedBatches,
+    totalReturnedQuantity,
+    remainingQuantity,
+    returnedBatchesRentTotal,
+    remainingPlatesDays,
+    remainingPlatesRent,
+    totalRent,
+    totalPaid,
+    netBalance,
+    refundDue,
+    pendingDue,
+    isFullyReturned,
+  };
+}
+
 /**
  * Calculates day-wise finances for a rental cycle up to an evaluation or return date.
+ * If partial returns exist: accounts for returned batches day-wise and remaining plates continuing.
  * If returned (actualEndDate provided): strictly charges for actual days kept (elapsedDays * dailyRate).
  * If active: charges base rent or accrued day-wise rent beyond cycle term.
  */
@@ -687,6 +876,17 @@ export function calculateCycleFinances(
     paidAmount: number;
     days?: number;
     items?: Array<{ quantity: number; dailyRate: number; plateType?: string }>;
+    returns?: Array<{
+      id?: string;
+      returnedQuantity: number;
+      returnDate: string;
+      collectedAmount?: number;
+      refundAmount?: number;
+      penaltyAmount?: number;
+      paymentMode?: string;
+      daysKept?: number;
+      batchRent?: number;
+    }>;
   },
   asOfDateStr = new Date().toISOString().split('T')[0]
 ) {
@@ -703,6 +903,37 @@ export function calculateCycleFinances(
     );
   } else {
     dailyRateTotal = (cycle.quantity || 0) * (cycle.dailyRate || 0);
+  }
+
+  // If partial returns exist for this cycle, integrate them into the calculation
+  if (cycle.returns && cycle.returns.length > 0) {
+    const breakdown = calculatePartialReturnsBreakdown({
+      startDate: cycle.startDate,
+      initialQuantity: cycle.quantity,
+      dailyRate: cycle.dailyRate,
+      cycleDays: cycleTermDays,
+      paidAmount: cycle.paidAmount,
+      items: cycle.items,
+      returns: cycle.returns,
+      asOfDate: effectiveEndDate,
+    });
+
+    const standardDays = Math.min(elapsedDays, cycleTermDays);
+    const extraDays = Math.max(0, elapsedDays - cycleTermDays);
+    const dayWiseRent = Math.round(dailyRateTotal * elapsedDays * 100) / 100;
+
+    return {
+      elapsedDays,
+      standardDays,
+      extraDays,
+      extraAmount: 0,
+      dailyRateTotal,
+      dayWiseRent,
+      totalAmount: breakdown.totalRent,
+      pendingAmount: breakdown.pendingDue,
+      refundAmount: breakdown.refundDue,
+      partialBreakdown: breakdown,
+    };
   }
 
   let standardDays = 0;
@@ -1083,13 +1314,15 @@ export async function updateRentalStatus(
 export async function updateRentalOnReturn(
   id: string,
   totalRent: number,
-  returnDate: string
+  returnDate: string,
+  paidAmount?: number,
+  pendingAmount?: number
 ): Promise<void> {
   const cleanUpdates = {
     status: 'returned' as const,
     total_rent: totalRent,
-    paid_amount: totalRent,
-    pending_amount: 0,
+    paid_amount: paidAmount !== undefined ? paidAmount : totalRent,
+    pending_amount: pendingAmount !== undefined ? pendingAmount : 0,
     actual_return_date: returnDate,
     updated_at: new Date().toISOString(),
   };
@@ -1227,6 +1460,12 @@ export async function insertReturn(returnLog: {
   returned_quantity: number;
   remaining_quantity: number;
   return_date: string;
+  collected_amount?: number;
+  refund_amount?: number;
+  payment_mode?: string;
+  penalty_amount?: number;
+  days_kept?: number;
+  batch_rent?: number;
   notes?: string;
 }): Promise<ReturnRecord> {
   const newRecord: ReturnRecord = {
@@ -1239,6 +1478,12 @@ export async function insertReturn(returnLog: {
     returned_quantity: Math.floor(Number(returnLog.returned_quantity)),
     remaining_quantity: Math.floor(Number(returnLog.remaining_quantity)),
     return_date: returnLog.return_date,
+    collected_amount: returnLog.collected_amount !== undefined ? Number(returnLog.collected_amount) : null,
+    refund_amount: returnLog.refund_amount !== undefined ? Number(returnLog.refund_amount) : null,
+    payment_mode: returnLog.payment_mode || null,
+    penalty_amount: returnLog.penalty_amount !== undefined ? Number(returnLog.penalty_amount) : null,
+    days_kept: returnLog.days_kept !== undefined ? Number(returnLog.days_kept) : null,
+    batch_rent: returnLog.batch_rent !== undefined ? Number(returnLog.batch_rent) : null,
     notes: returnLog.notes?.trim() || null,
     created_at: new Date().toISOString(),
   };
@@ -1313,6 +1558,7 @@ export async function insertPayment(payment: {
   reference?: string;
   notes?: string;
   status?: 'verified' | 'pending';
+  type?: 'payment' | 'refund';
 }): Promise<PaymentRecord> {
   const newRecord: PaymentRecord = {
     id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `pay-${Date.now()}`,
@@ -1327,6 +1573,7 @@ export async function insertPayment(payment: {
     reference: payment.reference?.trim() || `PAY-${Date.now().toString().slice(-4)}`,
     notes: payment.notes?.trim() || null,
     status: payment.status || 'verified',
+    type: payment.type || 'payment',
     created_at: new Date().toISOString(),
   };
 
@@ -1556,6 +1803,127 @@ export async function deleteNotification(id: string): Promise<boolean> {
   const local = getLocal<NotificationRecord>('notifications');
   setLocal('notifications', local.filter((n) => n.id !== id));
   return true;
+}
+
+// ------------------------------------------------------------------------------
+// DATA RESET & PURGE HELPERS
+// ------------------------------------------------------------------------------
+
+/**
+ * Safely clears all rows from a Supabase table in batches of 200
+ */
+async function clearSupabaseTable(tableName: string): Promise<number> {
+  if (!supabase) return 0;
+  try {
+    const { data, error } = await supabase.from(tableName).select('id');
+    if (error) {
+      console.warn(`Could not query ids for ${tableName}:`, error.message);
+      return 0;
+    }
+    if (!data || data.length === 0) return 0;
+    const ids = data.map((d: any) => d.id).filter(Boolean);
+    if (ids.length === 0) return 0;
+    for (let i = 0; i < ids.length; i += 200) {
+      const chunk = ids.slice(i, i + 200);
+      const { error: delErr } = await supabase.from(tableName).delete().in('id', chunk);
+      if (delErr) {
+        console.warn(`Error deleting batch from ${tableName}:`, delErr.message);
+      }
+    }
+    return ids.length;
+  } catch (err) {
+    console.warn(`Exception clearing ${tableName}:`, err);
+    return 0;
+  }
+}
+
+/**
+ * Clears all rentals, rental cycles, return records, and rental-related custom bill mappings
+ */
+export async function clearAllRentalsAndCycles(): Promise<void> {
+  await clearSupabaseTable('returns');
+  await clearSupabaseTable('rental_cycles');
+  await clearSupabaseTable('rentals');
+
+  try {
+    localStorage.removeItem('anand_rentals');
+    localStorage.removeItem('anand_rental_cycles');
+    localStorage.removeItem('anand_returns');
+    localStorage.removeItem('anand_custom_bill_numbers');
+  } catch {}
+}
+
+/**
+ * Clears all payment records
+ */
+export async function clearAllPayments(): Promise<void> {
+  await clearSupabaseTable('payments');
+  try {
+    localStorage.removeItem('anand_payments');
+  } catch {}
+}
+
+/**
+ * Clears specified inactive parties (customers with 0 plates on site and 0 dues)
+ */
+export async function clearInactiveParties(partyIds: string[]): Promise<number> {
+  if (!partyIds || partyIds.length === 0) return 0;
+  if (supabase) {
+    for (let i = 0; i < partyIds.length; i += 200) {
+      const chunk = partyIds.slice(i, i + 200);
+      await supabase.from('parties').delete().in('id', chunk);
+    }
+  }
+  const localParties = getLocal<PartyRecord>('parties');
+  setLocal(
+    'parties',
+    localParties.filter((p) => !partyIds.includes(p.id))
+  );
+  return partyIds.length;
+}
+
+/**
+ * Clears all customer parties
+ */
+export async function clearAllParties(): Promise<void> {
+  await clearSupabaseTable('parties');
+  try {
+    localStorage.removeItem('anand_parties');
+  } catch {}
+}
+
+/**
+ * Clears all notifications
+ */
+export async function clearAllNotifications(): Promise<void> {
+  await clearSupabaseTable('notifications');
+  try {
+    localStorage.removeItem('anand_notifications');
+  } catch {}
+}
+
+/**
+ * Complete factory reset: wipes returns, cycles, rentals, payments, ledger, notifications, and parties
+ */
+export async function factoryResetAllDatabase(): Promise<void> {
+  await clearSupabaseTable('returns');
+  await clearSupabaseTable('rental_cycles');
+  await clearSupabaseTable('rentals');
+  await clearSupabaseTable('payments');
+  await clearSupabaseTable('ledger_entries');
+  await clearSupabaseTable('notifications');
+  await clearSupabaseTable('parties');
+
+  try {
+    localStorage.removeItem('anand_rentals');
+    localStorage.removeItem('anand_rental_cycles');
+    localStorage.removeItem('anand_returns');
+    localStorage.removeItem('anand_payments');
+    localStorage.removeItem('anand_ledger');
+    localStorage.removeItem('anand_notifications');
+    localStorage.removeItem('anand_parties');
+    localStorage.removeItem('anand_custom_bill_numbers');
+  } catch {}
 }
 
 // Re-export deduplication engine

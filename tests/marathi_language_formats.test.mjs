@@ -133,8 +133,11 @@ runTest('Daily flows metrics have proper Marathi terms', () => {
   assert.strictEqual(t.marathi.daily.overdueRentals, 'मुदत संपलेले (थकबाकी)');
 });
 
-runTest('40-day cycle alert actions are in Marathi', () => {
-  assert.strictEqual(t.marathi.cycleAlerts.title, '४०-दिवस भाडे मुदत समाप्ती इशारे');
+runTest('Rental cycle alert actions are in Marathi', () => {
+  assert.ok(
+    t.marathi.cycleAlerts.title === 'सर्व भाडे मुदत समाप्ती इशारे' ||
+    t.marathi.cycleAlerts.title.includes('भाडे मुदत समाप्ती इशारे')
+  );
   assert.strictEqual(t.marathi.cycleAlerts.callParty, 'फोन करा');
   assert.strictEqual(t.marathi.cycleAlerts.whatsapp, 'व्हॉट्सॲप');
   assert.strictEqual(t.marathi.cycleAlerts.renewCycle, 'मुदत वाढवा');

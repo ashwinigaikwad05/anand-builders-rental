@@ -87,8 +87,11 @@ export interface ReturnLog {
   remainingQuantity: number;
   returnDate: string;
   collectedAmount?: number;
+  refundAmount?: number;
   paymentMode?: string;
   penaltyAmount?: number;
+  daysKept?: number;
+  batchRent?: number;
 }
 
 export interface Payment {
@@ -104,6 +107,7 @@ export interface Payment {
   reference: string;
   notes: string;
   status: 'verified' | 'pending';
+  type?: 'payment' | 'refund';
 }
 
 export interface LedgerEntry {

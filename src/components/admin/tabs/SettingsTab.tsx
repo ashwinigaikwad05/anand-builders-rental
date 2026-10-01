@@ -27,14 +27,30 @@ import {
   type BillLanguage,
 } from '../../../utils/billTemplateUtils';
 import { RentalBillModal } from '../modals/RentalBillModal';
-import type { Rental, Party, RentalCycle, Payment } from '../../../data/adminMockData';
+import { DeleteDataConfirmModal, type DeleteDataCategory } from '../modals/DeleteDataConfirmModal';
+import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
+import type { Rental, Party, RentalCycle, Payment, ReturnLog } from '../../../data/adminMockData';
+import {
+  Database,
+  Download,
+  ShieldAlert,
+  Users,
+  ClipboardList,
+  DollarSign,
+  Bell,
+  RefreshCw,
+  Loader2,
+} from 'lucide-react';
 
 interface SettingsTabProps {
   rentals?: Rental[];
   parties?: Party[];
   rentalCycles?: RentalCycle[];
   payments?: Payment[];
+  returns?: ReturnLog[];
   onDeduplicate?: () => Promise<any>;
+  onDeleteData?: (category: DeleteDataCategory) => Promise<void>;
+  appLanguage?: AppLanguage;
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
@@ -42,7 +58,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   parties = [],
   rentalCycles = [],
   payments = [],
-  onDeduplicate: _onDeduplicate,
+  returns = [],
+  onDeduplicate,
+  onDeleteData,
+  appLanguage,
 }) => {
   // Business branding & parameters
   const [businessName, setBusinessName] = useState(() => localStorage.getItem('anand_business_name') || 'ANAND BUILDERS & DEVELOPERS');
@@ -70,6 +89,61 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [showTemplateSettings, setShowTemplateSettings] = useState(true);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+
+  // Data deletion & maintenance states
+  const isMarathi = appLanguage ? appLanguage === 'marathi' : getStoredAppLanguage() === 'marathi';
+  const [selectedDeleteCategory, setSelectedDeleteCategory] = useState<DeleteDataCategory | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeduplicating, setIsDeduplicating] = useState(false);
+
+  const handleOpenDeleteModal = (category: DeleteDataCategory) => {
+    setSelectedDeleteCategory(category);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDownloadBackup = () => {
+    const backupData = {
+      appName: businessName,
+      appNameMarathi: businessNameMr,
+      exportTimestamp: new Date().toISOString(),
+      exportDateFormatted: new Date().toLocaleString(),
+      stats: {
+        totalRentals: rentals.length,
+        totalCycles: rentalCycles.length,
+        totalReturns: returns.length,
+        totalPayments: payments.length,
+        totalParties: parties.length,
+      },
+      rentals,
+      rentalCycles,
+      returns,
+      payments,
+      parties,
+      billConfig,
+    };
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupData, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute(
+      'download',
+      `anand_plates_data_backup_${new Date().toISOString().split('T')[0]}.json`
+    );
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  const handleRunDeduplication = async () => {
+    if (!onDeduplicate) return;
+    try {
+      setIsDeduplicating(true);
+      await onDeduplicate();
+    } catch {
+      // handled in AdminLayout with toast
+    } finally {
+      setIsDeduplicating(false);
+    }
+  };
 
   const handleUpdateTemplateStyle = (style: BillTemplateStyle) => {
     setBillConfig((prev) => {
@@ -931,6 +1005,259 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
       </form>
 
+      {/* -------------------------------------------------------------------------- */}
+      {/* DATA MANAGEMENT & DELETE DATA SECTION (डेटा व्यवस्थापन व डिलीट पर्याय) */}
+      {/* -------------------------------------------------------------------------- */}
+      <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl border border-rose-100 shadow-2xs">
+              <Database className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <span>{isMarathi ? 'डेटा व्यवस्थापन व डिलीट पर्याय' : 'Data Management & Delete Options'}</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 uppercase font-mono">
+                  Danger Zone
+                </span>
+              </h4>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                {isMarathi
+                  ? 'भाडे वाटप, पेमेंट्स, ग्राहक डेटा हटवा अथवा नवीन सुरुवातीसाठी संपूर्ण डेटाबेस स्वच्छ करा.'
+                  : 'Manage, prune, or delete transaction history, inactive parties, or reset database.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Utility Actions */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              type="button"
+              onClick={handleDownloadBackup}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+              title="Download full JSON data backup"
+            >
+              <Download className="w-3.5 h-3.5 text-slate-600" />
+              <span>{isMarathi ? 'बॅकअप डाउनलोड करा' : 'Download Backup (JSON)'}</span>
+            </button>
+
+            {onDeduplicate && (
+              <button
+                type="button"
+                onClick={handleRunDeduplication}
+                disabled={isDeduplicating}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-colors cursor-pointer"
+                title="Deduplicate stored records"
+              >
+                {isDeduplicating ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3.5 h-3.5" />
+                )}
+                <span>{isMarathi ? 'ड्युप्लिकेट स्वच्छ करा' : 'Clean Duplicates'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Current Database Summary Badges */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-center">
+            <span className="text-xs font-bold text-slate-500 block">
+              {isMarathi ? 'भाडे वाटप' : 'Rentals'}
+            </span>
+            <span className="text-xl font-black text-slate-900 font-mono mt-0.5 block">
+              {rentals.length}
+            </span>
+          </div>
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-center">
+            <span className="text-xs font-bold text-slate-500 block">
+              {isMarathi ? 'सायकल्स' : 'Cycles'}
+            </span>
+            <span className="text-xl font-black text-slate-900 font-mono mt-0.5 block">
+              {rentalCycles.length}
+            </span>
+          </div>
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-center">
+            <span className="text-xs font-bold text-slate-500 block">
+              {isMarathi ? 'जमा नोंदी' : 'Returns'}
+            </span>
+            <span className="text-xl font-black text-slate-900 font-mono mt-0.5 block">
+              {returns.length}
+            </span>
+          </div>
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-center">
+            <span className="text-xs font-bold text-slate-500 block">
+              {isMarathi ? 'पेमेंट्स' : 'Payments'}
+            </span>
+            <span className="text-xl font-black text-slate-900 font-mono mt-0.5 block">
+              {payments.length}
+            </span>
+          </div>
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-center">
+            <span className="text-xs font-bold text-slate-500 block">
+              {isMarathi ? 'ग्राहक' : 'Parties'}
+            </span>
+            <span className="text-xl font-black text-slate-900 font-mono mt-0.5 block">
+              {parties.length}
+            </span>
+          </div>
+        </div>
+
+        {/* Granular Delete Options Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          {/* Option 1: Delete Rentals & Cycles */}
+          <div className="bg-amber-50/50 border border-amber-200/80 rounded-2xl p-4 sm:p-5 flex flex-col justify-between space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-amber-900 flex items-center gap-1.5 uppercase tracking-wide">
+                  <ClipboardList className="w-4 h-4 text-amber-600" />
+                  <span>{isMarathi ? 'भाडे वाटप व व्यवहार डेटा' : 'Rentals & Cycles'}</span>
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-mono">
+                  {rentals.length} {isMarathi ? 'नोंदी' : 'records'}
+                </span>
+              </div>
+              <p className="text-xs text-amber-800/80 leading-relaxed font-normal">
+                {isMarathi
+                  ? 'सर्व भाडे करार, सायकल कालावधी हिशोब व साहित्य जमा नोंदी हटवा. ग्राहक माहिती व प्लेट दर सुरक्षित राहतील.'
+                  : 'Permanently deletes all rental dispatches, cycle schedules, and returns. Customer accounts and stock rates stay safe.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleOpenDeleteModal('all_rentals')}
+              disabled={rentals.length === 0}
+              className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+                rentals.length > 0
+                  ? 'bg-amber-600 hover:bg-amber-700 text-white cursor-pointer shadow-xs'
+                  : 'bg-amber-200 text-amber-400 cursor-not-allowed'
+              }`}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{isMarathi ? 'भाडे वाटप नोंदी हटवा' : 'Delete All Rentals'}</span>
+            </button>
+          </div>
+
+          {/* Option 2: Delete Payments */}
+          <div className="bg-blue-50/50 border border-blue-200/80 rounded-2xl p-4 sm:p-5 flex flex-col justify-between space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-blue-900 flex items-center gap-1.5 uppercase tracking-wide">
+                  <DollarSign className="w-4 h-4 text-blue-600" />
+                  <span>{isMarathi ? 'पेमेंट नोंदी व पावत्या' : 'Payment History'}</span>
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-mono">
+                  {payments.length} {isMarathi ? 'नोंदी' : 'records'}
+                </span>
+              </div>
+              <p className="text-xs text-blue-800/80 leading-relaxed font-normal">
+                {isMarathi
+                  ? 'ग्राहकांकडून जमा झालेले सर्व रोख व बँक पेमेंट व्यवहार आणि पावती नोंदी कायमच्या हटवा.'
+                  : 'Permanently removes all cash, bank, and digital payment receipts and settlement entries.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleOpenDeleteModal('all_payments')}
+              disabled={payments.length === 0}
+              className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+                payments.length > 0
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-xs'
+                  : 'bg-blue-200 text-blue-400 cursor-not-allowed'
+              }`}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{isMarathi ? 'पेमेंट इतिहास हटवा' : 'Delete Payments'}</span>
+            </button>
+          </div>
+
+          {/* Option 3: Delete Inactive Customers */}
+          <div className="bg-indigo-50/50 border border-indigo-200/80 rounded-2xl p-4 sm:p-5 flex flex-col justify-between space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-indigo-900 flex items-center gap-1.5 uppercase tracking-wide">
+                  <Users className="w-4 h-4 text-indigo-600" />
+                  <span>{isMarathi ? 'शून्य बाकी असलेले निष्क्रिय ग्राहक' : 'Inactive Customers'}</span>
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-mono">
+                  {parties.filter((p) => (p.platesWithParty || 0) === 0 && (p.pending || 0) === 0).length} {isMarathi ? 'पात्र' : 'eligible'}
+                </span>
+              </div>
+              <p className="text-xs text-indigo-800/80 leading-relaxed font-normal">
+                {isMarathi
+                  ? 'ज्या ग्राहकांकडे 0 प्लेट्स आहेत आणि बाकी रक्कम शून्य आहे असे पूर्ण झालेले ग्राहक काढून टाका. सक्रिय ग्राहक सुरक्षित राहतील.'
+                  : 'Cleans up settled customers holding 0 plates and 0 outstanding balance. Active customers are protected.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleOpenDeleteModal('inactive_customers')}
+              disabled={parties.filter((p) => (p.platesWithParty || 0) === 0 && (p.pending || 0) === 0).length === 0}
+              className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+                parties.filter((p) => (p.platesWithParty || 0) === 0 && (p.pending || 0) === 0).length > 0
+                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer shadow-xs'
+                  : 'bg-indigo-200 text-indigo-400 cursor-not-allowed'
+              }`}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{isMarathi ? 'निष्क्रिय ग्राहक हटवा' : 'Clean Settled Customers'}</span>
+            </button>
+          </div>
+
+          {/* Option 4: Clear Notifications & Alerts */}
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 sm:p-5 flex flex-col justify-between space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
+                  <Bell className="w-4 h-4 text-slate-600" />
+                  <span>{isMarathi ? 'सूचना व अलर्ट्स' : 'System Notifications'}</span>
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed font-normal">
+                {isMarathi
+                  ? 'सर्व वाचलेल्या व न वाचलेल्या सूचनांचा इतिहास साफ करा. आर्थिक किंवा ग्राहक डेटा सुरक्षित राहील.'
+                  : 'Clears all read and unread system alerts. Business and customer data will not be touched.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleOpenDeleteModal('all_notifications')}
+              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{isMarathi ? 'सूचना इतिहास साफ करा' : 'Clear Notifications'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Master Danger Zone: Factory Reset */}
+        <div className="mt-4 bg-gradient-to-br from-rose-50 to-red-50/80 border-2 border-rose-300/80 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-rose-600 flex-shrink-0" />
+              <h5 className="text-sm font-black text-rose-950 uppercase tracking-wide">
+                {isMarathi ? 'फॅक्टरी रिसेट: सर्व डेटा पूर्णपणे पुसून टाका' : 'Complete Factory Reset / Wipe All Data'}
+              </h5>
+            </div>
+            <p className="text-xs text-rose-800 leading-relaxed">
+              {isMarathi
+                ? 'सर्व भाडे वाटप, सायकल्स, जमा नोंदी, पेमेंट्स, आणि ग्राहक एकाच वेळी कायमचे नष्ट केले जातील. नवीन सुरुवातीसाठीच वापरा.'
+                : 'Permanently wipes all rentals, cycles, returns, payments, ledger logs, and customer accounts back to zero.'}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleOpenDeleteModal('factory_reset')}
+            className="flex-shrink-0 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs px-5 py-3 rounded-xl shadow-md hover:shadow-rose-600/30 flex items-center gap-2 transition-all cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>{isMarathi ? 'सर्व डेटा कायमचा हटवा' : 'Wipe All Data (Factory Reset)'}</span>
+          </button>
+        </div>
+      </div>
+
       {/* Real-time Bill Template Preview Modal */}
       {isPreviewOpen && (
         <RentalBillModal
@@ -941,6 +1268,29 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           payments={targetPayments}
           templateConfig={billConfig}
           onClose={() => setIsPreviewOpen(false)}
+        />
+      )}
+
+      {/* Delete Data Confirmation Modal */}
+      {isDeleteModalOpen && selectedDeleteCategory && (
+        <DeleteDataConfirmModal
+          isOpen={isDeleteModalOpen}
+          category={selectedDeleteCategory}
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setSelectedDeleteCategory(null);
+          }}
+          onConfirmDelete={async (cat) => {
+            if (onDeleteData) {
+              await onDeleteData(cat);
+            }
+          }}
+          rentals={rentals}
+          parties={parties}
+          rentalCycles={rentalCycles}
+          payments={payments}
+          returns={returns}
+          isMarathi={isMarathi}
         />
       )}
     </div>

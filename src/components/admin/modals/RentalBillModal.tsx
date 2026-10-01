@@ -13,7 +13,8 @@ import {
   Edit2,
   Check,
 } from 'lucide-react';
-import type { Rental, RentalCycle, Party, Payment } from '../../../data/adminMockData';
+import type { Rental, RentalCycle, Party, Payment, ReturnLog } from '../../../data/adminMockData';
+import { calculatePartialReturnsBreakdown } from '../../../lib/supabase';
 import {
   getBillTemplateConfig,
   saveBillTemplateConfig,
@@ -30,6 +31,7 @@ interface RentalBillModalProps {
   rentalCycles?: RentalCycle[];
   party?: Party;
   payments?: Payment[];
+  returns?: ReturnLog[];
   templateConfig?: BillTemplateConfig;
   finances?: {
     elapsedDays: number;
@@ -52,6 +54,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   rentalCycles = [],
   party,
   payments = [],
+  returns = [],
   templateConfig,
   finances,
   billNumber: billNumberProp,
@@ -209,9 +212,28 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
     ];
   })();
 
-  const totalCycleAmount = finances?.totalAmount ?? activeCycle?.totalAmount ?? rental.totalRent;
+  const partialBreakdown = React.useMemo(() => {
+    if (!returns || returns.length === 0) return null;
+    const dailyRate = activeCycle?.dailyRate || 
+      (rental.items && rental.items.length > 0 && rental.items[0].dailyRate 
+        ? rental.items[0].dailyRate 
+        : (rental.dailyRate || 1.5));
+    return calculatePartialReturnsBreakdown({
+      startDate: activeCycle?.startDate || rental.currentCycleStartDate || rental.issueDate,
+      initialQuantity: rental.quantity,
+      dailyRate: dailyRate,
+      cycleDays: 40,
+      returns: returns.map((r) => ({ returnDate: r.returnDate, returnedQuantity: r.returnedQuantity })),
+    });
+  }, [returns, activeCycle, rental]);
+
+  const totalCycleAmount = partialBreakdown
+    ? partialBreakdown.totalRent
+    : (finances?.totalAmount ?? activeCycle?.totalAmount ?? rental.totalRent);
   const totalPaidAmount = activeCycle?.paidAmount ?? rental.paid;
-  const totalPendingAmount = finances?.pendingAmount ?? activeCycle?.pendingAmount ?? rental.pending;
+  const totalPendingAmount = partialBreakdown
+    ? Math.max(0, partialBreakdown.totalRent - totalPaidAmount)
+    : (finances?.pendingAmount ?? activeCycle?.pendingAmount ?? rental.pending);
   const extraDays = finances?.extraDays ?? activeCycle?.extraDays ?? 0;
   const extraAmount = finances?.extraAmount ?? activeCycle?.extraAmount ?? 0;
 
@@ -303,19 +325,20 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   })();
 
   // Financial aggregates across all cycles & payments
-  const allCyclesTotalRent = allCycles.length > 0
+  const allCyclesTotalRent = allCycles.length > 1
     ? allCycles.reduce((sum, c) => sum + (c.totalAmount || c.baseRent || 0), 0)
     : totalCycleAmount;
 
-  const totalPaymentsReceived = rentalPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const totalPaymentsReceived = rentalPayments.reduce((sum, p) => sum + (p.type === 'refund' ? -p.amount : (p.amount || 0)), 0);
 
-  const allCyclesTotalPaid = totalPaymentsReceived > 0
+  const allCyclesTotalPaid = rentalPayments.length > 0
     ? totalPaymentsReceived
     : (allCycles.length > 0
         ? allCycles.reduce((sum, c) => sum + (c.paidAmount || 0), 0)
         : totalPaidAmount);
 
   const allCyclesBalanceDue = Math.max(0, allCyclesTotalRent - allCyclesTotalPaid);
+  const allCyclesRefundDue = Math.max(0, allCyclesTotalPaid - allCyclesTotalRent);
   const currentActiveCycleNumber = activeCycle?.cycleNumber || rental.currentCycleNumber || 1;
 
   const isSimple = selectedStyle === 'simple';
@@ -1007,6 +1030,61 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 </div>
               )}
 
+              {/* RETURNED BATCHES & CONTINUOUS PRORATION (Simple Template) */}
+              {partialBreakdown && partialBreakdown.returnedBatches.length > 0 && (
+                <div className="my-3 pt-1">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[11px] font-black uppercase text-black tracking-wider flex items-center gap-1">
+                      <span>{selectedLanguage === 'marathi' ? 'माघारी आलेले साहित्य व भाडे हिशोब' : 'Returned Plates & Day-Wise Proration'}</span>
+                    </span>
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 border border-slate-300 text-slate-800">
+                      {selectedLanguage === 'marathi' ? `दर: ₹${partialBreakdown.dailyRate}/दिवस` : `Rate: ₹${partialBreakdown.dailyRate}/day`}
+                    </span>
+                  </div>
+                  <table className="w-full text-left my-1 border-collapse border border-slate-800 text-[10px]">
+                    <thead>
+                      <tr className="bg-slate-100 text-black font-bold border-b border-slate-800">
+                        <th className="py-1 px-2 border-r border-slate-300">{selectedLanguage === 'marathi' ? 'तपशील' : 'Details'}</th>
+                        <th className="py-1 px-2 border-r border-slate-300">{selectedLanguage === 'marathi' ? 'परत दिनांक' : 'Return Date'}</th>
+                        <th className="py-1 px-2 text-center border-r border-slate-300">{selectedLanguage === 'marathi' ? 'नग' : 'Qty'}</th>
+                        <th className="py-1 px-2 text-center border-r border-slate-300">{selectedLanguage === 'marathi' ? 'वापर दिवस' : 'Days Kept'}</th>
+                        <th className="py-1 px-2 text-right">{selectedLanguage === 'marathi' ? 'भाडे रक्कम' : 'Rent (₹)'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {partialBreakdown.returnedBatches.map((b, idx) => (
+                        <tr key={idx}>
+                          <td className="py-1 px-2 border-r border-slate-200 font-semibold text-slate-800">
+                            {selectedLanguage === 'marathi' ? `माघार बॅच #${idx + 1}` : `Returned Batch #${idx + 1}`}
+                          </td>
+                          <td className="py-1 px-2 font-mono border-r border-slate-200">{b.returnDate}</td>
+                          <td className="py-1 px-2 text-center font-bold border-r border-slate-200">{b.returnedQuantity} Plates</td>
+                          <td className="py-1 px-2 text-center font-mono border-r border-slate-200">{b.elapsedDays} Days</td>
+                          <td className="py-1 px-2 text-right font-mono font-bold text-slate-900">
+                            ₹{b.rentAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      ))}
+                      {partialBreakdown.remainingQuantity > 0 && (
+                        <tr className="bg-blue-50/60 font-semibold">
+                          <td className="py-1 px-2 border-r border-slate-200 text-blue-900">
+                            {selectedLanguage === 'marathi' ? 'चालू उर्वरित साहित्य (४० दिवस)' : 'Remaining Plates (Continuing 40 Days)'}
+                          </td>
+                          <td className="py-1 px-2 font-mono border-r border-slate-200 text-blue-700 italic">
+                            {selectedLanguage === 'marathi' ? 'चालू भाडे' : 'Continuing'}
+                          </td>
+                          <td className="py-1 px-2 text-center font-bold text-blue-900 border-r border-slate-200">{partialBreakdown.remainingQuantity} Plates</td>
+                          <td className="py-1 px-2 text-center font-mono border-r border-slate-200 text-blue-900">{partialBreakdown.remainingPlatesDays} Days</td>
+                          <td className="py-1 px-2 text-right font-mono font-bold text-blue-950">
+                            ₹{partialBreakdown.remainingPlatesRent.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
               {/* LATEST PAYMENTS SECTION (Simple Template) */}
               {showPayments && (
                 <div className="my-3 pt-1">
@@ -1032,13 +1110,23 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                       <tbody className="divide-y divide-slate-200">
                         {rentalPayments.map((pay) => {
                           const payDateFmt = pay.date ? new Date(pay.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+                          const isRefund = pay.type === 'refund';
                           return (
-                            <tr key={pay.id}>
+                            <tr key={pay.id} className={isRefund ? 'bg-amber-50/60' : ''}>
                               <td className="py-1 px-2 font-mono border-r border-slate-200">{payDateFmt}</td>
-                              <td className="py-1 px-2 font-semibold border-r border-slate-200">{cleanPaymentMode(pay.paymentMode, selectedLanguage)}</td>
+                              <td className="py-1 px-2 font-semibold border-r border-slate-200">
+                                {cleanPaymentMode(pay.paymentMode, selectedLanguage)}
+                                {isRefund && (
+                                  <span className="ml-1 text-[9px] bg-amber-100 text-amber-900 font-bold px-1 py-0.2 rounded border border-amber-300">
+                                    {selectedLanguage === 'marathi' ? 'परतावा' : 'Refund'}
+                                  </span>
+                                )}
+                              </td>
                               <td className="py-1 px-2 border-r border-slate-200">{pay.cycleNumber ? `Cycle #${pay.cycleNumber}` : '-'}</td>
-                              <td className="py-1 px-2 text-slate-600 border-r border-slate-200 truncate max-w-xs">{pay.reference || pay.notes || '-'}</td>
-                              <td className="py-1 px-2 text-right font-mono font-bold text-emerald-800">+₹{pay.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                              <td className="py-1 px-2 text-slate-600 border-r border-slate-200 truncate max-w-xs">{pay.reference || pay.notes || (isRefund ? 'Excess advance refunded' : '-')}</td>
+                              <td className={`py-1 px-2 text-right font-mono font-bold ${isRefund ? 'text-amber-700' : 'text-emerald-800'}`}>
+                                {isRefund ? `-₹${pay.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : `+₹${pay.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
+                              </td>
                             </tr>
                           );
                         })}
@@ -1081,14 +1169,34 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                           - ₹{allCyclesTotalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
-                      <div className="border-t-2 border-slate-900 pt-1.5 mt-1 flex justify-between items-baseline">
-                        <span className="text-base font-black text-black">
-                          {selectedLanguage === 'marathi' ? 'एकूण येणे बाकी:' : 'Balance Due:'}
-                        </span>
-                        <span className="text-base sm:text-lg font-black font-mono text-black">
-                          ₹{allCyclesBalanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
+                      {allCyclesBalanceDue > 0 ? (
+                        <div className="border-t-2 border-slate-900 pt-1.5 mt-1 flex justify-between items-baseline">
+                          <span className="text-base font-black text-rose-700">
+                            {selectedLanguage === 'marathi' ? 'एकूण येणे बाकी:' : 'Balance Due:'}
+                          </span>
+                          <span className="text-base sm:text-lg font-black font-mono text-rose-700">
+                            ₹{allCyclesBalanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      ) : allCyclesRefundDue > 0 ? (
+                        <div className="border-t-2 border-emerald-600 bg-emerald-50/90 p-1.5 rounded mt-1 flex justify-between items-baseline">
+                          <span className="text-xs font-black text-emerald-900">
+                            {selectedLanguage === 'marathi' ? 'ग्राहकाला परतावा शिल्लक:' : 'Refund Due to Customer:'}
+                          </span>
+                          <span className="text-sm sm:text-base font-black font-mono text-emerald-800">
+                            ₹{allCyclesRefundDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="border-t-2 border-emerald-600 bg-emerald-50/60 p-1.5 rounded mt-1 flex justify-between items-baseline">
+                          <span className="text-xs font-black text-emerald-900">
+                            {selectedLanguage === 'marathi' ? 'हिशोब पूर्ण समतोल:' : 'Fully Settled:'}
+                          </span>
+                          <span className="text-sm font-black font-mono text-emerald-800">
+                            ₹0.00 ✓
+                          </span>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <>
@@ -1108,14 +1216,34 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                           - ₹{allCyclesTotalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
-                      <div className="border-t-2 border-slate-900 pt-1.5 mt-1 flex justify-between items-baseline">
-                        <span className="text-base font-black text-black">
-                          {selectedLanguage === 'marathi' ? 'शिल्लक बाकी (Balance Due):' : 'Balance Remaining Due:'}
-                        </span>
-                        <span className="text-base sm:text-lg font-black font-mono text-black">
-                          ₹{allCyclesBalanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
+                      {allCyclesBalanceDue > 0 ? (
+                        <div className="border-t-2 border-slate-900 pt-1.5 mt-1 flex justify-between items-baseline">
+                          <span className="text-base font-black text-rose-700">
+                            {selectedLanguage === 'marathi' ? 'शिल्लक बाकी (Balance Due):' : 'Balance Remaining Due:'}
+                          </span>
+                          <span className="text-base sm:text-lg font-black font-mono text-rose-700">
+                            ₹{allCyclesBalanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      ) : allCyclesRefundDue > 0 ? (
+                        <div className="border-t-2 border-emerald-600 bg-emerald-50/90 p-1.5 rounded mt-1 flex justify-between items-baseline">
+                          <span className="text-xs font-black text-emerald-900">
+                            {selectedLanguage === 'marathi' ? 'ग्राहकाला परतावा शिल्लक (Refund):' : 'Excess Refund to Customer:'}
+                          </span>
+                          <span className="text-sm sm:text-base font-black font-mono text-emerald-800">
+                            ₹{allCyclesRefundDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="border-t-2 border-emerald-600 bg-emerald-50/60 p-1.5 rounded mt-1 flex justify-between items-baseline">
+                          <span className="text-xs font-black text-emerald-900">
+                            {selectedLanguage === 'marathi' ? 'हिशोब पूर्ण समतोल (Settled):' : 'Fully Settled:'}
+                          </span>
+                          <span className="text-sm font-black font-mono text-emerald-800">
+                            ₹0.00 ✓
+                          </span>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -1400,6 +1528,64 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 </div>
               )}
 
+              {/* RETURNED BATCHES LOG (Standard / Compact / Tax Invoice) */}
+              {partialBreakdown && partialBreakdown.returnedBatches.length > 0 && (
+                <div className={`${isCompact ? 'mb-4' : 'mb-6'} overflow-hidden rounded-xl border border-slate-200`}>
+                  <div className="bg-slate-100 px-3 py-2 border-b border-slate-200 flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
+                      <Package className="w-3.5 h-3.5 text-blue-600" />
+                      <span>{selectedLanguage === 'marathi' ? 'माघारी आलेले साहित्य व भाडे हिशोब' : 'Returned Plates & Day-Wise Proration'}</span>
+                    </span>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                      {selectedLanguage === 'marathi' ? `दर: ₹${partialBreakdown.dailyRate}/दिवस` : `Rate: ₹${partialBreakdown.dailyRate}/day`}
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto print:overflow-visible">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-800 text-white font-bold uppercase text-[10px] tracking-wider">
+                          <th className="py-2 px-3">{selectedLanguage === 'marathi' ? 'तपशील' : 'Details'}</th>
+                          <th className="py-2 px-3">{selectedLanguage === 'marathi' ? 'परत दिनांक' : 'Return Date'}</th>
+                          <th className="py-2 px-3 text-center">{selectedLanguage === 'marathi' ? 'नग (Qty)' : 'Qty'}</th>
+                          <th className="py-2 px-3 text-center">{selectedLanguage === 'marathi' ? 'वापर दिवस' : 'Days Kept'}</th>
+                          <th className="py-2 px-3 text-right">{selectedLanguage === 'marathi' ? 'भाडे रक्कम' : 'Rent (₹)'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 font-medium">
+                        {partialBreakdown.returnedBatches.map((b, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50">
+                            <td className="py-2 px-3 font-semibold text-slate-800">
+                              {selectedLanguage === 'marathi' ? `माघार बॅच #${idx + 1}` : `Returned Batch #${idx + 1}`}
+                            </td>
+                            <td className="py-2 px-3 font-mono">{b.returnDate}</td>
+                            <td className="py-2 px-3 text-center font-bold">{b.returnedQuantity} Plates</td>
+                            <td className="py-2 px-3 text-center font-mono">{b.elapsedDays} Days</td>
+                            <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
+                              ₹{b.rentAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        ))}
+                        {partialBreakdown.remainingQuantity > 0 && (
+                          <tr className="bg-blue-50/60 font-semibold">
+                            <td className="py-2 px-3 text-blue-900 font-bold">
+                              {selectedLanguage === 'marathi' ? 'चालू उर्वरित साहित्य (४० दिवस)' : 'Remaining Plates (Continuing 40 Days)'}
+                            </td>
+                            <td className="py-2 px-3 font-mono text-blue-700 italic">
+                              {selectedLanguage === 'marathi' ? 'चालू भाडे' : 'Continuing'}
+                            </td>
+                            <td className="py-2 px-3 text-center font-bold text-blue-900">{partialBreakdown.remainingQuantity} Plates</td>
+                            <td className="py-2 px-3 text-center font-mono text-blue-900">{partialBreakdown.remainingPlatesDays} Days</td>
+                            <td className="py-2 px-3 text-right font-mono font-bold text-blue-950">
+                              ₹{partialBreakdown.remainingPlatesRent.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {/* LATEST PAYMENTS LOG (Standard / Compact / Tax Invoice) */}
               {showPayments && (
                 <div className={`${isCompact ? 'mb-4' : 'mb-6'} overflow-hidden rounded-xl border border-slate-200`}>
@@ -1427,14 +1613,22 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                         <tbody className="divide-y divide-slate-200 font-medium">
                           {rentalPayments.map((pay) => {
                             const payDateFmt = pay.date ? new Date(pay.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+                            const isRefund = pay.type === 'refund';
                             return (
-                              <tr key={pay.id} className="hover:bg-slate-50/50">
+                              <tr key={pay.id} className={isRefund ? 'bg-amber-50/60' : 'hover:bg-slate-50/50'}>
                                 <td className="py-2 px-3 font-mono">{payDateFmt}</td>
-                                <td className="py-2 px-3 font-semibold text-slate-900">{cleanPaymentMode(pay.paymentMode, selectedLanguage)}</td>
+                                <td className="py-2 px-3 font-semibold text-slate-900">
+                                  {cleanPaymentMode(pay.paymentMode, selectedLanguage)}
+                                  {isRefund && (
+                                    <span className="ml-1.5 text-[9px] bg-amber-100 text-amber-900 font-bold px-1.5 py-0.5 rounded border border-amber-300">
+                                      {selectedLanguage === 'marathi' ? 'परतावा' : 'Refund'}
+                                    </span>
+                                  )}
+                                </td>
                                 <td className="py-2 px-3 text-slate-600">{pay.cycleNumber ? `Cycle #${pay.cycleNumber}` : '-'}</td>
-                                <td className="py-2 px-3 text-slate-600 max-w-xs truncate">{pay.reference || pay.notes || '-'}</td>
-                                <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700">
-                                  +₹{pay.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                <td className="py-2 px-3 text-slate-600 max-w-xs truncate">{pay.reference || pay.notes || (isRefund ? 'Excess advance refunded' : '-')}</td>
+                                <td className={`py-2 px-3 text-right font-mono font-bold ${isRefund ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                  {isRefund ? `-₹${pay.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : `+₹${pay.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
                                 </td>
                               </tr>
                             );
@@ -1494,10 +1688,22 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                           <span>{currentT.totalPaidPaymentsLabel}</span>
                           <span>- ₹{allCyclesTotalPaid.toLocaleString('en-IN')}</span>
                         </div>
-                        <div className="flex justify-between py-3 px-4 font-black bg-rose-50 text-rose-700 text-sm">
-                          <span>{currentT.netAllCyclesDueLabel}</span>
-                          <span>₹{allCyclesBalanceDue.toLocaleString('en-IN')}</span>
-                        </div>
+                        {allCyclesBalanceDue > 0 ? (
+                          <div className="flex justify-between py-3 px-4 font-black bg-rose-50 text-rose-700 text-sm">
+                            <span>{currentT.netAllCyclesDueLabel}</span>
+                            <span>₹{allCyclesBalanceDue.toLocaleString('en-IN')}</span>
+                          </div>
+                        ) : allCyclesRefundDue > 0 ? (
+                          <div className="flex justify-between py-3 px-4 font-black bg-emerald-50 text-emerald-800 text-sm">
+                            <span>{selectedLanguage === 'marathi' ? 'ग्राहकाला परतावा शिल्लक' : 'Refund Due to Customer'}</span>
+                            <span>₹{allCyclesRefundDue.toLocaleString('en-IN')}</span>
+                          </div>
+                        ) : (
+                          <div className="flex justify-between py-3 px-4 font-black bg-emerald-50 text-emerald-800 text-sm">
+                            <span>{selectedLanguage === 'marathi' ? 'हिशोब पूर्ण समतोल' : 'Fully Settled'}</span>
+                            <span>₹0 ✓</span>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <>
@@ -1519,10 +1725,22 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                           <span>{currentT.paidLabel}</span>
                           <span>- ₹{allCyclesTotalPaid.toLocaleString('en-IN')}</span>
                         </div>
-                        <div className="flex justify-between py-3 px-4 font-black bg-rose-50 text-rose-700 text-sm">
-                          <span>{currentT.outstandingLabel}</span>
-                          <span>₹{allCyclesBalanceDue.toLocaleString('en-IN')}</span>
-                        </div>
+                        {allCyclesBalanceDue > 0 ? (
+                          <div className="flex justify-between py-3 px-4 font-black bg-rose-50 text-rose-700 text-sm">
+                            <span>{currentT.outstandingLabel}</span>
+                            <span>₹{allCyclesBalanceDue.toLocaleString('en-IN')}</span>
+                          </div>
+                        ) : allCyclesRefundDue > 0 ? (
+                          <div className="flex justify-between py-3 px-4 font-black bg-emerald-50 text-emerald-800 text-sm">
+                            <span>{selectedLanguage === 'marathi' ? 'ग्राहकाला परतावा शिल्लक (Refund)' : 'Refund Due to Customer'}</span>
+                            <span>₹{allCyclesRefundDue.toLocaleString('en-IN')}</span>
+                          </div>
+                        ) : (
+                          <div className="flex justify-between py-3 px-4 font-black bg-emerald-50 text-emerald-800 text-sm">
+                            <span>{selectedLanguage === 'marathi' ? 'हिशोब पूर्ण समतोल (Settled)' : 'Fully Settled'}</span>
+                            <span>₹0 ✓</span>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>

@@ -106,6 +106,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const [renewTarget, setRenewTarget] = useState<Rental | null>(null);
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(true);
   const [selectedDetailField, setSelectedDetailField] = useState<DashboardDetailField | null>(null);
+  const [alertsFilter, setAlertsFilter] = useState<'all_expires' | 'overdue' | 'due_soon' | 'all_active'>('all_expires');
+  const isMr = currentLang === 'marathi';
 
   // Core plate inventory calculations
   const totalPlates = plates.reduce((sum, p) => sum + p.total, 0);
@@ -129,7 +131,16 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const todayReturnsCount = returns.filter((r) => r.returnDate === todayStr).length;
 
   const activeRentals = rentals.filter((r) => r.status === 'active' || r.status === 'overdue');
-  const overdueRentals = rentals.filter((r) => r.status === 'overdue');
+  const overdueRentals = rentals.filter((r) => {
+    if (r.status === 'overdue') return true;
+    if (r.status === 'active') {
+      const cycle = getActiveCycle(r);
+      const targetDays = Number(cycle.days || r.days || 40) || 40;
+      const elapsed = calculateCalendarDays(cycle.startDate, todayStr);
+      return elapsed > targetDays;
+    }
+    return false;
+  });
   const recentPayments = [...payments]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5);
@@ -145,15 +156,16 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       const act = rental.cycles.find((c) => c.status === 'active');
       return act || rental.cycles[rental.cycles.length - 1];
     }
+    const actDays = rental.days || 40;
     return {
       id: `dash-cyc-${rental.id}`,
       rentalId: rental.id,
       partyId: rental.partyId,
       cycleNumber: rental.currentCycleNumber || 1,
       startDate: rental.currentCycleStartDate || rental.issueDate,
-      expectedEndDate: rental.currentCycleEndDate || calculateExpectedCycleEndDate(rental.issueDate, 40),
-      days: rental.days || 40,
-      extraDays: Math.max(0, (rental.days || 40) - 40),
+      expectedEndDate: rental.currentCycleEndDate || calculateExpectedCycleEndDate(rental.issueDate, actDays),
+      days: actDays,
+      extraDays: 0,
       dailyRate: rental.dailyRate,
       quantity: rental.quantity,
       baseRent: rental.totalRent,
@@ -165,13 +177,18 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     };
   };
 
-  // 40-Day Cycle Alerts Evaluation
-  const cycleAlerts = activeRentals
+  // Rental Cycle Expiration Alerts Evaluation (Supports ALL durations: 7d, 15d, 40d, etc.)
+  const allCycleAlerts = activeRentals
     .map((rent) => {
       const activeCycle = getActiveCycle(rent);
+      const targetDays = Number(
+        activeCycle.days ||
+        rent.days ||
+        (activeCycle.expectedEndDate ? calculateCalendarDays(activeCycle.startDate, activeCycle.expectedEndDate) : 40)
+      ) || 40;
       const elapsedDays = calculateCalendarDays(activeCycle.startDate, todayStr);
-      const daysLeft = 40 - elapsedDays;
-      const extraDays = Math.max(0, elapsedDays - 40);
+      const daysLeft = targetDays - elapsedDays;
+      const extraDays = Math.max(0, elapsedDays - targetDays);
       const party = parties.find((p) => p.id === rent.partyId);
       const partyMobile = party?.mobile || '';
 
@@ -182,12 +199,13 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           dailyRate: activeCycle.dailyRate,
           baseRent: activeCycle.baseRent,
           paidAmount: activeCycle.paidAmount,
+          days: targetDays,
           items: rent.items,
         },
         todayStr
       );
 
-      const alertStatus = determineCycleAlertStatus(daysLeft);
+      const alertStatus = determineCycleAlertStatus(daysLeft, targetDays);
 
       // Plate items summary string
       const plateSummary =
@@ -202,7 +220,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         activeCycle.cycleNumber,
         alertStatus.statusType,
         daysLeft,
-        extraDays
+        extraDays,
+        currentLang === 'marathi' ? 'marathi' : 'english',
+        targetDays
       );
 
       return {
@@ -210,6 +230,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         party,
         partyMobile,
         activeCycle,
+        targetDays,
         elapsedDays,
         daysLeft,
         extraDays,
@@ -220,12 +241,35 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         whatsappUrl,
       };
     })
-    .filter((alert) => alert.daysLeft <= 7)
     .sort((a, b) => a.daysLeft - b.daysLeft);
 
-  const completed40Alerts = cycleAlerts.filter(
-    (a) => a.alertStatus.isCompleted40 || a.alertStatus.isOverdue
+  // Expiration subsets:
+  // 1. All expiring / overdue attention list (overdue, completed today, or expiring within 7 days across ALL durations)
+  const expiringAlerts = allCycleAlerts.filter(
+    (a) => a.daysLeft <= 7 || a.alertStatus.isOverdue || a.rental.status === 'overdue' || a.elapsedDays >= a.targetDays
   );
+
+  // 2. Urgent (already expired / overdue beyond agreed days)
+  const urgentAlerts = allCycleAlerts.filter(
+    (a) => a.daysLeft <= 0 || a.alertStatus.isOverdue || a.rental.status === 'overdue'
+  );
+
+  // 3. Due soon (expiring in 1 to 7 days)
+  const dueSoonAlerts = allCycleAlerts.filter(
+    (a) => a.daysLeft > 0 && a.daysLeft <= 7
+  );
+
+  // Active displayed list depending on user-selected tab
+  const displayedAlerts =
+    alertsFilter === 'overdue'
+      ? urgentAlerts
+      : alertsFilter === 'due_soon'
+      ? dueSoonAlerts
+      : alertsFilter === 'all_active'
+      ? allCycleAlerts
+      : expiringAlerts;
+
+  const completed40Alerts = urgentAlerts;
 
   return (
     <div className="space-y-8 text-left">
@@ -271,7 +315,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                     <p className="text-[11px] text-purple-200 font-mono font-semibold">+91 {item.partyMobile}</p>
                   </div>
                   <span className="bg-purple-400/20 text-purple-200 border border-purple-400/30 text-[9px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">
-                    {item.alertStatus.statusLabel}
+                    {isMr ? item.alertStatus.statusLabelMr : item.alertStatus.statusLabel}
                   </span>
                 </div>
                 <div className="text-[11px] text-slate-200 space-y-0.5">
@@ -281,7 +325,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   </div>
                   <div className="flex justify-between">
                     <span>{curT.cycleAlerts.daysUsed}</span>
-                    <span className="font-bold text-amber-300">{item.elapsedDays} {curT.cycleAlerts.days}</span>
+                    <span className="font-bold text-amber-300">
+                      {item.elapsedDays} / {item.targetDays} {curT.cycleAlerts.days}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>{curT.cycleAlerts.plateAndQty}</span>
@@ -427,23 +473,75 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </div>
       </div>
 
-      {/* 40-DAY RENTAL CYCLE EXPIRATION ALERTS WIDGET */}
+      {/* ALL RENTAL CYCLE EXPIRATION ALERTS WIDGET */}
       <div className="bg-white rounded-3xl border border-slate-200/70 shadow-sm overflow-hidden">
-        <div className="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50/60">
+        <div className="px-6 py-5 border-b border-slate-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-slate-50/60">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
               <Clock className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-base font-bold text-charcoal">
-                {curT.cycleAlerts.title}
+              <h4 className="text-base font-bold text-charcoal flex items-center gap-2 flex-wrap">
+                <span>{curT.cycleAlerts.title}</span>
+                <span className="text-[11px] font-semibold text-slate-500 bg-slate-200/60 px-2 py-0.5 rounded-full">
+                  {isMr ? 'सर्व कालावधी' : 'All Durations'}
+                </span>
               </h4>
               <p className="text-[11px] text-slate-400 font-light">
                 {curT.cycleAlerts.subtitle}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Filter Pills & Modal Link */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center p-1 bg-slate-200/70 rounded-2xl text-xs gap-1">
+              <button
+                type="button"
+                onClick={() => setAlertsFilter('all_expires')}
+                className={`px-3 py-1 rounded-xl font-bold transition cursor-pointer ${
+                  alertsFilter === 'all_expires'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {isMr ? 'समाप्ती इशारे' : 'Expires'} ({expiringAlerts.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAlertsFilter('overdue')}
+                className={`px-3 py-1 rounded-xl font-bold transition cursor-pointer ${
+                  alertsFilter === 'overdue'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'text-rose-700 hover:text-rose-900'
+                }`}
+              >
+                {isMr ? 'मुदत संपलेले' : 'Overdue'} ({urgentAlerts.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAlertsFilter('due_soon')}
+                className={`px-3 py-1 rounded-xl font-bold transition cursor-pointer ${
+                  alertsFilter === 'due_soon'
+                    ? 'bg-amber-500 text-white shadow-xs'
+                    : 'text-amber-700 hover:text-amber-900'
+                }`}
+              >
+                {isMr ? '≤७ दिवस' : '≤7 Days'} ({dueSoonAlerts.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAlertsFilter('all_active')}
+                className={`px-3 py-1 rounded-xl font-bold transition cursor-pointer ${
+                  alertsFilter === 'all_active'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {isMr ? 'सर्व चालू' : 'All Active'} ({allCycleAlerts.length})
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={() => setSelectedDetailField('cycle_alerts')}
@@ -453,16 +551,16 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
             <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100/70 text-amber-800">
-              {cycleAlerts.length} {curT.cycleAlerts.attentionRequired}
+              {expiringAlerts.length} {curT.cycleAlerts.attentionRequired}
             </span>
           </div>
         </div>
 
         <div className="p-6">
-          {cycleAlerts.length === 0 ? (
+          {displayedAlerts.length === 0 ? (
             <div
               onClick={() => setSelectedDetailField('cycle_alerts')}
-              className="flex items-center justify-between p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 text-emerald-800 text-xs cursor-pointer hover:bg-emerald-100/60 transition group select-none"
+              className="flex items-center justify-between p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 text-emerald-800 text-xs cursor-pointer hover:bg-emerald-100/60 transition group select-none flex-wrap gap-3"
               title={currentLang === 'marathi' ? 'तपशील पाहण्यासाठी क्लिक करा' : 'Click to view cycle status'}
             >
               <div className="flex items-center gap-3">
@@ -474,13 +572,27 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   </span>
                 </div>
               </div>
-              <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 group-hover:underline">
-                {currentLang === 'marathi' ? 'तपशील पाहा' : 'View details'} <ArrowUpRight className="w-3 h-3" />
-              </span>
+              <div className="flex items-center gap-2">
+                {allCycleAlerts.length > 0 && alertsFilter !== 'all_active' && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAlertsFilter('all_active');
+                    }}
+                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition cursor-pointer"
+                  >
+                    {isMr ? `सर्व ${allCycleAlerts.length} नोंदींची मुदत पाहा` : `View all ${allCycleAlerts.length} terms`}
+                  </button>
+                )}
+                <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 group-hover:underline">
+                  {currentLang === 'marathi' ? 'तपशील पाहा' : 'View details'} <ArrowUpRight className="w-3 h-3" />
+                </span>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {cycleAlerts.map((alert) => {
+              {displayedAlerts.map((alert) => {
                 const {
                   rental,
                   partyMobile,
@@ -496,7 +608,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   ? 'border-rose-300 bg-rose-50/40'
                   : alertStatus.isCompleted40
                   ? 'border-purple-300 bg-purple-50/40'
-                  : 'border-amber-300 bg-amber-50/40';
+                  : alert.daysLeft <= 3
+                  ? 'border-amber-300 bg-amber-50/40'
+                  : 'border-blue-200 bg-blue-50/30';
 
                 return (
                   <div
@@ -515,7 +629,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                         <span
                           className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border uppercase tracking-wider ${alertStatus.badgeColorClass}`}
                         >
-                          {alertStatus.statusLabel}
+                          {isMr ? alertStatus.statusLabelMr : alertStatus.statusLabel}
                         </span>
                       </div>
 
@@ -529,8 +643,19 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                           <span className="font-bold text-slate-800">{curT.cycleAlerts.cycle} {activeCycle.cycleNumber}</span>
                         </div>
                         <div className="flex justify-between text-slate-600">
+                          <span className="font-semibold text-slate-500">{isMr ? 'कालावधी मुदत:' : 'Agreed Term:'}</span>
+                          <span className="font-bold text-slate-800">{alert.targetDays} {curT.cycleAlerts.days}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-600">
                           <span className="font-semibold text-slate-500">{curT.cycleAlerts.daysUsed}</span>
-                          <span className="font-bold text-amber-600">{alert.elapsedDays} {curT.cycleAlerts.days}</span>
+                          <span className="font-bold text-amber-600">
+                            {alert.elapsedDays} / {alert.targetDays} {curT.cycleAlerts.days}
+                            {alert.daysLeft < 0
+                              ? ` (+${alert.extraDays} जादा)`
+                              : alert.daysLeft === 0
+                              ? ' (आज समाप्त)'
+                              : ` (${alert.daysLeft} बाकी)`}
+                          </span>
                         </div>
                         <div className="flex justify-between text-slate-600">
                           <span className="font-semibold text-slate-500">{curT.cycleAlerts.termDates}</span>

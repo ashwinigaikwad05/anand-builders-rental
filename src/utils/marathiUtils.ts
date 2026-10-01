@@ -169,3 +169,210 @@ export function getMarathiStatus(status?: string): { label: string; textClass: s
   }
   return { label: 'सक्रिय (Active)', textClass: 'text-emerald-700', bgClass: 'bg-emerald-50 border-emerald-200' };
 }
+
+export interface RentalSearchTarget {
+  id?: string;
+  billNumber?: number | string | null;
+  customerNumber?: number | string | null;
+  partyName?: string | null;
+  plateType?: string | null;
+  quantity?: number;
+  items?: Array<{ plateType: string }>;
+  notes?: string | null;
+  party?: {
+    id?: string;
+    name?: string | null;
+    mobile?: string | null;
+    address?: string | null;
+    notes?: string | null;
+    customerNumber?: number | null;
+  } | null;
+}
+
+/**
+ * Searches and matches a rental record across:
+ * 1. Bill Number (exact number, #number, bill number, बिल नंबर, Marathi digits १, alphanumeric)
+ * 2. Customer Name & Serial (partyName, customer number, phone)
+ * 3. Site Name / Delivery Address (party address, notes, site location)
+ * 4. Plate Size / Item types (24x3, 21x3)
+ */
+export function matchRentalSearch(rental: RentalSearchTarget, queryRaw?: string): boolean {
+  if (!queryRaw || !queryRaw.trim()) return true;
+
+  const raw = queryRaw.trim();
+  const lower = raw.toLowerCase();
+  const western = fromMarathiDigits(lower);
+
+  const billStr = rental.billNumber !== undefined && rental.billNumber !== null ? String(rental.billNumber).trim() : '';
+  const billLower = billStr.toLowerCase();
+
+  const custNum =
+    rental.party?.customerNumber !== undefined && rental.party?.customerNumber !== null
+      ? rental.party.customerNumber
+      : rental.customerNumber && Number(rental.customerNumber) > 0
+      ? Number(rental.customerNumber)
+      : null;
+  const custNumStr = custNum !== null ? String(custNum) : '';
+
+  const partyName = (rental.partyName || '').trim().toLowerCase();
+  const officialName = (rental.party?.name || '').trim().toLowerCase();
+  const siteAddress = (rental.party?.address || '').trim().toLowerCase();
+  const mobile = (rental.party?.mobile || '').replace(/\D/g, '');
+  const allNotes = `${rental.notes || ''} ${rental.party?.notes || ''}`.trim().toLowerCase();
+
+  const plateType = (rental.plateType || '').trim().toLowerCase();
+  const itemSizes = (rental.items || []).map((i) => (i.plateType || '').trim().toLowerCase());
+  const normPlate = plateType.replace(/[*×]/g, 'x');
+  const normItemSizes = itemSizes.map((s) => s.replace(/[*×]/g, 'x'));
+
+  // 1. Check for Explicit Bill-specific queries: e.g. "bill 4", "bill #4", "बिल 4", "बिल #4", "#4"
+  const isExplicitBillQuery = /^(बिल\s*(नं|क्र)?\.?|bill|b\b|#)/i.test(western);
+  const cleanedBillQuery = western
+    .replace(/^(बिल\s*(नं|क्र)?\.?|bill|b)\s*#?\s*/i, '')
+    .replace(/^#\s*/, '')
+    .trim();
+
+  if (isExplicitBillQuery && cleanedBillQuery) {
+    if (
+      billLower === cleanedBillQuery ||
+      (cleanedBillQuery.length >= 2 && billLower.startsWith(cleanedBillQuery)) ||
+      billLower.includes(cleanedBillQuery)
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  // 2. Explicit Customer-specific query: e.g. "ग्राहक 1", "cust #1", "cust 1", "customer 1"
+  const isExplicitCustQuery = /^(ग्राहक|cust(omer)?|c\b)\s*#?\s*/i.test(western);
+  const cleanedCustQuery = western
+    .replace(/^(ग्राहक|cust(omer)?|c)\s*#?\s*/i, '')
+    .replace(/^#\s*/, '')
+    .trim();
+
+  if (isExplicitCustQuery && cleanedCustQuery) {
+    if (custNumStr === cleanedCustQuery) {
+      return true;
+    }
+    return false;
+  }
+
+  // 3. Explicit Site-specific query: e.g. "site kolhapur", "साइट कोल्हापूर"
+  const isExplicitSiteQuery = /^(site|साइट|ठिकाण)\s*[:\-]?\s*/i.test(lower);
+  const cleanedSiteQuery = lower.replace(/^(site|साइट|ठिकाण)\s*[:\-]?\s*/i, '').trim();
+
+  if (isExplicitSiteQuery && cleanedSiteQuery) {
+    if (siteAddress.includes(cleanedSiteQuery) || siteAddress.includes(fromMarathiDigits(cleanedSiteQuery))) {
+      return true;
+    }
+    return false;
+  }
+
+  // 4. Bill Number match (numeric, alphanumeric, e.g. "AN-2026/05", "101", "4")
+  if (
+    billLower &&
+    (billLower === lower ||
+      billLower === western ||
+      billLower.startsWith(lower) ||
+      billLower.startsWith(western) ||
+      billLower.includes(lower) ||
+      billLower.includes(western))
+  ) {
+    return true;
+  }
+
+  // 5. Customer Number / Serial match (e.g. "1", "2")
+  if (custNumStr && (custNumStr === lower || custNumStr === western)) {
+    return true;
+  }
+
+  // 6. Mobile number match
+  if (western.length >= 3 && /^\d+$/.test(western) && mobile.includes(western)) {
+    return true;
+  }
+
+  // 7. Customer Name match: e.g. "Patil", "Sai"
+  if (
+    partyName.includes(lower) ||
+    partyName.includes(western) ||
+    officialName.includes(lower) ||
+    officialName.includes(western)
+  ) {
+    return true;
+  }
+
+  // 6. Site Name / Address match: e.g. "Kolhapur", "Kadamwadi", "Site 1"
+  if (siteAddress.includes(lower) || siteAddress.includes(western)) {
+    return true;
+  }
+
+  // 7. Notes match
+  if (allNotes.includes(lower) || allNotes.includes(western)) {
+    return true;
+  }
+
+  // 8. Plate Size / Item type match: e.g. "24x3", "21x3", "24*3", "24×3"
+  const normSizeQuery = lower.replace(/[*×]/g, 'x');
+  if (lower.includes('x') || lower.includes('*') || lower.includes('×')) {
+    if (normPlate.includes(normSizeQuery) || normItemSizes.some((s) => s.includes(normSizeQuery))) {
+      return true;
+    }
+  } else if (normPlate === normSizeQuery || normItemSizes.includes(normSizeQuery)) {
+    return true;
+  }
+
+  // 9. Multi-token match: If user typed multiple words e.g. "patil 4", "patil kolhapur", "bill 3 patil"
+  const tokens = western.split(/\s+/).filter(Boolean);
+  if (tokens.length > 1) {
+    const allTokensMatch = tokens.every((tok) => {
+      const cleanTokBill = tok.replace(/^(बिल\s*(नं|क्र)?\.?|bill|b)\s*#?\s*/i, '').replace(/^#\s*/, '').trim();
+      const cleanTokCust = tok.replace(/^(ग्राहक|cust(omer)?|c)\s*#?\s*/i, '').replace(/^#\s*/, '').trim();
+
+      if (
+        tok === 'bill' ||
+        tok === 'बिल' ||
+        tok === 'b' ||
+        tok === 'ग्राहक' ||
+        tok === 'cust' ||
+        tok === 'customer' ||
+        tok === 'site' ||
+        tok === 'साइट'
+      ) {
+        return true;
+      }
+      if (cleanTokBill && (billLower === cleanTokBill || billLower.startsWith(cleanTokBill))) {
+        return true;
+      }
+      if (cleanTokCust && custNumStr === cleanTokCust) {
+        return true;
+      }
+      if (partyName.includes(tok) || officialName.includes(tok)) {
+        return true;
+      }
+      if (siteAddress.includes(tok)) {
+        return true;
+      }
+      const isPlateTok = tok.includes('x') || tok.includes('*') || tok.includes('×');
+      const normTokSize = tok.replace(/[*×]/g, 'x');
+      if (isPlateTok) {
+        if (normPlate.includes(normTokSize) || normItemSizes.some((s) => s.includes(normTokSize))) {
+          return true;
+        }
+      } else if (normPlate === normTokSize || normItemSizes.includes(normTokSize)) {
+        return true;
+      }
+      if (allNotes.includes(tok)) {
+        return true;
+      }
+      if (tok.length >= 3 && mobile.includes(tok)) {
+        return true;
+      }
+      return false;
+    });
+
+    if (allTokensMatch) return true;
+  }
+
+  return false;
+}
+

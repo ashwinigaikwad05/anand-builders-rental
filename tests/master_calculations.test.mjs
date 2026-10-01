@@ -795,9 +795,377 @@ runTest('RenewRemainingPlates', 'Multi-item return: 60 (24×3) & 40 (21×3) with
 });
 
 // =============================================================================
+// SUITE 16: PARTIAL RETURNS, CONTINUOUS REMAINING PLATES & ADVANCE REFUNDS
+// =============================================================================
+console.log('\n📦 SUITE 16: Partial Returns, Continuous Remaining Plates & Advance Refunds');
+
+function calculatePartialReturnsBreakdown(params) {
+  const startDate = params.startDate;
+  const initialQuantity = Number(params.initialQuantity || 0);
+  const cycleDays = params.cycleDays && params.cycleDays > 0 ? Number(params.cycleDays) : 40;
+  const asOfDate = params.asOfDate || new Date().toISOString().split('T')[0];
+
+  let effectiveDailyRate = Number(params.dailyRate || 0);
+  if (params.items && params.items.length > 0) {
+    const totalQty = params.items.reduce((s, it) => s + (it.quantity || 0), 0);
+    const totalRate = params.items.reduce((s, it) => s + (it.quantity || 0) * (it.dailyRate || 0), 0);
+    if (totalQty > 0) {
+      effectiveDailyRate = totalRate / totalQty;
+    }
+  }
+
+  const allReturnsToProcess = [];
+
+  if (params.returns && params.returns.length > 0) {
+    params.returns.forEach((r) => {
+      allReturnsToProcess.push({
+        id: r.id,
+        returnedQuantity: Number(r.returnedQuantity || 0),
+        returnDate: r.returnDate,
+        collectedAmount: r.collectedAmount ? Number(r.collectedAmount) : undefined,
+        refundAmount: r.refundAmount ? Number(r.refundAmount) : undefined,
+        penaltyAmount: r.penaltyAmount ? Number(r.penaltyAmount) : undefined,
+        paymentMode: r.paymentMode,
+      });
+    });
+  }
+
+  if (params.currentReturn && params.currentReturn.returnedQuantity > 0) {
+    allReturnsToProcess.push({
+      id: 'current-pending-return',
+      returnedQuantity: Number(params.currentReturn.returnedQuantity),
+      returnDate: params.currentReturn.returnDate,
+      penaltyAmount: params.currentReturn.penaltyAmount ? Number(params.currentReturn.penaltyAmount) : undefined,
+    });
+  }
+
+  let totalReturnedQuantity = 0;
+  let returnedBatchesRentTotal = 0;
+  let totalPenalties = 0;
+  const returnedBatches = [];
+
+  for (const ret of allReturnsToProcess) {
+    const qty = ret.returnedQuantity;
+    if (qty <= 0) continue;
+    const elapsedDays = Math.max(1, calculateCalendarDays(startDate, ret.returnDate));
+    const rentAmount = Math.round(qty * effectiveDailyRate * elapsedDays * 100) / 100;
+    const penalty = ret.penaltyAmount ? Number(ret.penaltyAmount) : 0;
+
+    totalReturnedQuantity += qty;
+    returnedBatchesRentTotal += rentAmount;
+    totalPenalties += penalty;
+
+    returnedBatches.push({
+      id: ret.id,
+      returnedQuantity: qty,
+      returnDate: ret.returnDate,
+      elapsedDays,
+      dailyRate: effectiveDailyRate,
+      rentAmount,
+      collectedAmount: ret.collectedAmount,
+      refundAmount: ret.refundAmount,
+      penaltyAmount: ret.penaltyAmount,
+      paymentMode: ret.paymentMode,
+    });
+  }
+
+  const remainingQuantity = Math.max(0, initialQuantity - totalReturnedQuantity);
+  const isFullyReturned = remainingQuantity === 0;
+
+  let remainingPlatesDays = 0;
+  let remainingPlatesRent = 0;
+
+  if (remainingQuantity > 0) {
+    const elapsedSinceStart = calculateCalendarDays(startDate, asOfDate);
+    const extraDays = Math.max(0, elapsedSinceStart - cycleDays);
+    remainingPlatesDays = cycleDays + extraDays;
+    remainingPlatesRent = Math.round(remainingQuantity * effectiveDailyRate * remainingPlatesDays * 100) / 100;
+  }
+
+  const totalRent = Math.round((returnedBatchesRentTotal + remainingPlatesRent + totalPenalties) * 100) / 100;
+  const totalPaid = Number(params.paidAmount || 0);
+  const netBalance = Math.round((totalRent - totalPaid) * 100) / 100;
+
+  const refundDue = netBalance < 0 ? Math.round(Math.abs(netBalance) * 100) / 100 : 0;
+  const pendingDue = netBalance > 0 ? Math.round(netBalance * 100) / 100 : 0;
+
+  return {
+    initialQuantity,
+    dailyRate: effectiveDailyRate,
+    cycleDays,
+    startDate,
+    returnedBatches,
+    totalReturnedQuantity,
+    remainingQuantity,
+    returnedBatchesRentTotal,
+    remainingPlatesDays,
+    remainingPlatesRent,
+    totalRent,
+    totalPaid,
+    netBalance,
+    refundDue,
+    pendingDue,
+    isFullyReturned,
+  };
+}
+
+runTest('PartialReturns', 'User Scenario 1: 50 plates for 40d @ 1.5 (3000rs), advance 2000rs, return 20 plates on day 3', () => {
+  // Start: 2026-09-01
+  // Day 3 return: 2026-09-03 (3 days)
+  const result = calculatePartialReturnsBreakdown({
+    startDate: '2026-09-01',
+    initialQuantity: 50,
+    dailyRate: 1.5,
+    cycleDays: 40,
+    paidAmount: 2000,
+    currentReturn: {
+      returnedQuantity: 20,
+      returnDate: '2026-09-03', // 3 days
+    },
+    asOfDate: '2026-09-03',
+  });
+
+  // 1. Returned 20 plates for 3 days: 20 * 1.5 * 3 = ₹90
+  assert.strictEqual(result.returnedBatches.length, 1);
+  assert.strictEqual(result.returnedBatches[0].elapsedDays, 3);
+  assert.strictEqual(result.returnedBatches[0].rentAmount, 90);
+
+  // 2. Remaining 30 plates continuing for 40 days: 30 * 1.5 * 40 = ₹1,800
+  assert.strictEqual(result.remainingQuantity, 30);
+  assert.strictEqual(result.remainingPlatesRent, 1800);
+
+  // 3. Total Rent = 90 + 1800 = ₹1,890
+  assert.strictEqual(result.totalRent, 1890);
+
+  // 4. Paid = ₹2,000 Advance
+  assert.strictEqual(result.totalPaid, 2000);
+
+  // 5. Excess Advance / Refund Due = 2000 - 1890 = ₹110
+  assert.strictEqual(result.refundDue, 110);
+  assert.strictEqual(result.pendingDue, 0);
+  assert.strictEqual(result.isFullyReturned, false);
+});
+
+runTest('PartialReturns', 'User Scenario 2: Multiple returns (20 plates on Day 3, 10 plates on Day 10)', () => {
+  const result = calculatePartialReturnsBreakdown({
+    startDate: '2026-09-01',
+    initialQuantity: 50,
+    dailyRate: 1.5,
+    cycleDays: 40,
+    paidAmount: 2000,
+    returns: [
+      {
+        returnedQuantity: 20,
+        returnDate: '2026-09-03', // Day 3: 3 days -> 20 * 1.5 * 3 = ₹90
+      },
+    ],
+    currentReturn: {
+      returnedQuantity: 10,
+      returnDate: '2026-09-10', // Day 10: 10 days -> 10 * 1.5 * 10 = ₹150
+    },
+    asOfDate: '2026-09-10',
+  });
+
+  assert.strictEqual(result.totalReturnedQuantity, 30);
+  assert.strictEqual(result.returnedBatchesRentTotal, 240); // 90 + 150 = 240
+  assert.strictEqual(result.remainingQuantity, 20); // 50 - 30 = 20
+  assert.strictEqual(result.remainingPlatesRent, 1200); // 20 * 1.5 * 40 = 1,200
+  assert.strictEqual(result.totalRent, 1440); // 240 + 1200 = 1,440
+  assert.strictEqual(result.refundDue, 560); // 2,000 - 1,440 = 560
+  assert.strictEqual(result.pendingDue, 0);
+});
+
+runTest('PartialReturns', 'User Scenario 3: All plates returned (20 on Day 3, 10 on Day 10, 20 on Day 40) -> Admin refunds remaining to customer', () => {
+  // Day 40 is 2026-10-10 (40 days from 2026-09-01)
+  const result = calculatePartialReturnsBreakdown({
+    startDate: '2026-09-01',
+    initialQuantity: 50,
+    dailyRate: 1.5,
+    cycleDays: 40,
+    paidAmount: 2000,
+    returns: [
+      { returnedQuantity: 20, returnDate: '2026-09-03' }, // 90
+      { returnedQuantity: 10, returnDate: '2026-09-10' }, // 150
+    ],
+    currentReturn: {
+      returnedQuantity: 20,
+      returnDate: '2026-10-10', // Day 40: 40 days -> 20 * 1.5 * 40 = ₹1,200
+    },
+    asOfDate: '2026-10-10',
+  });
+
+  assert.strictEqual(result.totalReturnedQuantity, 50);
+  assert.strictEqual(result.remainingQuantity, 0);
+  assert.strictEqual(result.isFullyReturned, true);
+  assert.strictEqual(result.remainingPlatesRent, 0);
+  assert.strictEqual(result.totalRent, 1440); // 90 + 150 + 1200 = 1,440
+  assert.strictEqual(result.totalPaid, 2000);
+  // Admin returns remaining amount to customer:
+  assert.strictEqual(result.refundDue, 560); // 2000 - 1440 = 560
+  assert.strictEqual(result.pendingDue, 0);
+});
+
+runTest('PartialReturns', 'Early final return: Remaining 30 plates returned on Day 20 instead of 40', () => {
+  const result = calculatePartialReturnsBreakdown({
+    startDate: '2026-09-01',
+    initialQuantity: 50,
+    dailyRate: 1.5,
+    cycleDays: 40,
+    paidAmount: 2000,
+    returns: [
+      { returnedQuantity: 20, returnDate: '2026-09-03' }, // 3 days: 20 * 1.5 * 3 = 90
+    ],
+    currentReturn: {
+      returnedQuantity: 30,
+      returnDate: '2026-09-20', // 20 days: 30 * 1.5 * 20 = 900
+    },
+  });
+
+  assert.strictEqual(result.totalReturnedQuantity, 50);
+  assert.strictEqual(result.remainingQuantity, 0);
+  assert.strictEqual(result.totalRent, 990); // 90 + 900 = 990
+  assert.strictEqual(result.refundDue, 1010); // 2,000 - 990 = 1,010
+});
+
+runTest('PartialReturns', 'Customer with low advance (1,000 rs paid): Pending due collected upon return', () => {
+  const result = calculatePartialReturnsBreakdown({
+    startDate: '2026-09-01',
+    initialQuantity: 50,
+    dailyRate: 1.5,
+    cycleDays: 40,
+    paidAmount: 1000, // Only 1,000 paid upfront
+    returns: [
+      { returnedQuantity: 20, returnDate: '2026-09-03' }, // 90
+      { returnedQuantity: 10, returnDate: '2026-09-10' }, // 150
+      { returnedQuantity: 20, returnDate: '2026-10-10' }, // 1,200
+    ],
+  });
+
+  assert.strictEqual(result.totalRent, 1440);
+  assert.strictEqual(result.refundDue, 0);
+  assert.strictEqual(result.pendingDue, 440); // 1,440 - 1,000 = 440
+});
+
+// =============================================================================
+// SUITE 17: All Rental Expiry & Overdue Alert Calculations Across Any Duration
+// =============================================================================
+console.log('\n⏰ SUITE 17: All Rental Expiry & Overdue Alert Calculations Across Any Duration');
+
+function evaluateRentalCycleAlert(rental, activeCycle, todayStr) {
+  const targetDays = Number(
+    activeCycle.days ||
+    rental.days ||
+    (activeCycle.expectedEndDate ? calculateCalendarDays(activeCycle.startDate, activeCycle.expectedEndDate) : 40)
+  ) || 40;
+  const elapsedDays = calculateCalendarDays(activeCycle.startDate, todayStr);
+  const daysLeft = targetDays - elapsedDays;
+  const extraDays = Math.max(0, elapsedDays - targetDays);
+  const isOverdue = daysLeft < 0 || rental.status === 'overdue';
+  const isCompletedToday = daysLeft === 0;
+  const isDueSoon = daysLeft > 0 && daysLeft <= 7;
+  const isAttentionRequired = daysLeft <= 7 || isOverdue || elapsedDays >= targetDays;
+
+  return {
+    targetDays,
+    elapsedDays,
+    daysLeft,
+    extraDays,
+    isOverdue,
+    isCompletedToday,
+    isDueSoon,
+    isAttentionRequired,
+  };
+}
+
+runTest('AllExpires', '7-day rental on Day 8 correctly triggers overdue (+1 extra day)', () => {
+  const rental = { id: 'r1', days: 7, status: 'active' };
+  const cycle = { startDate: '2026-09-01', days: 7 };
+  const today = '2026-09-08'; // 8 days elapsed inclusive
+  const alert = evaluateRentalCycleAlert(rental, cycle, today);
+
+  assert.strictEqual(alert.targetDays, 7);
+  assert.strictEqual(alert.elapsedDays, 8);
+  assert.strictEqual(alert.daysLeft, -1);
+  assert.strictEqual(alert.extraDays, 1);
+  assert.strictEqual(alert.isOverdue, true);
+  assert.strictEqual(alert.isAttentionRequired, true);
+});
+
+runTest('AllExpires', '15-day rental on Day 13 correctly flags upcoming expiration (2 days left)', () => {
+  const rental = { id: 'r2', days: 15, status: 'active' };
+  const cycle = { startDate: '2026-09-01', days: 15 };
+  const today = '2026-09-13'; // 13 days elapsed
+  const alert = evaluateRentalCycleAlert(rental, cycle, today);
+
+  assert.strictEqual(alert.targetDays, 15);
+  assert.strictEqual(alert.elapsedDays, 13);
+  assert.strictEqual(alert.daysLeft, 2);
+  assert.strictEqual(alert.isOverdue, false);
+  assert.strictEqual(alert.isDueSoon, true);
+  assert.strictEqual(alert.isAttentionRequired, true);
+});
+
+runTest('AllExpires', '40-day rental on Day 40 marks exact term completion today', () => {
+  const rental = { id: 'r3', days: 40, status: 'active' };
+  const cycle = { startDate: '2026-08-01', days: 40 };
+  const today = '2026-09-09'; // 40th calendar day
+  const alert = evaluateRentalCycleAlert(rental, cycle, today);
+
+  assert.strictEqual(alert.targetDays, 40);
+  assert.strictEqual(alert.elapsedDays, 40);
+  assert.strictEqual(alert.daysLeft, 0);
+  assert.strictEqual(alert.isCompletedToday, true);
+  assert.strictEqual(alert.isAttentionRequired, true);
+});
+
+runTest('AllExpires', 'Custom 81-day rental on Day 76 flags 5 days remaining', () => {
+  const rental = { id: 'r4', days: 81, status: 'active' };
+  const cycle = { startDate: '2026-07-01', days: 81 };
+  const today = '2026-09-14'; // 76 days elapsed
+  const alert = evaluateRentalCycleAlert(rental, cycle, today);
+
+  assert.strictEqual(alert.targetDays, 81);
+  assert.strictEqual(alert.elapsedDays, 76);
+  assert.strictEqual(alert.daysLeft, 5);
+  assert.strictEqual(alert.isDueSoon, true);
+  assert.strictEqual(alert.isAttentionRequired, true);
+});
+
+runTest('AllExpires', 'Normal rental with 25 days remaining is NOT in attention list but visible in all active', () => {
+  const rental = { id: 'r5', days: 40, status: 'active' };
+  const cycle = { startDate: '2026-09-01', days: 40 };
+  const today = '2026-09-15'; // 15 days elapsed, 25 days left
+  const alert = evaluateRentalCycleAlert(rental, cycle, today);
+
+  assert.strictEqual(alert.daysLeft, 25);
+  assert.strictEqual(alert.isAttentionRequired, false);
+  assert.strictEqual(alert.isOverdue, false);
+});
+
+runTest('AllExpires', 'Mixed duration rentals partition accurately into All Expires, Overdue, and Due Soon', () => {
+  const rentals = [
+    { rental: { id: 'r1', days: 7, status: 'active' }, cycle: { startDate: '2026-09-01', days: 7 } }, // elapsed 10, overdue +3
+    { rental: { id: 'r2', days: 15, status: 'active' }, cycle: { startDate: '2026-09-01', days: 15 } }, // elapsed 10, 5 days left (due soon)
+    { rental: { id: 'r3', days: 40, status: 'active' }, cycle: { startDate: '2026-09-01', days: 40 } }, // elapsed 10, 30 days left (normal)
+  ];
+  const today = '2026-09-10';
+
+  const alerts = rentals.map((r) => evaluateRentalCycleAlert(r.rental, r.cycle, today));
+  const expiring = alerts.filter((a) => a.isAttentionRequired);
+  const overdue = alerts.filter((a) => a.isOverdue);
+  const dueSoon = alerts.filter((a) => a.isDueSoon);
+
+  assert.strictEqual(alerts.length, 3); // All active
+  assert.strictEqual(expiring.length, 2); // 7d overdue + 15d due soon
+  assert.strictEqual(overdue.length, 1); // 7d overdue
+  assert.strictEqual(dueSoon.length, 1); // 15d due soon
+});
+
+// =============================================================================
 // FINAL SUMMARY
 // =============================================================================
 console.log('\n' + '='.repeat(75));
 console.log(`  🎉 SUMMARY: ${passedCount} / ${testCount} CALCULATION TESTS PASSED (100% SUCCESS)`);
 console.log('='.repeat(75));
+
 

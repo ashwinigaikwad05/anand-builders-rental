@@ -205,8 +205,15 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                       <span className="text-xs text-slate-400 font-medium">General Party Allocation</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 font-black text-emerald-600">
-                    ₹{pay.amount.toLocaleString('en-IN')}
+                  <td className="px-6 py-4">
+                    <span className={`font-black ${pay.type === 'refund' ? 'text-amber-600' : 'text-emerald-600'}`}>
+                      {pay.type === 'refund' ? `-₹${pay.amount.toLocaleString('en-IN')}` : `₹${pay.amount.toLocaleString('en-IN')}`}
+                    </span>
+                    {pay.type === 'refund' && (
+                      <span className="block text-[10px] text-amber-700 font-bold uppercase tracking-wider">
+                        {isMarathi ? 'ग्राहकाला परतावा' : 'Excess Refund'}
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <span
@@ -224,8 +231,12 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   <td className="px-6 py-4 text-slate-400 font-mono text-xs">{pay.reference || '—'}</td>
                   <td className="px-6 py-4">
                     <div className="flex justify-center">
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 uppercase tracking-wider">
-                        {pay.status}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${
+                        pay.type === 'refund'
+                          ? 'text-amber-800 bg-amber-50 border-amber-200'
+                          : 'text-emerald-700 bg-emerald-50 border-emerald-100'
+                      }`}>
+                        {pay.type === 'refund' ? (isMarathi ? 'परतावा' : 'Refund') : pay.status}
                       </span>
                     </div>
                   </td>

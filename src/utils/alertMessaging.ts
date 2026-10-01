@@ -15,9 +15,10 @@ export function getCleanPhoneNumber(mobile: string): { telLink: string; whatsapp
   return { telLink, whatsappPhone };
 }
 
-export function determineCycleAlertStatus(daysLeft: number): {
+export function determineCycleAlertStatus(daysLeft: number, targetDays = 40): {
   statusType: CycleAlertStatusType;
   statusLabel: string;
+  statusLabelMr: string;
   badgeColorClass: string;
   isCompleted40: boolean;
   isOverdue: boolean;
@@ -26,8 +27,9 @@ export function determineCycleAlertStatus(daysLeft: number): {
     const extraDays = Math.abs(daysLeft);
     return {
       statusType: 'overdue',
-      statusLabel: `Overdue after 40 days (+${extraDays}d)`,
-      badgeColorClass: 'bg-rose-100 text-rose-800 border-rose-200',
+      statusLabel: `Overdue (+${extraDays}d)`,
+      statusLabelMr: `मुदत संपली (+${extraDays} दिवस)`,
+      badgeColorClass: 'bg-rose-100 text-rose-800 border-rose-300 font-extrabold',
       isCompleted40: false,
       isOverdue: true,
     };
@@ -36,7 +38,8 @@ export function determineCycleAlertStatus(daysLeft: number): {
   if (daysLeft === 0) {
     return {
       statusType: '40_completed',
-      statusLabel: '40 Days Completed',
+      statusLabel: `${targetDays} Days Completed`,
+      statusLabelMr: `${targetDays} दिवस पूर्ण (आज)`,
       badgeColorClass: 'bg-purple-100 text-purple-900 border-purple-300 font-extrabold',
       isCompleted40: true,
       isOverdue: false,
@@ -47,7 +50,8 @@ export function determineCycleAlertStatus(daysLeft: number): {
     return {
       statusType: '1_day',
       statusLabel: '1 Day Remaining',
-      badgeColorClass: 'bg-amber-100 text-amber-900 border-amber-300',
+      statusLabelMr: '१ दिवस बाकी',
+      badgeColorClass: 'bg-amber-100 text-amber-900 border-amber-300 font-bold',
       isCompleted40: false,
       isOverdue: false,
     };
@@ -56,8 +60,9 @@ export function determineCycleAlertStatus(daysLeft: number): {
   if (daysLeft <= 2) {
     return {
       statusType: '2_days',
-      statusLabel: '2 Days Remaining',
-      badgeColorClass: 'bg-amber-100 text-amber-900 border-amber-300',
+      statusLabel: `${daysLeft} Days Remaining`,
+      statusLabelMr: `${daysLeft} दिवस बाकी`,
+      badgeColorClass: 'bg-amber-100 text-amber-900 border-amber-300 font-bold',
       isCompleted40: false,
       isOverdue: false,
     };
@@ -66,8 +71,9 @@ export function determineCycleAlertStatus(daysLeft: number): {
   if (daysLeft <= 3) {
     return {
       statusType: '3_days',
-      statusLabel: '3 Days Remaining',
-      badgeColorClass: 'bg-amber-100 text-amber-800 border-amber-200',
+      statusLabel: `${daysLeft} Days Remaining`,
+      statusLabelMr: `${daysLeft} दिवस बाकी`,
+      badgeColorClass: 'bg-amber-100 text-amber-800 border-amber-200 font-semibold',
       isCompleted40: false,
       isOverdue: false,
     };
@@ -76,8 +82,20 @@ export function determineCycleAlertStatus(daysLeft: number): {
   if (daysLeft <= 5) {
     return {
       statusType: '5_days',
-      statusLabel: '5 Days Remaining',
-      badgeColorClass: 'bg-amber-50 text-amber-800 border-amber-200',
+      statusLabel: `${daysLeft} Days Remaining`,
+      statusLabelMr: `${daysLeft} दिवस बाकी`,
+      badgeColorClass: 'bg-amber-50 text-amber-800 border-amber-200 font-semibold',
+      isCompleted40: false,
+      isOverdue: false,
+    };
+  }
+
+  if (daysLeft <= 7) {
+    return {
+      statusType: '7_days',
+      statusLabel: `${daysLeft} Days Remaining`,
+      statusLabelMr: `${daysLeft} दिवस बाकी`,
+      badgeColorClass: 'bg-blue-100 text-blue-800 border-blue-200 font-semibold',
       isCompleted40: false,
       isOverdue: false,
     };
@@ -85,8 +103,9 @@ export function determineCycleAlertStatus(daysLeft: number): {
 
   return {
     statusType: '7_days',
-    statusLabel: '7 Days Remaining',
-    badgeColorClass: 'bg-blue-100 text-blue-800 border-blue-200',
+    statusLabel: `${daysLeft} Days Remaining`,
+    statusLabelMr: `${daysLeft} दिवस बाकी`,
+    badgeColorClass: 'bg-emerald-100 text-emerald-800 border-emerald-200 font-normal',
     isCompleted40: false,
     isOverdue: false,
   };
@@ -98,29 +117,32 @@ export function buildWhatsAppMessage(
   statusType: CycleAlertStatusType,
   daysLeft: number,
   extraDays: number,
-  lang: 'marathi' | 'english' = 'marathi'
+  lang: 'marathi' | 'english' = 'marathi',
+  targetDays = 40
 ): string {
+  const daysPhraseMr = targetDays === 40 ? '४० दिवसांची भाडे मुदत' : `${targetDays} दिवसांची भाडे मुदत`;
+
   if (lang === 'marathi') {
     if (statusType === '40_completed') {
-      return `नमस्कार ${partyName}जी, आनंद बिल्डर्स अँड डेव्हलपर्सकडून कळवण्यात येते की आपल्या सेन्टरिंग प्लेट्सची ४० दिवसांची भाडे मुदत (सायकल #${cycleNumber}) पूर्ण झाली आहे. कृपया साहित्य जमा किंवा नूतनीकरणासाठी आमच्याशी संपर्क साधावा. धन्यवाद!`;
+      return `नमस्कार ${partyName}जी, आनंद बिल्डर्स अँड डेव्हलपर्सकडून कळवण्यात येते की आपल्या सेन्टरिंग प्लेट्सची ${daysPhraseMr} (सायकल #${cycleNumber}) पूर्ण झाली आहे. कृपया साहित्य जमा किंवा नूतनीकरणासाठी आमच्याशी संपर्क साधावा. धन्यवाद!`;
     }
     if (statusType === 'overdue') {
-      return `नमस्कार ${partyName}जी, आनंद बिल्डर्सकडून कळवण्यात येते की आपल्या सेन्टरिंग प्लेट्सच्या ४० दिवसांच्या मुदतीनंतर +${extraDays} दिवस जादा झाले आहेत (सायकल #${cycleNumber}). कृपया साहित्य जमा किंवा नूतनीकरणासाठी त्वरित संपर्क साधावा. धन्यवाद!`;
+      return `नमस्कार ${partyName}जी, आनंद बिल्डर्सकडून कळवण्यात येते की आपल्या सेन्टरिंग प्लेट्सच्या ${daysPhraseMr}नंतर +${extraDays} दिवस जादा झाले आहेत (सायकल #${cycleNumber}). कृपया साहित्य जमा किंवा नूतनीकरणासाठी त्वरित संपर्क साधावा. धन्यवाद!`;
     }
     const d = Math.max(1, daysLeft);
     return `नमस्कार ${partyName}जी, आनंद बिल्डर्सकडून नम्र स्मरण: आपल्या सेन्टरिंग प्लेट्सच्या चालू सायकलचे (${cycleNumber}) केवळ ${d} दिवस बाकी आहेत. कृपया नोंद घ्यावी. धन्यवाद!`;
   }
 
   if (statusType === '40_completed') {
-    return `Hello ${partyName}, your shuttering plate rental cycle of 40 days has been completed. Please contact us regarding return or renewal of the plates. Thank you.`;
+    return `Hello ${partyName}, your shuttering plate rental cycle of ${targetDays} days has been completed. Please contact us regarding return or renewal of the plates. Thank you.`;
   }
 
   if (statusType === 'overdue') {
-    return `Hello ${partyName}, your shuttering plate rental cycle (Cycle ${cycleNumber}) is overdue by ${extraDays} days past the 40-day cycle term. Please contact us regarding return or renewal of the plates. Thank you.`;
+    return `Hello ${partyName}, your shuttering plate rental cycle (Cycle ${cycleNumber}) is overdue by ${extraDays} days past the ${targetDays}-day cycle term. Please contact us regarding return or renewal of the plates. Thank you.`;
   }
 
   const d = Math.max(1, daysLeft);
-  return `Hello ${partyName}, your shuttering plate rental cycle (Cycle ${cycleNumber}) has ${d} day${d === 1 ? '' : 's'} remaining out of 40 days. Please contact us regarding return or renewal of the plates. Thank you.`;
+  return `Hello ${partyName}, your shuttering plate rental cycle (Cycle ${cycleNumber}) has ${d} day${d === 1 ? '' : 's'} remaining out of ${targetDays} days. Please contact us regarding return or renewal of the plates. Thank you.`;
 }
 
 export function buildWhatsAppUrl(
@@ -130,10 +152,11 @@ export function buildWhatsAppUrl(
   statusType: CycleAlertStatusType,
   daysLeft: number,
   extraDays: number,
-  lang: 'marathi' | 'english' = 'marathi'
+  lang: 'marathi' | 'english' = 'marathi',
+  targetDays = 40
 ): string {
   const { whatsappPhone } = getCleanPhoneNumber(mobile);
-  const msg = buildWhatsAppMessage(partyName, cycleNumber, statusType, daysLeft, extraDays, lang);
+  const msg = buildWhatsAppMessage(partyName, cycleNumber, statusType, daysLeft, extraDays, lang, targetDays);
   if (!whatsappPhone) return '#';
   return `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(msg)}`;
 }

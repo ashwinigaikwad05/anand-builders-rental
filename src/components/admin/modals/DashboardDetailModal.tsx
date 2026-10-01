@@ -131,9 +131,9 @@ export const DashboardDetailModal: React.FC<DashboardDetailModalProps> = ({
       partyId: rental.partyId,
       cycleNumber: rental.currentCycleNumber || 1,
       startDate: rental.currentCycleStartDate || rental.issueDate,
-      expectedEndDate: rental.currentCycleEndDate || calculateExpectedCycleEndDate(rental.issueDate, 40),
+      expectedEndDate: rental.currentCycleEndDate || calculateExpectedCycleEndDate(rental.issueDate, rental.days || 40),
       days: rental.days || 40,
-      extraDays: Math.max(0, (rental.days || 40) - 40),
+      extraDays: 0,
       dailyRate: rental.dailyRate,
       quantity: rental.quantity,
       baseRent: rental.totalRent,
@@ -164,21 +164,30 @@ export const DashboardDetailModal: React.FC<DashboardDetailModalProps> = ({
   const activeRentals = rentals.filter((r) => r.status === 'active' || r.status === 'overdue');
   const overdueRentals = rentals.filter((r) => {
     if (r.status === 'overdue') return true;
-    const cycle = getActiveCycle(r);
-    const elapsed = calculateCalendarDays(cycle.startDate, todayStr);
-    return elapsed > 40;
+    if (r.status === 'active') {
+      const cycle = getActiveCycle(r);
+      const targetDays = Number(cycle.days || r.days || 40) || 40;
+      const elapsed = calculateCalendarDays(cycle.startDate, todayStr);
+      return elapsed > targetDays;
+    }
+    return false;
   });
 
   const todayRentals = rentals.filter((r) => r.issueDate === todayStr);
   const todayReturns = returns.filter((r) => r.returnDate === todayStr);
 
-  // Cycle alerts evaluation
+  // All rental cycle alerts evaluation across all durations
   const cycleAlerts = activeRentals
     .map((rent) => {
       const activeCycle = getActiveCycle(rent);
+      const targetDays = Number(
+        activeCycle.days ||
+        rent.days ||
+        (activeCycle.expectedEndDate ? calculateCalendarDays(activeCycle.startDate, activeCycle.expectedEndDate) : 40)
+      ) || 40;
       const elapsedDays = calculateCalendarDays(activeCycle.startDate, todayStr);
-      const daysLeft = 40 - elapsedDays;
-      const extraDays = Math.max(0, elapsedDays - 40);
+      const daysLeft = targetDays - elapsedDays;
+      const extraDays = Math.max(0, elapsedDays - targetDays);
       const party = parties.find((p) => p.id === rent.partyId);
       const partyMobile = party?.mobile || '';
 
@@ -189,12 +198,13 @@ export const DashboardDetailModal: React.FC<DashboardDetailModalProps> = ({
           dailyRate: activeCycle.dailyRate,
           baseRent: activeCycle.baseRent,
           paidAmount: activeCycle.paidAmount,
+          days: targetDays,
           items: rent.items,
         },
         todayStr
       );
 
-      const alertStatus = determineCycleAlertStatus(daysLeft);
+      const alertStatus = determineCycleAlertStatus(daysLeft, targetDays);
       const plateSummary =
         rent.items && rent.items.length > 0
           ? rent.items.map((it) => `${it.plateType} (${it.quantity})`).join(', ')
@@ -207,7 +217,9 @@ export const DashboardDetailModal: React.FC<DashboardDetailModalProps> = ({
         activeCycle.cycleNumber,
         alertStatus.statusType,
         daysLeft,
-        extraDays
+        extraDays,
+        isMr ? 'marathi' : 'english',
+        targetDays
       );
 
       return {
@@ -215,6 +227,7 @@ export const DashboardDetailModal: React.FC<DashboardDetailModalProps> = ({
         party,
         partyMobile,
         activeCycle,
+        targetDays,
         elapsedDays,
         daysLeft,
         extraDays,
@@ -272,12 +285,12 @@ export const DashboardDetailModal: React.FC<DashboardDetailModalProps> = ({
       tabButtonText: isMr ? '+ नवीन पेमेंट जमा नोंदवा' : '+ Record New Payment',
     },
     cycle_alerts: {
-      title: isMr ? '४०-दिवस भाडे मुदत समाप्ती इशारे' : '40-Day Rental Cycle Expiration Alerts',
+      title: isMr ? 'सर्व भाडे मुदत समाप्ती इशारे' : 'Rental Expiration & Overdue Alerts',
       subtitle: isMr
-        ? '४० दिवसांची मुदत पूर्ण झालेल्या व समाप्तीकडे असलेल्या सर्व नोंदी'
-        : 'Agreements expiring within 7 days or overdue exceeding 40 days',
+        ? 'मुदत संपलेल्या व समाप्तीकडे असलेल्या सर्व नोंदींचे रिअल-टाइम ट्रॅकिंग'
+        : 'Agreements expiring within 7 days or overdue across all rental terms',
       icon: Clock,
-      badgeText: `${cycleAlerts.filter((a) => a.daysLeft <= 7).length} ${isMr ? 'लक्ष आवश्यक' : 'Required'}`,
+      badgeText: `${cycleAlerts.filter((a) => a.daysLeft <= 7 || a.rental.status === 'overdue' || a.elapsedDays >= a.targetDays).length} ${isMr ? 'लक्ष आवश्यक' : 'Required'}`,
       targetTab: 'Rentals',
       tabButtonText: isMr ? 'सर्व भाडे नोंदी' : 'View All Rentals',
     },
@@ -332,10 +345,10 @@ export const DashboardDetailModal: React.FC<DashboardDetailModalProps> = ({
       tabButtonText: isMr ? '+ साहित्य जमा करा' : '+ Add Return Intake',
     },
     overdue_rentals: {
-      title: isMr ? 'मुदत संपलेल्या भाडे नोंदी (थकबाकी)' : 'Overdue Rentals Exceeding 40-Day Term',
+      title: isMr ? 'मुदत संपलेल्या भाडे नोंदी (थकबाकी)' : 'Overdue Rentals Past Agreed Term',
       subtitle: isMr
-        ? '४० दिवसांचा कालावधी उलटून गेलेल्या भाडे नोंदी व दंड आकारणी'
-        : 'Agreements past 40 days requiring cycle renewal or return',
+        ? 'ठरवून दिलेल्या मुदतीपेक्षा जास्त दिवस झालेल्या भाडे नोंदी व दंड आकारणी'
+        : 'Agreements past agreed rental term requiring cycle renewal or return',
       icon: AlertTriangle,
       badgeText: `${overdueRentals.length} ${isMr ? 'नोंदी' : 'Agreements'}`,
       targetTab: 'Rentals',
@@ -980,7 +993,7 @@ const OutstandingDuesDetailView: React.FC<{
   );
 };
 
-/** 5. 40-DAY CYCLE ALERTS VIEW */
+/** 5. ALL RENTAL CYCLE EXPIRATION ALERTS VIEW */
 const CycleAlertsDetailView: React.FC<{
   alerts: any[];
   searchTerm: string;
@@ -990,120 +1003,201 @@ const CycleAlertsDetailView: React.FC<{
   onInitiateReturn?: any;
   onClose: () => void;
 }> = ({ alerts, searchTerm, isMr, curT, onRenewRental, onInitiateReturn, onClose }) => {
-  const filtered = alerts.filter((a) => {
+  const [detailFilter, setDetailFilter] = useState<'all_expires' | 'overdue' | 'due_soon' | 'all_active'>('all_expires');
+
+  const expiringAlerts = alerts.filter(
+    (a) => a.daysLeft <= 7 || a.alertStatus.isOverdue || a.rental.status === 'overdue' || a.elapsedDays >= a.targetDays
+  );
+  const overdueAlerts = alerts.filter(
+    (a) => a.daysLeft <= 0 || a.alertStatus.isOverdue || a.rental.status === 'overdue'
+  );
+  const dueSoonAlerts = alerts.filter(
+    (a) => a.daysLeft > 0 && a.daysLeft <= 7
+  );
+
+  const selectedPool =
+    detailFilter === 'overdue'
+      ? overdueAlerts
+      : detailFilter === 'due_soon'
+      ? dueSoonAlerts
+      : detailFilter === 'all_active'
+      ? alerts
+      : expiringAlerts;
+
+  const filtered = selectedPool.filter((a) => {
     const q = searchTerm.toLowerCase();
     return a.rental.partyName.toLowerCase().includes(q) || (a.partyMobile && a.partyMobile.includes(q));
   });
 
   return (
-    <div className="space-y-3">
-      {filtered.map((item) => {
-        const {
-          rental,
-          partyMobile,
-          activeCycle,
-          finances,
-          alertStatus,
-          plateSummary,
-          telLink,
-          whatsappUrl,
-        } = item;
+    <div className="space-y-4">
+      {/* Quick Filter Pill Buttons */}
+      <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-2xl text-xs">
+        <button
+          type="button"
+          onClick={() => setDetailFilter('all_expires')}
+          className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer ${
+            detailFilter === 'all_expires'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          {isMr ? 'समाप्ती इशारे' : 'All Expirations'} ({expiringAlerts.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setDetailFilter('overdue')}
+          className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer ${
+            detailFilter === 'overdue'
+              ? 'bg-rose-600 text-white shadow-xs'
+              : 'text-rose-700 hover:text-rose-900'
+          }`}
+        >
+          {isMr ? 'मुदत संपलेले (थकबाकी)' : 'Overdue'} ({overdueAlerts.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setDetailFilter('due_soon')}
+          className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer ${
+            detailFilter === 'due_soon'
+              ? 'bg-amber-500 text-white shadow-xs'
+              : 'text-amber-700 hover:text-amber-900'
+          }`}
+        >
+          {isMr ? 'लवकरच संपणारे (≤७ दिवस)' : 'Due in ≤7 Days'} ({dueSoonAlerts.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setDetailFilter('all_active')}
+          className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer ${
+            detailFilter === 'all_active'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          {isMr ? 'सर्व सक्रिय नोंदी' : 'All Active Cycles'} ({alerts.length})
+        </button>
+      </div>
 
-        return (
-          <div
-            key={rental.id}
-            className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-purple-300 transition shadow-xs space-y-3"
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
+      <div className="space-y-3">
+        {filtered.map((item) => {
+          const {
+            rental,
+            partyMobile,
+            activeCycle,
+            finances,
+            alertStatus,
+            plateSummary,
+            telLink,
+            whatsappUrl,
+          } = item;
+
+          return (
+            <div
+              key={rental.id}
+              className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-purple-300 transition shadow-xs space-y-3"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-extrabold text-sm text-slate-800">{rental.partyName}</h4>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${alertStatus.badgeColorClass}`}>
+                      {isMr ? alertStatus.statusLabelMr : alertStatus.statusLabel}
+                    </span>
+                    <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full">
+                      {item.targetDays} {curT.cycleAlerts.days}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-mono mt-0.5">
+                    {partyMobile ? `+91 ${partyMobile}` : 'No phone'}
+                  </p>
+                </div>
+
                 <div className="flex items-center gap-2">
-                  <h4 className="font-extrabold text-sm text-slate-800">{rental.partyName}</h4>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${alertStatus.badgeColorClass}`}>
-                    {alertStatus.statusLabel}
+                  <a
+                    href={telLink}
+                    className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl flex items-center gap-1 shadow-xs"
+                  >
+                    <Phone className="w-3 h-3" />
+                    <span>{curT.cycleAlerts.callParty}</span>
+                  </a>
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1 shadow-xs"
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    <span>{curT.cycleAlerts.whatsapp}</span>
+                  </a>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-purple-50/60 p-3 rounded-xl text-xs border border-purple-100/70">
+                <div>
+                  <span className="text-slate-400 block text-[10px] font-semibold">{curT.cycleAlerts.plateAndQty}</span>
+                  <span className="font-bold text-slate-800">{plateSummary}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] font-semibold">{curT.cycleAlerts.activeCycle}</span>
+                  <span className="font-bold text-slate-800">{curT.cycleAlerts.cycle} {activeCycle.cycleNumber}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] font-semibold">{curT.cycleAlerts.daysUsed}</span>
+                  <span className="font-black text-amber-600">
+                    {item.elapsedDays} / {item.targetDays} {curT.cycleAlerts.days}
+                    {item.daysLeft < 0
+                      ? ` (+${item.extraDays}d)`
+                      : item.daysLeft === 0
+                      ? ' (आज समाप्त)'
+                      : ` (${item.daysLeft}d left)`}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 font-mono mt-0.5">
-                  {partyMobile ? `+91 ${partyMobile}` : 'No phone'}
-                </p>
+                <div>
+                  <span className="text-slate-400 block text-[10px] font-semibold">{curT.cycleAlerts.currentPending}</span>
+                  <span className="font-black text-rose-600">₹{finances.pendingAmount.toLocaleString('en-IN')}</span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <a
-                  href={telLink}
-                  className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl flex items-center gap-1 shadow-xs"
-                >
-                  <Phone className="w-3 h-3" />
-                  <span>{curT.cycleAlerts.callParty}</span>
-                </a>
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1 shadow-xs"
-                >
-                  <MessageSquare className="w-3 h-3" />
-                  <span>{curT.cycleAlerts.whatsapp}</span>
-                </a>
+              {/* Action buttons inside alert */}
+              <div className="flex gap-2 justify-end pt-1">
+                {onRenewRental && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onRenewRental(rental.id);
+                    }}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl flex items-center gap-1 transition cursor-pointer"
+                  >
+                    <RotateCw className="w-3.5 h-3.5" />
+                    <span>{curT.cycleAlerts.renewCycle}</span>
+                  </button>
+                )}
+                {onInitiateReturn && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onInitiateReturn(rental);
+                    }}
+                    className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-xl flex items-center gap-1 transition cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>{curT.cycleAlerts.returnIntake}</span>
+                  </button>
+                )}
               </div>
             </div>
+          );
+        })}
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-purple-50/60 p-3 rounded-xl text-xs border border-purple-100/70">
-              <div>
-                <span className="text-slate-400 block text-[10px] font-semibold">{curT.cycleAlerts.plateAndQty}</span>
-                <span className="font-bold text-slate-800">{plateSummary}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] font-semibold">{curT.cycleAlerts.activeCycle}</span>
-                <span className="font-bold text-slate-800">{curT.cycleAlerts.cycle} {activeCycle.cycleNumber}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] font-semibold">{curT.cycleAlerts.daysUsed}</span>
-                <span className="font-black text-amber-600">{item.elapsedDays} {curT.cycleAlerts.days}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] font-semibold">{curT.cycleAlerts.currentPending}</span>
-                <span className="font-black text-rose-600">₹{finances.pendingAmount.toLocaleString('en-IN')}</span>
-              </div>
-            </div>
-
-            {/* Action buttons inside alert */}
-            <div className="flex gap-2 justify-end pt-1">
-              {onRenewRental && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onRenewRental(rental.id);
-                  }}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl flex items-center gap-1 transition cursor-pointer"
-                >
-                  <RotateCw className="w-3.5 h-3.5" />
-                  <span>{curT.cycleAlerts.renewCycle}</span>
-                </button>
-              )}
-              {onInitiateReturn && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onInitiateReturn(rental);
-                  }}
-                  className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-xl flex items-center gap-1 transition cursor-pointer"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>{curT.cycleAlerts.returnIntake}</span>
-                </button>
-              )}
-            </div>
+        {filtered.length === 0 && (
+          <div className="p-8 text-center text-slate-400 italic bg-slate-50 rounded-2xl">
+            {isMr ? 'कोणतेही इशारे नाहीत, सर्व भाडे नियमित आहेत.' : 'No active alerts matching the selected filter.'}
           </div>
-        );
-      })}
-
-      {filtered.length === 0 && (
-        <div className="p-8 text-center text-slate-400 italic bg-slate-50 rounded-2xl">
-          {isMr ? 'कोणतेही इशारे नाहीत, सर्व भाडे नियमित आहेत.' : 'No active alerts. All cycles are within normal term.'}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
@@ -1399,10 +1493,11 @@ const OverdueRentalsDetailView: React.FC<{
         const mobile = party?.mobile || '';
         const { telLink, whatsappPhone } = getCleanPhoneNumber(mobile);
         const cycle = getActiveCycle(rent);
+        const targetDays = Number(cycle.days || rent.days || 40) || 40;
         const elapsed = calculateCalendarDays(cycle.startDate, todayStr);
-        const overdueDays = Math.max(0, elapsed - 40);
+        const overdueDays = Math.max(0, elapsed - targetDays);
         const whatsappMsg = encodeURIComponent(
-          `नमस्कार ${rent.partyName}, आनंद सेंट्रिंग प्लेट्स कडून: आपल्या ४०-दिवस भाडे कराराची मुदत संपली आहे (${overdueDays} दिवस जास्त झाले). कृपया साहित्य जमा करावे किंवा मुदत वाढवून घ्यावी.`
+          `नमस्कार ${rent.partyName}, आनंद सेंट्रिंग प्लेट्स कडून: आपल्या ${targetDays} दिवस भाडे कराराची मुदत संपली आहे (${overdueDays} दिवस जास्त झाले). कृपया साहित्य जमा करावे किंवा मुदत वाढवून घ्यावी.`
         );
 
         return (
@@ -1500,7 +1595,7 @@ const OverdueRentalsDetailView: React.FC<{
 
       {filtered.length === 0 && (
         <div className="p-8 text-center text-slate-400 italic bg-slate-50 rounded-2xl">
-          {isMr ? 'कोणतीही भाडे नोंद मुदत संपलेली नाही.' : 'No overdue rentals exceeding 40-day terms.'}
+          {isMr ? 'कोणतीही भाडे नोंद मुदत संपलेली नाही.' : 'No overdue rentals exceeding agreed terms.'}
         </div>
       )}
     </div>

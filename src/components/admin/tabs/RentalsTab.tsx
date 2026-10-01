@@ -23,7 +23,7 @@ import {
 import { RenewRentalModal } from '../modals/RenewRentalModal';
 import { RentalBillModal } from '../modals/RentalBillModal';
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
-import { formatMarathiDate, formatDateRange } from '../../../utils/marathiUtils';
+import { formatMarathiDate, formatDateRange, matchRentalSearch, type RentalSearchTarget } from '../../../utils/marathiUtils';
 
 interface PlateRowItem {
   id: string;
@@ -197,14 +197,19 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
     return 'active';
   };
 
-  // Helper to reliably look up a customer's sequential serial number across parties & rental records
-  const getCustomerNumberForRental = (rental: Rental): number => {
+  // Helper to find associated party for a rental
+  const getPartyForRental = (rental: Rental): Party | undefined => {
     const normName = (rental.partyName || '').trim().toLowerCase().replace(/\s+/g, ' ');
-    const matchedParty = parties.find(
+    return parties.find(
       (p) =>
         (rental.partyId && p.id === rental.partyId) ||
         (p.name && p.name.trim().toLowerCase().replace(/\s+/g, ' ') === normName)
     );
+  };
+
+  // Helper to reliably look up a customer's sequential serial number across parties & rental records
+  const getCustomerNumberForRental = (rental: Rental): number => {
+    const matchedParty = getPartyForRental(rental);
     if (matchedParty?.customerNumber) {
       return matchedParty.customerNumber;
     }
@@ -215,9 +220,13 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   };
 
   const filteredRentals = rentals.filter((r) => {
-    const matchesSearch =
-      r.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.plateType.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchedParty = getPartyForRental(r);
+    const searchTarget: RentalSearchTarget = {
+      ...r,
+      party: matchedParty,
+      customerNumber: getCustomerNumberForRental(r),
+    };
+    const matchesSearch = matchRentalSearch(searchTarget, searchTerm);
 
     const effectiveStatus = getEffectiveRentalStatus(r);
     const matchesStatus = statusFilter === 'All' || effectiveStatus === statusFilter;
@@ -433,9 +442,23 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={isMarathi ? 'ग्राहक नाव किंवा साईझने शोधा...' : 'Search by party name or size...'}
-              className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none pl-10 pr-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium"
+              placeholder={
+                isMarathi
+                  ? 'बिल नं., ग्राहक नाव किंवा साइटने शोधा...'
+                  : 'Search by bill #, customer name, site...'
+              }
+              className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none pl-10 pr-9 py-2.5 rounded-xl text-xs sm:text-sm font-medium"
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                title={isMarathi ? 'शोध साफ करा' : 'Clear search'}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
           {/* Status Filter */}
@@ -537,6 +560,8 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                   rent.status === 'returned' ? 'returned' : isOverdue ? 'overdue' : 'active';
 
                 const currentCustNum = getCustomerNumberForRental(rent);
+                const matchedParty = getPartyForRental(rent);
+                const partyAddress = matchedParty?.address?.trim();
                 const prevCustNum = idx > 0 ? getCustomerNumberForRental(sortedRentals[idx - 1]) : null;
                 const isNewCustomerGroup = sortBy === 'customer-serial' && currentCustNum !== prevCustNum;
 
@@ -549,6 +574,15 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                             <span className="font-black text-primary">{isMarathi ? 'ग्राहक' : 'Customer'} #{currentCustNum}</span>
                             <span className="text-slate-300">•</span>
                             <span className="text-slate-800 font-bold uppercase">{rent.partyName}</span>
+                            {partyAddress && (
+                              <>
+                                <span className="text-slate-300">•</span>
+                                <span className="text-slate-500 font-normal font-sans text-[11px] inline-flex items-center gap-1" title={partyAddress}>
+                                  <span className="text-slate-400">📍</span>
+                                  <span className="max-w-[280px] truncate">{partyAddress}</span>
+                                </span>
+                              </>
+                            )}
                           </span>
                         </td>
                       </tr>
@@ -610,12 +644,24 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                           )}
                           <span className="font-bold text-slate-900 text-sm">{rent.partyName}</span>
                         </div>
-                        <div className="text-[11px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
+                        <div className="text-[11px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5 flex-wrap">
                           <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded text-[10px]">
                             {isMarathi ? 'ग्राहक' : 'Cust'} #{currentCustNum}
                           </span>
                           <span>•</span>
                           <span>{isMarathi ? 'वाटप' : 'Disp'}: {formatMarathiDate(rent.issueDate)}</span>
+                          {partyAddress && (
+                            <>
+                              <span className="text-slate-300">•</span>
+                              <span
+                                className="inline-flex items-center gap-1 text-[11px] font-sans font-medium text-slate-600 bg-slate-100/90 hover:bg-slate-200/70 transition-colors px-1.5 py-0.5 rounded max-w-[220px] truncate"
+                                title={`${isMarathi ? 'कामाचे ठिकाण (साइट पत्ता)' : 'Site / Delivery Address'}: ${partyAddress}`}
+                              >
+                                <span className="text-slate-400 text-[10px]">📍</span>
+                                <span className="truncate">{partyAddress}</span>
+                              </span>
+                            </>
+                          )}
                         </div>
                       </td>
 
@@ -821,7 +867,9 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
               ) : filteredRentals.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-10 text-center text-slate-400 font-light italic">
-                    No dispatches found matching query.
+                    {isMarathi
+                      ? 'शोध निकषांनुसार कोणतेही भाडे वाटप आढळले नाही (बिल क्र., ग्राहक नाव, किंवा साइट पत्ता तपासा).'
+                      : 'No dispatches found matching query (check bill #, customer name, or site address).'}
                   </td>
                 </tr>
               ) : null}
@@ -1345,6 +1393,11 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
               (p.rentalId && p.rentalId === billTarget.id) ||
               (p.partyId && p.partyId === billTarget.partyId)
           )}
+          returns={returns?.filter(
+            (r) =>
+              (r.rentalId && r.rentalId === billTarget.id) ||
+              (r.partyId && r.partyId === billTarget.partyId)
+          ) || []}
           finances={getLiveCycleData(billTarget).finances}
           billNumber={billTarget.billNumber}
           customerNumber={getCustomerNumberForRental(billTarget)}
