@@ -1971,6 +1971,400 @@ export async function factoryResetAllDatabase(): Promise<void> {
   } catch {}
 }
 
+/**
+ * Seeds sample starter data (plates, stock, customers, rentals, payments)
+ * Useful when starting on a fresh database or testing a new deployment.
+ */
+export async function seedSampleStarterData(): Promise<void> {
+  const dateTenDaysAgo = new Date(Date.now() - 10 * 86400000).toISOString().split('T')[0];
+  const dateTwentyDaysAgo = new Date(Date.now() - 20 * 86400000).toISOString().split('T')[0];
+
+  // 1. Plate types
+  const samplePlateTypes: PlateTypeRecord[] = STANDARD_PLATE_SIZES.map((size) => ({
+    id: `pt-${size.replace('×', 'x')}`,
+    plate_size: size,
+    daily_rate: 1.5,
+    active: true,
+    status: 'available',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }));
+
+  // 2. Inventory stock (Total 830 plates owned)
+  const sampleStock: InventoryStockItem[] = [
+    { id: 'stock-1', plate_size: '24×3', quantity: 200, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
+    { id: 'stock-2', plate_size: '21×3', quantity: 150, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
+    { id: 'stock-3', plate_size: '18×3', quantity: 150, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
+    { id: 'stock-4', plate_size: '15×3', quantity: 100, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
+    { id: 'stock-5', plate_size: '12×3', quantity: 100, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
+    { id: 'stock-6', plate_size: '9×3', quantity: 80, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
+    { id: 'stock-7', plate_size: '6×3', quantity: 50, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
+  ];
+
+  // 3. Parties
+  const party1Id = 'party-ramesh-patil';
+  const party2Id = 'party-ganesh-shinde';
+  const party3Id = 'party-mauli-const';
+
+  const sampleParties: PartyRecord[] = [
+    {
+      id: party1Id,
+      name: 'रमेश पाटील (Ramesh Patil)',
+      mobile: '9881985058',
+      address: 'प्लॉट क्र. १२, जुना विडी घरकुल, सोलापूर',
+      notes: 'विश्वसनीय ग्राहक, नियमित बांधकाम कंत्राटदार',
+      status: 'active',
+      created_at: dateTwentyDaysAgo + 'T10:00:00Z',
+    },
+    {
+      id: party2Id,
+      name: 'गणेश शिंदे (Ganesh Shinde)',
+      mobile: '9021519582',
+      address: 'जुळे सोलापूर, डी-मार्ट जवळ',
+      notes: 'स्लॅब कामासाठी सेंट्रिंग साहित्य',
+      status: 'active',
+      created_at: dateTenDaysAgo + 'T11:00:00Z',
+    },
+    {
+      id: party3Id,
+      name: 'माउली कन्स्ट्रक्शन (Mauli Construction)',
+      mobile: '7020914957',
+      address: 'होटगी रोड, विमानतळ जवळ, सोलापूर',
+      notes: 'कमर्शियल कॉम्प्लेक्स साईट',
+      status: 'active',
+      created_at: dateTwentyDaysAgo + 'T09:30:00Z',
+    },
+  ];
+
+  // 4. Rentals and cycles
+  const rental1Id = 'rent-sample-01';
+  const rental2Id = 'rent-sample-02';
+  const rental3Id = 'rent-sample-03';
+
+  const cycle1End = calculateExpectedCycleEndDate(dateTwentyDaysAgo, 40);
+  const sampleRentals: RentalRecord[] = [
+    {
+      id: rental1Id,
+      party_id: party1Id,
+      party_name: 'रमेश पाटील (Ramesh Patil)',
+      plate_type: '24×3',
+      quantity: 120,
+      daily_rate: 1.5,
+      issue_date: dateTwentyDaysAgo,
+      days: 40,
+      total_rent: 7200,
+      paid_amount: 2000,
+      pending_amount: 5200,
+      payment_mode: 'Cash',
+      payment_status: 'partial',
+      status: 'active',
+      items: [
+        { plateType: '24×3', quantity: 80, dailyRate: 1.5, days: 40 },
+        { plateType: '18×3', quantity: 40, dailyRate: 1.5, days: 40 },
+      ],
+      current_cycle_number: 1,
+      current_cycle_start_date: dateTwentyDaysAgo,
+      current_cycle_end_date: cycle1End,
+      created_at: dateTwentyDaysAgo + 'T10:15:00Z',
+    },
+    {
+      id: rental2Id,
+      party_id: party2Id,
+      party_name: 'गणेश शिंदे (Ganesh Shinde)',
+      plate_type: '21×3',
+      quantity: 50,
+      daily_rate: 1.5,
+      issue_date: dateTenDaysAgo,
+      days: 40,
+      total_rent: 3000,
+      paid_amount: 1500,
+      pending_amount: 1500,
+      payment_mode: 'Account 1',
+      payment_status: 'partial',
+      status: 'active',
+      items: [
+        { plateType: '21×3', quantity: 50, dailyRate: 1.5, days: 40 },
+      ],
+      current_cycle_number: 1,
+      current_cycle_start_date: dateTenDaysAgo,
+      current_cycle_end_date: calculateExpectedCycleEndDate(dateTenDaysAgo, 40),
+      created_at: dateTenDaysAgo + 'T11:20:00Z',
+    },
+    {
+      id: rental3Id,
+      party_id: party3Id,
+      party_name: 'माउली कन्स्ट्रक्शन (Mauli Construction)',
+      plate_type: '24×3',
+      quantity: 100,
+      daily_rate: 1.5,
+      issue_date: dateTwentyDaysAgo,
+      days: 40,
+      total_rent: 6000,
+      paid_amount: 3000,
+      pending_amount: 3000,
+      payment_mode: 'Account 2',
+      payment_status: 'partial',
+      status: 'active',
+      items: [
+        { plateType: '24×3', quantity: 100, dailyRate: 1.5, days: 40 },
+      ],
+      current_cycle_number: 1,
+      current_cycle_start_date: dateTwentyDaysAgo,
+      current_cycle_end_date: cycle1End,
+      created_at: dateTwentyDaysAgo + 'T09:45:00Z',
+    },
+  ];
+
+  const sampleCycles: RentalCycleRecord[] = sampleRentals.map((r) => ({
+    id: `cyc-${r.id}-1`,
+    rental_id: r.id,
+    party_id: r.party_id,
+    cycle_number: 1,
+    start_date: r.issue_date,
+    expected_end_date: r.current_cycle_end_date || calculateExpectedCycleEndDate(r.issue_date, 40),
+    days: 40,
+    extra_days: 0,
+    daily_rate: r.daily_rate,
+    quantity: r.quantity,
+    base_rent: r.total_rent,
+    extra_amount: 0,
+    total_amount: r.total_rent,
+    paid_amount: r.paid_amount,
+    pending_amount: r.pending_amount,
+    status: 'active',
+    items: r.items,
+    created_at: r.created_at,
+  }));
+
+  // 5. Payments
+  const samplePayments: PaymentRecord[] = [
+    {
+      id: 'pay-sample-01',
+      party_id: party1Id,
+      party_name: 'रमेश पाटील (Ramesh Patil)',
+      rental_id: rental1Id,
+      cycle_id: `cyc-${rental1Id}-1`,
+      cycle_number: 1,
+      amount: 2000,
+      payment_date: dateTwentyDaysAgo,
+      payment_mode: 'Cash',
+      reference: 'रोख ॲडव्हान्स जमा',
+      notes: 'नवीन भाडे वाटप ॲडव्हान्स',
+      status: 'verified',
+      type: 'payment',
+      created_at: dateTwentyDaysAgo + 'T10:16:00Z',
+    },
+    {
+      id: 'pay-sample-02',
+      party_id: party2Id,
+      party_name: 'गणेश शिंदे (Ganesh Shinde)',
+      rental_id: rental2Id,
+      cycle_id: `cyc-${rental2Id}-1`,
+      cycle_number: 1,
+      amount: 1500,
+      payment_date: dateTenDaysAgo,
+      payment_mode: 'Account 1',
+      reference: 'NEFT-8849102',
+      notes: 'बँक ट्रान्सफर ॲडव्हान्स',
+      status: 'verified',
+      type: 'payment',
+      created_at: dateTenDaysAgo + 'T11:25:00Z',
+    },
+    {
+      id: 'pay-sample-03',
+      party_id: party3Id,
+      party_name: 'माउली कन्स्ट्रक्शन (Mauli Construction)',
+      rental_id: rental3Id,
+      cycle_id: `cyc-${rental3Id}-1`,
+      cycle_number: 1,
+      amount: 3000,
+      payment_date: dateTwentyDaysAgo,
+      payment_mode: 'Account 2',
+      reference: 'UPI-994827104',
+      notes: 'गुगल पे ॲडव्हान्स जमा',
+      status: 'verified',
+      type: 'payment',
+      created_at: dateTwentyDaysAgo + 'T09:50:00Z',
+    },
+  ];
+
+  // 6. Ledger entries
+  const sampleLedger: LedgerEntryRecord[] = [
+    {
+      id: 'led-1',
+      party_id: party1Id,
+      date: dateTwentyDaysAgo,
+      description: 'भाडे वाटप (Bill #1) - १२० सेंट्रिंग प्लेट्स (४० दिवस)',
+      debit: 7200,
+      credit: 0,
+      balance: 7200,
+    },
+    {
+      id: 'led-2',
+      party_id: party1Id,
+      date: dateTwentyDaysAgo,
+      description: 'ॲडव्हान्स रोख जमा (Cash)',
+      debit: 0,
+      credit: 2000,
+      balance: 5200,
+    },
+    {
+      id: 'led-3',
+      party_id: party2Id,
+      date: dateTenDaysAgo,
+      description: 'भाडे वाटप (Bill #2) - ५० सेंट्रिंग प्लेट्स (४० दिवस)',
+      debit: 3000,
+      credit: 0,
+      balance: 3000,
+    },
+    {
+      id: 'led-4',
+      party_id: party2Id,
+      date: dateTenDaysAgo,
+      description: 'ॲडव्हान्स बँक जमा (Account 1)',
+      debit: 0,
+      credit: 1500,
+      balance: 1500,
+    },
+    {
+      id: 'led-5',
+      party_id: party3Id,
+      date: dateTwentyDaysAgo,
+      description: 'भाडे वाटप (Bill #3) - १०० सेंट्रिंग प्लेट्स (४० दिवस)',
+      debit: 6000,
+      credit: 0,
+      balance: 6000,
+    },
+    {
+      id: 'led-6',
+      party_id: party3Id,
+      date: dateTwentyDaysAgo,
+      description: 'ॲडव्हान्स UPI जमा (Account 2)',
+      debit: 0,
+      credit: 3000,
+      balance: 3000,
+    },
+  ];
+
+  // 7. Notifications
+  const sampleNotifications: NotificationRecord[] = [
+    {
+      id: 'notif-1',
+      party_id: party1Id,
+      type: 'payment',
+      title: 'नवीन पेमेंट नोंद',
+      message: 'रमेश पाटील यांच्याकडून ₹२,००० रोख जमा झाले.',
+      date: dateTwentyDaysAgo,
+      is_read: false,
+    },
+    {
+      id: 'notif-2',
+      party_id: party3Id,
+      type: 'due',
+      title: 'भाडे वाटप नोंद',
+      message: 'माउली कन्स्ट्रक्शन यांना १०० प्लेट्स (४० दिवस) वितरित करण्यात आल्या.',
+      date: dateTwentyDaysAgo,
+      is_read: false,
+    },
+  ];
+
+  // Save all to localStorage
+  setLocal('plate_types', samplePlateTypes);
+  setLocal('inventory_stock', sampleStock);
+  setLocal('parties', sampleParties);
+  setLocal('rentals', sampleRentals);
+  setLocal('rental_cycles', sampleCycles);
+  setLocal('returns', []);
+  setLocal('payments', samplePayments);
+  setLocal('ledger_entries', sampleLedger);
+  setLocal('notifications', sampleNotifications);
+
+  // If Supabase is connected, insert them into remote tables too
+  if (supabase) {
+    try {
+      await supabase.from('plate_types').upsert(samplePlateTypes);
+      await supabase.from('inventory_stock').upsert(sampleStock);
+      await supabase.from('parties').upsert(sampleParties);
+      await supabase.from('rentals').upsert(sampleRentals);
+      await supabase.from('rental_cycles').upsert(sampleCycles);
+      await supabase.from('payments').upsert(samplePayments);
+      await supabase.from('ledger_entries').upsert(sampleLedger);
+      await supabase.from('notifications').upsert(sampleNotifications);
+    } catch (remoteErr) {
+      console.warn('Could not sync sample data to remote Supabase:', remoteErr);
+    }
+  }
+}
+
+/**
+ * Restores all database data from a JSON backup object.
+ */
+export async function restoreBackupData(backupData: any): Promise<{ success: boolean; message: string }> {
+  if (!backupData || typeof backupData !== 'object') {
+    throw new Error('Invalid backup file format');
+  }
+
+  const parties = Array.isArray(backupData.parties) ? backupData.parties : [];
+  const rentals = Array.isArray(backupData.rentals) ? backupData.rentals : [];
+  const rentalCycles = Array.isArray(backupData.rentalCycles) ? backupData.rentalCycles : [];
+  const returns = Array.isArray(backupData.returns) ? backupData.returns : [];
+  const payments = Array.isArray(backupData.payments) ? backupData.payments : [];
+  const stockItems = Array.isArray(backupData.stockItems)
+    ? backupData.stockItems
+    : Array.isArray(backupData.inventory_stock)
+    ? backupData.inventory_stock
+    : [];
+  const plateTypes = Array.isArray(backupData.plateTypes)
+    ? backupData.plateTypes
+    : Array.isArray(backupData.plate_types)
+    ? backupData.plate_types
+    : [];
+  const ledgerEntries = Array.isArray(backupData.ledgerEntries)
+    ? backupData.ledgerEntries
+    : Array.isArray(backupData.ledger_entries)
+    ? backupData.ledger_entries
+    : [];
+  const notifications = Array.isArray(backupData.notifications) ? backupData.notifications : [];
+
+  if (parties.length > 0) setLocal('parties', parties);
+  if (rentals.length > 0) setLocal('rentals', rentals);
+  if (rentalCycles.length > 0) setLocal('rental_cycles', rentalCycles);
+  if (returns.length > 0) setLocal('returns', returns);
+  if (payments.length > 0) setLocal('payments', payments);
+  if (stockItems.length > 0) setLocal('inventory_stock', stockItems);
+  if (plateTypes.length > 0) setLocal('plate_types', plateTypes);
+  if (ledgerEntries.length > 0) setLocal('ledger_entries', ledgerEntries);
+  if (notifications.length > 0) setLocal('notifications', notifications);
+
+  if (backupData.billConfig) {
+    try {
+      localStorage.setItem('anand_bill_template_config', JSON.stringify(backupData.billConfig));
+    } catch {}
+  }
+
+  // If Supabase client is connected, upsert records to remote database
+  if (supabase) {
+    try {
+      if (plateTypes.length > 0) await supabase.from('plate_types').upsert(plateTypes);
+      if (stockItems.length > 0) await supabase.from('inventory_stock').upsert(stockItems);
+      if (parties.length > 0) await supabase.from('parties').upsert(parties);
+      if (rentals.length > 0) await supabase.from('rentals').upsert(rentals);
+      if (rentalCycles.length > 0) await supabase.from('rental_cycles').upsert(rentalCycles);
+      if (returns.length > 0) await supabase.from('returns').upsert(returns);
+      if (payments.length > 0) await supabase.from('payments').upsert(payments);
+      if (ledgerEntries.length > 0) await supabase.from('ledger_entries').upsert(ledgerEntries);
+      if (notifications.length > 0) await supabase.from('notifications').upsert(notifications);
+    } catch (err: any) {
+      console.warn('Failed syncing restored backup to Supabase:', err);
+    }
+  }
+
+  return {
+    success: true,
+    message: `Restored ${parties.length} parties, ${rentals.length} rentals, and ${payments.length} payments.`,
+  };
+}
+
 // Re-export deduplication engine
 export * from './deduplication';
 

@@ -93,6 +93,8 @@ import {
   clearAllParties,
   clearAllNotifications,
   factoryResetAllDatabase,
+  seedSampleStarterData,
+  restoreBackupData,
   type RentalItemRecord,
 } from '../../lib/supabase';
 import type { DeleteDataCategory } from './modals/DeleteDataConfirmModal';
@@ -2377,6 +2379,44 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
     }
   };
 
+  const handleLoadSampleData = async () => {
+    try {
+      setIsLoading(true);
+      await seedSampleStarterData();
+      await loadAllData(false);
+      addToast(
+        'success',
+        appLanguage === 'marathi'
+          ? 'नमुना (डेमो) डेटा यशस्वीरीत्या लोड झाला!'
+          : 'Sample starter data loaded successfully!'
+      );
+    } catch (err: any) {
+      console.error('Failed to load sample data:', err);
+      addToast('error', 'Failed to load sample data.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRestoreBackup = async (backupJson: any) => {
+    try {
+      setIsLoading(true);
+      const res = await restoreBackupData(backupJson);
+      await loadAllData(false);
+      addToast(
+        'success',
+        appLanguage === 'marathi'
+          ? 'डेटा बॅकअप यशस्वीरीत्या रिस्टोअर झाला!'
+          : res.message || 'Backup restored successfully!'
+      );
+    } catch (err: any) {
+      console.error('Failed to restore backup:', err);
+      addToast('error', err?.message || 'Failed to restore backup.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Render Page Content based on selected Active tab
   const renderTabContent = () => {
     if (isLoading) {
@@ -2401,6 +2441,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             onTabChange={handleTabChange}
             onRenewRental={handleRenewRental}
             onInitiateReturn={handleInitiateReturn}
+            onLoadSampleData={handleLoadSampleData}
             appLanguage={appLanguage}
           />
         );
@@ -2517,8 +2558,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             rentalCycles={rentalCycles}
             payments={payments}
             returns={returns}
+            stockItems={stockItems}
+            plateSettings={plateSettings}
+            ledger={ledger}
+            notifications={notifications}
             onDeduplicate={handleDeduplicateData}
             onDeleteData={handleDeleteData}
+            onLoadSampleData={handleLoadSampleData}
+            onRestoreBackup={handleRestoreBackup}
             appLanguage={appLanguage}
           />
         );

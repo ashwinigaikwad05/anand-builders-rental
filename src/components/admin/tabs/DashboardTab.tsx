@@ -19,6 +19,8 @@ import {
   MessageSquare,
   AlertCircle,
   X,
+  Sparkles,
+  Upload,
 } from 'lucide-react';
 import type { Party, PlateStock, Rental, Payment, ReturnLog, RentalCycle, RentalItem } from '../../../data/adminMockData';
 import {
@@ -63,6 +65,7 @@ interface DashboardTabProps {
     penalty?: number
   ) => Promise<void>;
   onInitiateReturn?: (rental: Rental) => void;
+  onLoadSampleData?: () => Promise<void>;
   appLanguage?: AppLanguage;
 }
 
@@ -76,9 +79,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   onTabChange,
   onRenewRental,
   onInitiateReturn,
+  onLoadSampleData,
   appLanguage,
 }) => {
   const todayStr = new Date().toISOString().split('T')[0];
+  const [isSeeding, setIsSeeding] = useState(false);
 
   // Selected Language State
   const [currentLang, setCurrentLang] = useState<AppLanguage>(() => appLanguage || getStoredAppLanguage());
@@ -352,6 +357,53 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty Database State Notice (When 0 plates, 0 parties, 0 rentals) */}
+      {totalPlates === 0 && parties.length === 0 && rentals.length === 0 && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-primary/10 to-orange-500/10 border-2 border-primary/30 rounded-3xl p-6 sm:p-7 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm animate-fadeIn">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
+              <h4 className="text-base font-black text-slate-900 tracking-tight">
+                {currentLang === 'marathi' ? 'नवीन सिस्टीम सुरू झाली आहे (० नोंदी)' : 'Fresh System Initialized (0 Records)'}
+              </h4>
+            </div>
+            <p className="text-xs text-slate-600 font-medium max-w-xl leading-relaxed">
+              {currentLang === 'marathi'
+                ? 'सध्या पोर्टलमध्ये कोणताही डेटा नाही. प्रणाली तपासण्यासाठी आपण एका क्लिकवर नमुना (डेमो) डेटा लोड करू शकता किंवा सेटिंग्समधून बॅकअप फाइल अपलोड करू शकता.'
+                : 'The admin portal currently has 0 records. You can load sample demo data with 1 click to test the dashboard, or restore a backup file in Settings.'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {onLoadSampleData && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    setIsSeeding(true);
+                    await onLoadSampleData();
+                  } finally {
+                    setIsSeeding(false);
+                  }
+                }}
+                disabled={isSeeding}
+                className="px-4 py-2.5 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl shadow-md hover:shadow-orange-500/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isSeeding ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                <span>{currentLang === 'marathi' ? '⚡ नमुना डेटा लोड करा' : '⚡ Load Sample Data'}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onTabChange('Settings')}
+              className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <Upload className="w-4 h-4 text-slate-500" />
+              <span>{currentLang === 'marathi' ? 'बॅकअप रिस्टोअर करा' : 'Restore Backup'}</span>
+            </button>
           </div>
         </div>
       )}

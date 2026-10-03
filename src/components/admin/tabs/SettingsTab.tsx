@@ -33,6 +33,8 @@ import type { Rental, Party, RentalCycle, Payment, ReturnLog } from '../../../da
 import {
   Database,
   Download,
+  Upload,
+  Sparkles,
   ShieldAlert,
   Users,
   ClipboardList,
@@ -48,8 +50,14 @@ interface SettingsTabProps {
   rentalCycles?: RentalCycle[];
   payments?: Payment[];
   returns?: ReturnLog[];
+  stockItems?: any[];
+  plateSettings?: any[];
+  ledger?: any[];
+  notifications?: any[];
   onDeduplicate?: () => Promise<any>;
   onDeleteData?: (category: DeleteDataCategory) => Promise<void>;
+  onLoadSampleData?: () => Promise<void>;
+  onRestoreBackup?: (backupData: any) => Promise<void>;
   appLanguage?: AppLanguage;
 }
 
@@ -59,8 +67,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   rentalCycles = [],
   payments = [],
   returns = [],
+  stockItems = [],
+  plateSettings = [],
+  ledger = [],
+  notifications = [],
   onDeduplicate,
   onDeleteData,
+  onLoadSampleData,
+  onRestoreBackup,
   appLanguage,
 }) => {
   // Business branding & parameters
@@ -95,6 +109,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [selectedDeleteCategory, setSelectedDeleteCategory] = useState<DeleteDataCategory | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeduplicating, setIsDeduplicating] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const handleOpenDeleteModal = (category: DeleteDataCategory) => {
     setSelectedDeleteCategory(category);
@@ -113,12 +130,17 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         totalReturns: returns.length,
         totalPayments: payments.length,
         totalParties: parties.length,
+        totalStock: stockItems.length,
       },
       rentals,
       rentalCycles,
       returns,
       payments,
       parties,
+      stockItems,
+      plateSettings,
+      ledgerEntries: ledger,
+      notifications,
       billConfig,
     };
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupData, null, 2));
@@ -131,6 +153,42 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+  };
+
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsRestoring(true);
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (onRestoreBackup) {
+        await onRestoreBackup(parsed);
+      }
+    } catch (err: any) {
+      alert(
+        isMarathi
+          ? 'बॅकअप फाइल वाचताना त्रुटी आली: ' + (err?.message || 'अवैध फाइल स्वरूप')
+          : 'Error reading backup file: ' + (err?.message || 'Invalid format')
+      );
+    } finally {
+      setIsRestoring(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleLoadSample = async () => {
+    if (!onLoadSampleData) return;
+    const confirmMsg = isMarathi
+      ? 'नमुना (डेमो) साहित्य, ग्राहक आणि भाडे नोंदी लोड करायच्या आहेत का?'
+      : 'Load starter demo plates, customers, and rental records?';
+    if (!window.confirm(confirmMsg)) return;
+    try {
+      setIsSeeding(true);
+      await onLoadSampleData();
+    } finally {
+      setIsSeeding(false);
+    }
   };
 
   const handleRunDeduplication = async () => {
@@ -1031,6 +1089,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
           {/* Quick Utility Actions */}
           <div className="flex items-center gap-2.5 flex-wrap">
+            {/* Hidden JSON file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".json"
+              onChange={handleFileImport}
+              className="hidden"
+            />
+
             <button
               type="button"
               onClick={handleDownloadBackup}
@@ -1040,6 +1107,40 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <Download className="w-3.5 h-3.5 text-slate-600" />
               <span>{isMarathi ? 'बॅकअप डाउनलोड करा' : 'Download Backup (JSON)'}</span>
             </button>
+
+            {onRestoreBackup && (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isRestoring}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors cursor-pointer"
+                title="Upload and restore a JSON data backup"
+              >
+                {isRestoring ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5" />
+                )}
+                <span>{isMarathi ? 'बॅकअप अपलोड करा' : 'Restore Backup (JSON)'}</span>
+              </button>
+            )}
+
+            {onLoadSampleData && (
+              <button
+                type="button"
+                onClick={handleLoadSample}
+                disabled={isSeeding}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition-colors cursor-pointer"
+                title="Populate system with verified starter plates, customers, and rentals"
+              >
+                {isSeeding ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
+                <span>{isMarathi ? '⚡ नमुना डेटा लोड करा' : '⚡ Load Sample Data'}</span>
+              </button>
+            )}
 
             {onDeduplicate && (
               <button
