@@ -874,19 +874,19 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
           {/* Party Directory Table */}
           <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead>
                   <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                    <th className="px-4 py-4 text-center w-16">{isMarathi ? 'ग्राहक क्र.' : 'Cust #'}</th>
-                    <th className="px-6 py-4">{isMarathi ? 'ग्राहकाचे नाव' : 'Party Name'}</th>
-                    <th className="px-6 py-4">{isMarathi ? 'मोबाईल' : 'Mobile'}</th>
-                    <th className="px-6 py-4">{isMarathi ? 'व्यवहार गुणवत्ता' : 'Behaviour Rating'}</th>
-                    <th className="px-6 py-4">{isMarathi ? 'सक्रिय प्लेट्स' : 'Plates Active'}</th>
-                    <th className="px-6 py-4">{isMarathi ? 'एकूण भाडे' : 'Accum. Rent'}</th>
-                    <th className="px-6 py-4">{isMarathi ? 'जमा रक्कम' : 'Paid'}</th>
-                    <th className="px-6 py-4">{isMarathi ? 'थकबाकी' : 'Outstanding Dues'}</th>
-                    <th className="px-6 py-4">{isMarathi ? 'स्थिती' : 'Status'}</th>
-                    <th className="px-6 py-4 text-center">{isMarathi ? 'कृती' : 'Actions'}</th>
+                    <th className="px-4 py-3.5 text-center w-16">{isMarathi ? 'ग्राहक क्र.' : 'Cust #'}</th>
+                    <th className="px-5 py-3.5 min-w-[260px]">{isMarathi ? 'ग्राहकाचे नाव' : 'Party Name'}</th>
+                    <th className="px-5 py-3.5 min-w-[150px]">{isMarathi ? 'मोबाईल' : 'Mobile'}</th>
+                    <th className="px-5 py-3.5 min-w-[130px]">{isMarathi ? 'व्यवहार गुणवत्ता' : 'Behaviour Rating'}</th>
+                    <th className="px-4 py-3.5 text-center min-w-[90px]">{isMarathi ? 'सक्रिय प्लेट्स' : 'Plates Active'}</th>
+                    <th className="px-4 py-3.5 min-w-[110px]">{isMarathi ? 'एकूण भाडे' : 'Accum. Rent'}</th>
+                    <th className="px-4 py-3.5 min-w-[100px]">{isMarathi ? 'जमा रक्कम' : 'Paid'}</th>
+                    <th className="px-4 py-3.5 min-w-[110px]">{isMarathi ? 'थकबाकी' : 'Outstanding Dues'}</th>
+                    <th className="px-4 py-3.5 text-center min-w-[90px]">{isMarathi ? 'स्थिती' : 'Status'}</th>
+                    <th className="px-4 py-3.5 text-center min-w-[150px]">{isMarathi ? 'कृती' : 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-light">
@@ -897,78 +897,106 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
 
                     return (
                       <tr key={party.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-4 py-4 text-center whitespace-nowrap">
+                        <td className="px-4 py-3 text-center whitespace-nowrap">
                           <span className="font-mono font-black text-xs px-2.5 py-1 rounded-xl bg-orange-50 text-primary border border-orange-200">
                             #{party.customerNumber || 1}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-5 py-3 whitespace-nowrap min-w-[260px]">
                           <div className="flex items-center gap-3">
                             {/* Party Face Avatar */}
                             {party.photoUrl ? (
                               <img
                                 src={party.photoUrl}
                                 alt={party.name}
-                                onClick={() => handleOpenLightbox(party.photoUrl!, party.name, 'Customer Face Photo')}
-                                className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-xs cursor-pointer hover:opacity-85 transition flex-shrink-0"
+                                onClick={() => handleOpenLightbox(party.photoUrl!, party.name, isMarathi ? 'ग्राहक चेहरा फोटो' : 'Customer Face Photo')}
+                                className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-xs cursor-pointer hover:opacity-85 transition shrink-0"
                                 title="Click to enlarge photo"
                               />
                             ) : (
-                              <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-black text-slate-600 flex-shrink-0">
+                              <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-black text-slate-600 shrink-0">
                                 {party.name.charAt(0).toUpperCase()}
                               </div>
                             )}
-                            <div>
-                              <div className="font-bold text-slate-800">{party.name}</div>
-                              {/* Document Badges */}
-                              <div className="flex items-center gap-1 mt-1 flex-wrap">
-                                <span
-                                  className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                            <div className="min-w-0">
+                              <div className="font-bold text-slate-800 text-sm whitespace-nowrap">{party.name}</div>
+                              {/* Document Badges - Horizontal Single Row */}
+                              <div className="flex items-center gap-1 mt-1 whitespace-nowrap flex-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (party.photoUrl) handleOpenLightbox(party.photoUrl, party.name, isMarathi ? 'ग्राहक चेहरा फोटो' : 'Customer Face Photo');
+                                    else handleOpenEdit(party);
+                                  }}
+                                  className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded transition ${
                                     party.photoUrl
-                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                      : 'bg-slate-50 text-slate-400 border border-slate-200'
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                                      : 'bg-slate-50 text-slate-400 border border-slate-200 hover:border-slate-300'
                                   }`}
-                                  title={party.photoUrl ? 'Face Photo: Uploaded' : 'Face Photo: Not uploaded'}
+                                  title={party.photoUrl ? (isMarathi ? 'चेहरा फोटो: अपलोड (पहा)' : 'Face Photo: Uploaded (Click to view)') : (isMarathi ? 'चेहरा फोटो: नाही (जोडा)' : 'Face Photo: Missing')}
                                 >
-                                  <Camera className="w-2.5 h-2.5" /> Photo
-                                </span>
-                                <span
-                                  className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                  <Camera className="w-2.5 h-2.5" />
+                                  <span>{isMarathi ? 'फोटो' : 'Photo'}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (party.aadhaarUrl) handleOpenLightbox(party.aadhaarUrl, party.name, isMarathi ? 'आधार कार्ड (पुढील बाजू)' : 'Aadhaar Front');
+                                    else handleOpenEdit(party);
+                                  }}
+                                  className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded transition ${
                                     party.aadhaarUrl
-                                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                      : 'bg-slate-50 text-slate-400 border border-slate-200'
+                                      ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+                                      : 'bg-slate-50 text-slate-400 border border-slate-200 hover:border-slate-300'
                                   }`}
-                                  title={party.aadhaarUrl ? 'Aadhaar Front: Uploaded' : 'Aadhaar Front: Not uploaded'}
+                                  title={party.aadhaarUrl ? (isMarathi ? 'आधार पुढील बाजू: अपलोड (पहा)' : 'Aadhaar Front: Uploaded') : (isMarathi ? 'आधार पुढील बाजू: नाही (जोडा)' : 'Aadhaar Front: Missing')}
                                 >
-                                  <FileBadge className="w-2.5 h-2.5" /> {isMarathi ? 'आधार (पुढे)' : 'Aadhaar (F)'}
-                                </span>
-                                <span
-                                  className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                  <FileBadge className="w-2.5 h-2.5" />
+                                  <span>{isMarathi ? 'आधार (पुढे)' : 'Aadhaar (F)'}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (party.aadhaarBackUrl) handleOpenLightbox(party.aadhaarBackUrl, party.name, isMarathi ? 'आधार कार्ड (मागील बाजू)' : 'Aadhaar Back');
+                                    else handleOpenEdit(party);
+                                  }}
+                                  className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded transition ${
                                     party.aadhaarBackUrl
-                                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                                      : 'bg-slate-50 text-slate-400 border border-slate-200'
+                                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
+                                      : 'bg-slate-50 text-slate-400 border border-slate-200 hover:border-slate-300'
                                   }`}
-                                  title={party.aadhaarBackUrl ? 'Aadhaar Back: Uploaded' : 'Aadhaar Back: Not uploaded'}
+                                  title={party.aadhaarBackUrl ? (isMarathi ? 'आधार मागील बाजू: अपलोड (पहा)' : 'Aadhaar Back: Uploaded') : (isMarathi ? 'आधार मागील बाजू: नाही (जोडा)' : 'Aadhaar Back: Missing')}
                                 >
-                                  <FileBadge className="w-2.5 h-2.5" /> {isMarathi ? 'आधार (मागे)' : 'Aadhaar (B)'}
-                                </span>
-                                <span
-                                  className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                  <FileBadge className="w-2.5 h-2.5" />
+                                  <span>{isMarathi ? 'आधार (मागे)' : 'Aadhaar (B)'}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (party.chequeUrl) handleOpenLightbox(party.chequeUrl, party.name, isMarathi ? 'सिक्युरिटी चेक' : 'Security Cheque');
+                                    else handleOpenEdit(party);
+                                  }}
+                                  className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded transition ${
                                     party.chequeUrl
-                                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                      : 'bg-slate-50 text-slate-400 border border-slate-200'
+                                      ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
+                                      : 'bg-slate-50 text-slate-400 border border-slate-200 hover:border-slate-300'
                                   }`}
-                                  title={party.chequeUrl ? 'Cheque Photo: Uploaded' : 'Cheque Photo: Not uploaded'}
+                                  title={party.chequeUrl ? (isMarathi ? 'चेक: अपलोड (पहा)' : 'Cheque: Uploaded') : (isMarathi ? 'चेक: नाही (जोडा)' : 'Cheque: Missing')}
                                 >
-                                  <CreditCard className="w-2.5 h-2.5" /> Cheque
-                                </span>
+                                  <CreditCard className="w-2.5 h-2.5" />
+                                  <span>{isMarathi ? 'चेक' : 'Cheque'}</span>
+                                </button>
                               </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-5 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            <span className="text-slate-600 font-mono">{party.mobile}</span>
+                            <span className="text-slate-600 font-mono font-medium">{party.mobile}</span>
                             <div className="flex items-center gap-1">
                               <a
                                 href={telLink}
@@ -991,15 +1019,15 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                         </td>
 
                         {/* Behaviour Rating Badge & Stars */}
-                        <td className="px-6 py-4">
+                        <td className="px-5 py-3 whitespace-nowrap min-w-[130px]">
                           {behaviour.isInsufficientHistory ? (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
-                              Not enough history
+                            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 whitespace-nowrap inline-block">
+                              {isMarathi ? 'इतिहास अपुरा' : 'Not enough history'}
                             </span>
                           ) : (
-                            <div className="space-y-0.5">
+                            <div className="space-y-0.5 whitespace-nowrap">
                               <span
-                                className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border inline-block ${behaviour.badgeColorClass}`}
+                                className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border inline-block ${behaviour.badgeColorClass}`}
                               >
                                 {behaviour.ratingText}
                               </span>
@@ -1019,14 +1047,14 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                           )}
                         </td>
 
-                        <td className="px-6 py-4 font-bold text-slate-800">{party.platesWithParty}</td>
-                        <td className="px-6 py-4 text-slate-600 font-semibold">₹{party.totalRent.toLocaleString('en-IN')}</td>
-                        <td className="px-6 py-4 text-emerald-600 font-bold">₹{party.paid.toLocaleString('en-IN')}</td>
-                        <td className={`px-6 py-4 font-bold ${party.pending > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                        <td className="px-4 py-3 font-bold text-slate-800 text-center whitespace-nowrap">{party.platesWithParty}</td>
+                        <td className="px-4 py-3 text-slate-600 font-semibold whitespace-nowrap font-mono">₹{party.totalRent.toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3 text-emerald-600 font-bold whitespace-nowrap font-mono">₹{party.paid.toLocaleString('en-IN')}</td>
+                        <td className={`px-4 py-3 font-bold whitespace-nowrap font-mono ${party.pending > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
                           ₹{party.pending.toLocaleString('en-IN')}
                         </td>
-                        <td className="px-6 py-4">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                          <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
                             party.status === 'active'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                               : 'bg-slate-50 text-slate-500 border border-slate-100'
@@ -1034,8 +1062,8 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                             {party.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-center gap-2">
+                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1.5">
                             <a
                               href={telLink}
                               className="p-1.5 hover:bg-emerald-50 text-emerald-700 rounded transition-all"
