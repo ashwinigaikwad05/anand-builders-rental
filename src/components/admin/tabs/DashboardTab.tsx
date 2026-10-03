@@ -135,21 +135,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const todayRentalsCount = rentals.filter((r) => r.issueDate === todayStr).length;
   const todayReturnsCount = returns.filter((r) => r.returnDate === todayStr).length;
 
-  const activeRentals = rentals.filter((r) => r.status === 'active' || r.status === 'overdue');
-  const overdueRentals = rentals.filter((r) => {
-    if (r.status === 'overdue') return true;
-    if (r.status === 'active') {
-      const cycle = getActiveCycle(r);
-      const targetDays = Number(cycle.days || r.days || 40) || 40;
-      const elapsed = calculateCalendarDays(cycle.startDate, todayStr);
-      return elapsed > targetDays;
-    }
-    return false;
-  });
-  const recentPayments = [...payments]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
-
   // Helper to find active cycle for a rental
   const getActiveCycle = (rental: Rental): RentalCycle => {
     const cycles = rentalCycles.filter((c) => c.rentalId === rental.id);
@@ -181,6 +166,21 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       status: rental.status === 'returned' ? 'completed' : 'active',
     };
   };
+
+  const activeRentals = rentals.filter((r) => r.status === 'active' || r.status === 'overdue');
+  const overdueRentals = rentals.filter((r) => {
+    if (r.status === 'overdue') return true;
+    if (r.status === 'active') {
+      const cycle = getActiveCycle(r);
+      const targetDays = Number(cycle.days || r.days || 40) || 40;
+      const elapsed = calculateCalendarDays(cycle.startDate, todayStr);
+      return elapsed > targetDays;
+    }
+    return false;
+  });
+  const recentPayments = [...payments]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 5);
 
   // Rental Cycle Expiration Alerts Evaluation (Supports ALL durations: 7d, 15d, 40d, etc.)
   const allCycleAlerts = activeRentals
