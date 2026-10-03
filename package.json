@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test": "node tests/master_calculations.test.mjs && node tests/marathi_language_formats.test.mjs && node tests/bill_history_and_edit_bill_number.test.mjs",
+    "test": "node tests/master_calculations.test.mjs && node tests/marathi_language_formats.test.mjs && node tests/bill_history_and_edit_bill_number.test.mjs && node tests/aadhaar_camera_and_back_side.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

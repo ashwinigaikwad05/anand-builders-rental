@@ -560,6 +560,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
     status: 'active' | 'inactive';
     photo_url?: string | null;
     aadhaar_url?: string | null;
+    aadhaar_back_url?: string | null;
     cheque_url?: string | null;
     earliestDate: string;
   }[] = [];
@@ -590,6 +591,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       status: p.status,
       photo_url: p.photo_url,
       aadhaar_url: p.aadhaar_url,
+      aadhaar_back_url: p.aadhaar_back_url,
       cheque_url: p.cheque_url,
       earliestDate,
     });
@@ -686,6 +688,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       status: p.status,
       photoUrl: p.photo_url || null,
       aadhaarUrl: p.aadhaar_url || null,
+      aadhaarBackUrl: p.aadhaar_back_url || null,
       chequeUrl: p.cheque_url || null,
       customerNumber: customerNumberMap.get(p.id) || customerNameNumberMap.get(p.name.toLowerCase()) || 1,
     };
@@ -823,6 +826,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
     notes?: string;
     photoUrl?: string | null;
     aadhaarUrl?: string | null;
+    aadhaarBackUrl?: string | null;
     chequeUrl?: string | null;
   }) => {
     try {
@@ -833,6 +837,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         notes: newParty.notes,
         photo_url: newParty.photoUrl,
         aadhaar_url: newParty.aadhaarUrl,
+        aadhaar_back_url: newParty.aadhaarBackUrl,
         cheque_url: newParty.chequeUrl,
       });
       setRawParties((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
@@ -853,6 +858,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         status: updatedParty.status,
         photo_url: updatedParty.photoUrl,
         aadhaar_url: updatedParty.aadhaarUrl,
+        aadhaar_back_url: updatedParty.aadhaarBackUrl,
         cheque_url: updatedParty.chequeUrl,
       });
       setRawParties((prev) => prev.map((p) => (p.id === updatedParty.id ? updated : p)));

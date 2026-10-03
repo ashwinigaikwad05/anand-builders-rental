@@ -73,6 +73,7 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
   const [notes, setNotes] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [aadhaarUrl, setAadhaarUrl] = useState<string | null>(null);
+  const [aadhaarBackUrl, setAadhaarBackUrl] = useState<string | null>(null);
   const [chequeUrl, setChequeUrl] = useState<string | null>(null);
   const [editId, setEditId] = useState('');
   const [validationError, setValidationError] = useState('');
@@ -164,6 +165,7 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
     setNotes('');
     setPhotoUrl(null);
     setAadhaarUrl(null);
+    setAadhaarBackUrl(null);
     setChequeUrl(null);
     setValidationError('');
     setIsAddOpen(true);
@@ -211,6 +213,7 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
       notes: notes.trim(),
       photoUrl,
       aadhaarUrl,
+      aadhaarBackUrl,
       chequeUrl,
     });
     setIsAddOpen(false);
@@ -224,6 +227,7 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
     setNotes(party.notes);
     setPhotoUrl(party.photoUrl || null);
     setAadhaarUrl(party.aadhaarUrl || null);
+    setAadhaarBackUrl(party.aadhaarBackUrl || null);
     setChequeUrl(party.chequeUrl || null);
     setValidationError('');
     setIsEditOpen(true);
@@ -274,6 +278,7 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
         notes: notes.trim(),
         photoUrl,
         aadhaarUrl,
+        aadhaarBackUrl,
         chequeUrl,
       };
       onEditParty(updatedPartyObj);
@@ -519,29 +524,29 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
               {/* Document 1: Face Photo */}
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3 text-left">
+              <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-2.5 text-left">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wider">
+                  <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wider">
                     <Camera className="w-3.5 h-3.5 text-primary" />
-                    Customer Face Photo
+                    {isMarathi ? 'चेहरा फोटो' : 'Face Photo'}
                   </span>
                   {selectedParty.photoUrl ? (
                     <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Uploaded
+                      <CheckCircle2 className="w-3 h-3" /> {isMarathi ? 'अपलोड' : 'Uploaded'}
                     </span>
                   ) : (
                     <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                      Missing
+                      {isMarathi ? 'नाही' : 'Missing'}
                     </span>
                   )}
                 </div>
 
                 {selectedParty.photoUrl ? (
                   <div
-                    onClick={() => handleOpenLightbox(selectedParty.photoUrl!, selectedParty.name, 'Customer Face Photo')}
-                    className="relative group h-40 rounded-xl overflow-hidden bg-slate-100 cursor-pointer border border-slate-200"
+                    onClick={() => handleOpenLightbox(selectedParty.photoUrl!, selectedParty.name, isMarathi ? 'ग्राहक चेहरा फोटो' : 'Customer Face Photo')}
+                    className="relative group h-36 rounded-xl overflow-hidden bg-slate-100 cursor-pointer border border-slate-200"
                   >
                     <img
                       src={selectedParty.photoUrl}
@@ -549,87 +554,131 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1.5 text-white font-bold text-xs">
-                      <Eye className="w-4 h-4" /> Click to Enlarge
+                      <Eye className="w-4 h-4" /> {isMarathi ? 'पहा' : 'Enlarge'}
                     </div>
                   </div>
                 ) : (
                   <div
                     onClick={() => handleOpenEdit(selectedParty)}
-                    className="h-40 border-2 border-dashed border-slate-200 hover:border-primary/50 hover:bg-slate-50/60 rounded-xl flex flex-col items-center justify-center p-3 text-center cursor-pointer transition"
+                    className="h-36 border-2 border-dashed border-slate-200 hover:border-primary/50 hover:bg-slate-50/60 rounded-xl flex flex-col items-center justify-center p-3 text-center cursor-pointer transition"
                   >
                     <Camera className="w-6 h-6 text-slate-300 mb-1" />
-                    <span className="text-xs font-bold text-slate-500">No Photo Uploaded</span>
-                    <span className="text-[10px] text-primary font-semibold mt-1">Click to Upload Now</span>
+                    <span className="text-xs font-bold text-slate-500">{isMarathi ? 'फोटो नाही' : 'No Photo'}</span>
+                    <span className="text-[10px] text-primary font-semibold mt-1">{isMarathi ? 'अपलोड करा' : 'Upload Now'}</span>
                   </div>
                 )}
               </div>
 
-              {/* Document 2: Aadhaar Card */}
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3 text-left">
+              {/* Document 2: Aadhaar Card Front Side */}
+              <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-2.5 text-left">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wider">
+                  <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wider">
                     <FileBadge className="w-3.5 h-3.5 text-blue-600" />
-                    Aadhaar Card Photo
+                    {isMarathi ? 'आधार (पुढील बाजू)' : 'Aadhaar (Front)'}
                   </span>
                   {selectedParty.aadhaarUrl ? (
                     <span className="text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Uploaded
+                      <CheckCircle2 className="w-3 h-3" /> {isMarathi ? 'अपलोड' : 'Uploaded'}
                     </span>
                   ) : (
                     <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                      Missing
+                      {isMarathi ? 'नाही' : 'Missing'}
                     </span>
                   )}
                 </div>
 
                 {selectedParty.aadhaarUrl ? (
                   <div
-                    onClick={() => handleOpenLightbox(selectedParty.aadhaarUrl!, selectedParty.name, 'Aadhaar Card Document')}
-                    className="relative group h-40 rounded-xl overflow-hidden bg-slate-100 cursor-pointer border border-slate-200"
+                    onClick={() => handleOpenLightbox(selectedParty.aadhaarUrl!, selectedParty.name, isMarathi ? 'आधार कार्ड (पुढील बाजू)' : 'Aadhaar Card Front')}
+                    className="relative group h-36 rounded-xl overflow-hidden bg-slate-100 cursor-pointer border border-slate-200"
                   >
                     <img
                       src={selectedParty.aadhaarUrl}
-                      alt="Aadhaar Card"
+                      alt="Aadhaar Card Front"
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1.5 text-white font-bold text-xs">
-                      <Eye className="w-4 h-4" /> Click to Enlarge
+                      <Eye className="w-4 h-4" /> {isMarathi ? 'पहा' : 'Enlarge'}
                     </div>
                   </div>
                 ) : (
                   <div
                     onClick={() => handleOpenEdit(selectedParty)}
-                    className="h-40 border-2 border-dashed border-slate-200 hover:border-primary/50 hover:bg-slate-50/60 rounded-xl flex flex-col items-center justify-center p-3 text-center cursor-pointer transition"
+                    className="h-36 border-2 border-dashed border-slate-200 hover:border-primary/50 hover:bg-slate-50/60 rounded-xl flex flex-col items-center justify-center p-3 text-center cursor-pointer transition"
                   >
                     <FileBadge className="w-6 h-6 text-slate-300 mb-1" />
-                    <span className="text-xs font-bold text-slate-500">No Aadhaar Uploaded</span>
-                    <span className="text-[10px] text-primary font-semibold mt-1">Click to Upload Now</span>
+                    <span className="text-xs font-bold text-slate-500">{isMarathi ? 'पुढील बाजू नाही' : 'No Front ID'}</span>
+                    <span className="text-[10px] text-primary font-semibold mt-1">{isMarathi ? 'अपलोड करा' : 'Upload Now'}</span>
                   </div>
                 )}
               </div>
 
-              {/* Document 3: Cheque Photo */}
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3 text-left">
+              {/* Document 3: Aadhaar Card Back Side */}
+              <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-2.5 text-left">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wider">
-                    <CreditCard className="w-3.5 h-3.5 text-amber-600" />
-                    Security Cheque Photo
+                  <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wider">
+                    <FileBadge className="w-3.5 h-3.5 text-indigo-600" />
+                    {isMarathi ? 'आधार (मागील बाजू)' : 'Aadhaar (Back)'}
                   </span>
-                  {selectedParty.chequeUrl ? (
-                    <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Uploaded
+                  {selectedParty.aadhaarBackUrl ? (
+                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> {isMarathi ? 'अपलोड' : 'Uploaded'}
                     </span>
                   ) : (
                     <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                      Missing
+                      {isMarathi ? 'नाही' : 'Missing'}
+                    </span>
+                  )}
+                </div>
+
+                {selectedParty.aadhaarBackUrl ? (
+                  <div
+                    onClick={() => handleOpenLightbox(selectedParty.aadhaarBackUrl!, selectedParty.name, isMarathi ? 'आधार कार्ड (मागील बाजू/पत्ता)' : 'Aadhaar Card Back')}
+                    className="relative group h-36 rounded-xl overflow-hidden bg-slate-100 cursor-pointer border border-slate-200"
+                  >
+                    <img
+                      src={selectedParty.aadhaarBackUrl}
+                      alt="Aadhaar Card Back"
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1.5 text-white font-bold text-xs">
+                      <Eye className="w-4 h-4" /> {isMarathi ? 'पहा' : 'Enlarge'}
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => handleOpenEdit(selectedParty)}
+                    className="h-36 border-2 border-dashed border-slate-200 hover:border-primary/50 hover:bg-slate-50/60 rounded-xl flex flex-col items-center justify-center p-3 text-center cursor-pointer transition"
+                  >
+                    <FileBadge className="w-6 h-6 text-slate-300 mb-1" />
+                    <span className="text-xs font-bold text-slate-500">{isMarathi ? 'मागील बाजू नाही' : 'No Back ID'}</span>
+                    <span className="text-[10px] text-primary font-semibold mt-1">{isMarathi ? 'अपलोड करा' : 'Upload Now'}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Document 4: Cheque Photo */}
+              <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-2.5 text-left">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wider">
+                    <CreditCard className="w-3.5 h-3.5 text-amber-600" />
+                    {isMarathi ? 'चेक फोटो' : 'Security Cheque'}
+                  </span>
+                  {selectedParty.chequeUrl ? (
+                    <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> {isMarathi ? 'अपलोड' : 'Uploaded'}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                      {isMarathi ? 'नाही' : 'Missing'}
                     </span>
                   )}
                 </div>
 
                 {selectedParty.chequeUrl ? (
                   <div
-                    onClick={() => handleOpenLightbox(selectedParty.chequeUrl!, selectedParty.name, 'Security Cheque Photo')}
-                    className="relative group h-40 rounded-xl overflow-hidden bg-slate-100 cursor-pointer border border-slate-200"
+                    onClick={() => handleOpenLightbox(selectedParty.chequeUrl!, selectedParty.name, isMarathi ? 'सिक्युरिटी चेक' : 'Security Cheque Photo')}
+                    className="relative group h-36 rounded-xl overflow-hidden bg-slate-100 cursor-pointer border border-slate-200"
                   >
                     <img
                       src={selectedParty.chequeUrl}
@@ -637,17 +686,17 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1.5 text-white font-bold text-xs">
-                      <Eye className="w-4 h-4" /> Click to Enlarge
+                      <Eye className="w-4 h-4" /> {isMarathi ? 'पहा' : 'Enlarge'}
                     </div>
                   </div>
                 ) : (
                   <div
                     onClick={() => handleOpenEdit(selectedParty)}
-                    className="h-40 border-2 border-dashed border-slate-200 hover:border-primary/50 hover:bg-slate-50/60 rounded-xl flex flex-col items-center justify-center p-3 text-center cursor-pointer transition"
+                    className="h-36 border-2 border-dashed border-slate-200 hover:border-primary/50 hover:bg-slate-50/60 rounded-xl flex flex-col items-center justify-center p-3 text-center cursor-pointer transition"
                   >
                     <CreditCard className="w-6 h-6 text-slate-300 mb-1" />
-                    <span className="text-xs font-bold text-slate-500">No Cheque Uploaded</span>
-                    <span className="text-[10px] text-primary font-semibold mt-1">Click to Upload Now</span>
+                    <span className="text-xs font-bold text-slate-500">{isMarathi ? 'चेक नाही' : 'No Cheque'}</span>
+                    <span className="text-[10px] text-primary font-semibold mt-1">{isMarathi ? 'अपलोड करा' : 'Upload Now'}</span>
                   </div>
                 )}
               </div>
@@ -872,9 +921,9 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                             <div>
                               <div className="font-bold text-slate-800">{party.name}</div>
                               {/* Document Badges */}
-                              <div className="flex items-center gap-1 mt-1">
+                              <div className="flex items-center gap-1 mt-1 flex-wrap">
                                 <span
-                                  className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                                  className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded ${
                                     party.photoUrl
                                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                       : 'bg-slate-50 text-slate-400 border border-slate-200'
@@ -884,17 +933,27 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                                   <Camera className="w-2.5 h-2.5" /> Photo
                                 </span>
                                 <span
-                                  className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                                  className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded ${
                                     party.aadhaarUrl
                                       ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                       : 'bg-slate-50 text-slate-400 border border-slate-200'
                                   }`}
-                                  title={party.aadhaarUrl ? 'Aadhaar Card: Uploaded' : 'Aadhaar Card: Not uploaded'}
+                                  title={party.aadhaarUrl ? 'Aadhaar Front: Uploaded' : 'Aadhaar Front: Not uploaded'}
                                 >
-                                  <FileBadge className="w-2.5 h-2.5" /> Aadhaar
+                                  <FileBadge className="w-2.5 h-2.5" /> {isMarathi ? 'आधार (पुढे)' : 'Aadhaar (F)'}
                                 </span>
                                 <span
-                                  className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                                  className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                    party.aadhaarBackUrl
+                                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                      : 'bg-slate-50 text-slate-400 border border-slate-200'
+                                  }`}
+                                  title={party.aadhaarBackUrl ? 'Aadhaar Back: Uploaded' : 'Aadhaar Back: Not uploaded'}
+                                >
+                                  <FileBadge className="w-2.5 h-2.5" /> {isMarathi ? 'आधार (मागे)' : 'Aadhaar (B)'}
+                                </span>
+                                <span
+                                  className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded ${
                                     party.chequeUrl
                                       ? 'bg-amber-50 text-amber-700 border border-amber-200'
                                       : 'bg-slate-50 text-slate-400 border border-slate-200'
@@ -1125,30 +1184,55 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
+                  {/* Face Photo */}
                   <DocumentUploadCard
-                    label="Customer Face Photo"
-                    sublabel="Selfie or face photo"
+                    label={isMarathi ? 'ग्राहकाचा चेहरा फोटो' : 'Customer Face Photo'}
+                    sublabel={isMarathi ? 'सेल्फी किंवा चेहरा फोटो' : 'Selfie or face photo'}
                     value={photoUrl}
                     onChange={setPhotoUrl}
                     icon={<Camera className="w-3.5 h-3.5 text-primary" />}
                     onPreview={(url, title) => handleOpenLightbox(url, title, `${name || 'New Party'} - Face Photo`)}
+                    documentType="face"
+                    appLanguage={appLanguage}
                   />
+
+                  {/* Aadhaar Card: Front & Back Stacked */}
+                  <div className="space-y-3">
+                    <DocumentUploadCard
+                      label={isMarathi ? 'आधार कार्ड (पुढील बाजू)' : 'Aadhaar Card (Front)'}
+                      sublabel={isMarathi ? 'फोटो व आयडी पुरावा' : 'Front photo ID proof'}
+                      value={aadhaarUrl}
+                      onChange={setAadhaarUrl}
+                      icon={<FileBadge className="w-3.5 h-3.5 text-blue-600" />}
+                      onPreview={(url, title) => handleOpenLightbox(url, title, `${name || 'New Party'} - Aadhaar Front`)}
+                      documentType="aadhaar_front"
+                      appLanguage={appLanguage}
+                      compact={true}
+                    />
+                    <DocumentUploadCard
+                      label={isMarathi ? 'आधार कार्ड (मागील बाजू)' : 'Aadhaar Card (Back)'}
+                      sublabel={isMarathi ? 'पत्ता व क्युआर कोड पुरावा' : 'Back address & QR proof'}
+                      value={aadhaarBackUrl}
+                      onChange={setAadhaarBackUrl}
+                      icon={<FileBadge className="w-3.5 h-3.5 text-indigo-600" />}
+                      onPreview={(url, title) => handleOpenLightbox(url, title, `${name || 'New Party'} - Aadhaar Back`)}
+                      documentType="aadhaar_back"
+                      appLanguage={appLanguage}
+                      compact={true}
+                    />
+                  </div>
+
+                  {/* Security Cheque */}
                   <DocumentUploadCard
-                    label="Aadhaar Card"
-                    sublabel="Front/full ID proof"
-                    value={aadhaarUrl}
-                    onChange={setAadhaarUrl}
-                    icon={<FileBadge className="w-3.5 h-3.5 text-blue-600" />}
-                    onPreview={(url, title) => handleOpenLightbox(url, title, `${name || 'New Party'} - Aadhaar Card`)}
-                  />
-                  <DocumentUploadCard
-                    label="Security Cheque"
-                    sublabel="Signed cheque copy"
+                    label={isMarathi ? 'सिक्युरिटी चेक' : 'Security Cheque'}
+                    sublabel={isMarathi ? 'स्वाक्षरी केलेला चेक' : 'Signed cheque copy'}
                     value={chequeUrl}
                     onChange={setChequeUrl}
                     icon={<CreditCard className="w-3.5 h-3.5 text-amber-600" />}
                     onPreview={(url, title) => handleOpenLightbox(url, title, `${name || 'New Party'} - Security Cheque`)}
+                    documentType="cheque"
+                    appLanguage={appLanguage}
                   />
                 </div>
               </div>
@@ -1249,30 +1333,55 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
+                  {/* Face Photo */}
                   <DocumentUploadCard
-                    label="Customer Face Photo"
-                    sublabel="Selfie or face photo"
+                    label={isMarathi ? 'ग्राहकाचा चेहरा फोटो' : 'Customer Face Photo'}
+                    sublabel={isMarathi ? 'सेल्फी किंवा चेहरा फोटो' : 'Selfie or face photo'}
                     value={photoUrl}
                     onChange={setPhotoUrl}
                     icon={<Camera className="w-3.5 h-3.5 text-primary" />}
                     onPreview={(url, title) => handleOpenLightbox(url, title, `${name} - Face Photo`)}
+                    documentType="face"
+                    appLanguage={appLanguage}
                   />
+
+                  {/* Aadhaar Card: Front & Back Stacked */}
+                  <div className="space-y-3">
+                    <DocumentUploadCard
+                      label={isMarathi ? 'आधार कार्ड (पुढील बाजू)' : 'Aadhaar Card (Front)'}
+                      sublabel={isMarathi ? 'फोटो व आयडी पुरावा' : 'Front photo ID proof'}
+                      value={aadhaarUrl}
+                      onChange={setAadhaarUrl}
+                      icon={<FileBadge className="w-3.5 h-3.5 text-blue-600" />}
+                      onPreview={(url, title) => handleOpenLightbox(url, title, `${name} - Aadhaar Front`)}
+                      documentType="aadhaar_front"
+                      appLanguage={appLanguage}
+                      compact={true}
+                    />
+                    <DocumentUploadCard
+                      label={isMarathi ? 'आधार कार्ड (मागील बाजू)' : 'Aadhaar Card (Back)'}
+                      sublabel={isMarathi ? 'पत्ता व क्युआर कोड पुरावा' : 'Back address & QR proof'}
+                      value={aadhaarBackUrl}
+                      onChange={setAadhaarBackUrl}
+                      icon={<FileBadge className="w-3.5 h-3.5 text-indigo-600" />}
+                      onPreview={(url, title) => handleOpenLightbox(url, title, `${name} - Aadhaar Back`)}
+                      documentType="aadhaar_back"
+                      appLanguage={appLanguage}
+                      compact={true}
+                    />
+                  </div>
+
+                  {/* Security Cheque */}
                   <DocumentUploadCard
-                    label="Aadhaar Card"
-                    sublabel="Front/full ID proof"
-                    value={aadhaarUrl}
-                    onChange={setAadhaarUrl}
-                    icon={<FileBadge className="w-3.5 h-3.5 text-blue-600" />}
-                    onPreview={(url, title) => handleOpenLightbox(url, title, `${name} - Aadhaar Card`)}
-                  />
-                  <DocumentUploadCard
-                    label="Security Cheque"
-                    sublabel="Signed cheque copy"
+                    label={isMarathi ? 'सिक्युरिटी चेक' : 'Security Cheque'}
+                    sublabel={isMarathi ? 'स्वाक्षरी केलेला चेक' : 'Signed cheque copy'}
                     value={chequeUrl}
                     onChange={setChequeUrl}
                     icon={<CreditCard className="w-3.5 h-3.5 text-amber-600" />}
                     onPreview={(url, title) => handleOpenLightbox(url, title, `${name} - Security Cheque`)}
+                    documentType="cheque"
+                    appLanguage={appLanguage}
                   />
                 </div>
               </div>

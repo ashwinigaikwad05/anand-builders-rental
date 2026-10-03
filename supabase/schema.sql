@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS parties (
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   photo_url TEXT,
   aadhaar_url TEXT,
+  aadhaar_back_url TEXT,
   cheque_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

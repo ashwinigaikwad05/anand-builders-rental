@@ -88,6 +88,7 @@ export function deduplicateParties(parties: PartyRecord[]): {
       // Merge missing fields into canonical record if duplicate has them
       if (!canonical.photo_url && p.photo_url) canonical.photo_url = p.photo_url;
       if (!canonical.aadhaar_url && p.aadhaar_url) canonical.aadhaar_url = p.aadhaar_url;
+      if (!canonical.aadhaar_back_url && p.aadhaar_back_url) canonical.aadhaar_back_url = p.aadhaar_back_url;
       if (!canonical.cheque_url && p.cheque_url) canonical.cheque_url = p.cheque_url;
       if (!canonical.address && p.address) canonical.address = p.address;
       if (!canonical.notes && p.notes) canonical.notes = p.notes;

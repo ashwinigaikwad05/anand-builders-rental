@@ -53,6 +53,7 @@ export interface PartyRecord {
   status: 'active' | 'inactive';
   photo_url?: string | null;
   aadhaar_url?: string | null;
+  aadhaar_back_url?: string | null;
   cheque_url?: string | null;
   created_at?: string;
   updated_at?: string;
@@ -258,6 +259,7 @@ export async function insertParty(party: {
   notes?: string;
   photo_url?: string | null;
   aadhaar_url?: string | null;
+  aadhaar_back_url?: string | null;
   cheque_url?: string | null;
 }): Promise<PartyRecord> {
   const newRecord: PartyRecord = {
@@ -269,36 +271,59 @@ export async function insertParty(party: {
     status: 'active',
     photo_url: party.photo_url || null,
     aadhaar_url: party.aadhaar_url || null,
+    aadhaar_back_url: party.aadhaar_back_url || null,
     cheque_url: party.cheque_url || null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from('parties')
-      .insert([
-        {
-          name: newRecord.name,
-          mobile: newRecord.mobile,
-          address: newRecord.address,
-          notes: newRecord.notes,
-          status: 'active',
-          photo_url: newRecord.photo_url,
-          aadhaar_url: newRecord.aadhaar_url,
-          cheque_url: newRecord.cheque_url,
-        },
-      ])
-      .select()
-      .single();
+    const insertPayload: any = {
+      name: newRecord.name,
+      mobile: newRecord.mobile,
+      address: newRecord.address,
+      notes: newRecord.notes,
+      status: 'active',
+      photo_url: newRecord.photo_url,
+      aadhaar_url: newRecord.aadhaar_url,
+      aadhaar_back_url: newRecord.aadhaar_back_url,
+      cheque_url: newRecord.cheque_url,
+    };
 
-    if (error) {
-      throw new Error(error.message);
-    }
-    if (data) {
-      const local = getLocal<PartyRecord>('parties');
-      setLocal('parties', [data as PartyRecord, ...local.filter((p) => p.id !== data.id)]);
-      return data as PartyRecord;
+    try {
+      const { data, error } = await supabase
+        .from('parties')
+        .insert([insertPayload])
+        .select()
+        .single();
+
+      if (error) {
+        if (error.message.includes('aadhaar_back_url')) {
+          // Schema fallback if column not created yet in remote DB
+          delete insertPayload.aadhaar_back_url;
+          const { data: retryData, error: retryErr } = await supabase
+            .from('parties')
+            .insert([insertPayload])
+            .select()
+            .single();
+          if (retryErr) throw new Error(retryErr.message);
+          if (retryData) {
+            const local = getLocal<PartyRecord>('parties');
+            setLocal('parties', [{ ...retryData, aadhaar_back_url: newRecord.aadhaar_back_url } as PartyRecord, ...local.filter((p) => p.id !== retryData.id)]);
+            return { ...retryData, aadhaar_back_url: newRecord.aadhaar_back_url } as PartyRecord;
+          }
+        } else {
+          throw new Error(error.message);
+        }
+      }
+
+      if (data) {
+        const local = getLocal<PartyRecord>('parties');
+        setLocal('parties', [data as PartyRecord, ...local.filter((p) => p.id !== data.id)]);
+        return data as PartyRecord;
+      }
+    } catch (err: any) {
+      console.warn('Network or schema fallback for insertParty:', err?.message || err);
     }
   }
 
@@ -317,27 +342,48 @@ export async function updateParty(
     status?: 'active' | 'inactive';
     photo_url?: string | null;
     aadhaar_url?: string | null;
+    aadhaar_back_url?: string | null;
     cheque_url?: string | null;
   }
 ): Promise<PartyRecord> {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('parties')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select()
-      .single();
+    const updatePayload: any = {
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+    try {
+      const { data, error } = await supabase
+        .from('parties')
+        .update(updatePayload)
+        .eq('id', id)
+        .select()
+        .single();
 
-    if (error) {
-      throw new Error(error.message);
-    }
-    if (data) {
-      const local = getLocal<PartyRecord>('parties');
-      setLocal('parties', local.map((p) => (p.id === id ? (data as PartyRecord) : p)));
-      return data as PartyRecord;
+      if (error && error.message.includes('aadhaar_back_url')) {
+        delete updatePayload.aadhaar_back_url;
+        const { data: retryData, error: retryErr } = await supabase
+          .from('parties')
+          .update(updatePayload)
+          .eq('id', id)
+          .select()
+          .single();
+        if (!retryErr && retryData) {
+          const local = getLocal<PartyRecord>('parties');
+          const merged = { ...retryData, aadhaar_back_url: updates.aadhaar_back_url } as PartyRecord;
+          setLocal('parties', local.map((p) => (p.id === id ? merged : p)));
+          return merged;
+        }
+      } else if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data) {
+        const local = getLocal<PartyRecord>('parties');
+        setLocal('parties', local.map((p) => (p.id === id ? (data as PartyRecord) : p)));
+        return data as PartyRecord;
+      }
+    } catch (err: any) {
+      console.warn('Network or schema fallback for updateParty:', err?.message || err);
     }
   }
 

@@ -11,6 +11,7 @@ export interface Party {
   status: 'active' | 'inactive';
   photoUrl?: string | null;
   aadhaarUrl?: string | null;
+  aadhaarBackUrl?: string | null;
   chequeUrl?: string | null;
   customerNumber?: number;
 }
