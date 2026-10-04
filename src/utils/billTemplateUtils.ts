@@ -17,6 +17,7 @@ export interface BillTemplateConfig {
   signatoryTitle: string;
   showMarathiHeader: boolean;
   showLastPayment: boolean;
+  showKycDocuments?: boolean;
 }
 
 export const MARATHI_TERMS = [
@@ -49,6 +50,7 @@ export const DEFAULT_BILL_TEMPLATE_CONFIG: BillTemplateConfig = {
   signatoryTitle: 'Authorized Signatory / अधिकृत स्वाक्षरी',
   showMarathiHeader: true,
   showLastPayment: true,
+  showKycDocuments: false,
 };
 
 const STORAGE_KEY = 'anand_bill_template_config';
@@ -62,10 +64,14 @@ export function getBillTemplateConfig(): BillTemplateConfig {
     const printTermsAndConditions = parsed.printTermsAndConditions !== undefined
       ? Boolean(parsed.printTermsAndConditions)
       : true;
+    const showKycDocuments = parsed.showKycDocuments !== undefined
+      ? Boolean(parsed.showKycDocuments)
+      : false;
     return {
       ...DEFAULT_BILL_TEMPLATE_CONFIG,
       ...parsed,
       printTermsAndConditions,
+      showKycDocuments,
       billLanguage: billLang,
       termsAndConditions: Array.isArray(parsed.termsAndConditions)
         ? parsed.termsAndConditions

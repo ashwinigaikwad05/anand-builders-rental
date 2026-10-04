@@ -899,6 +899,20 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   />
                   <span>Show Last Payment & Balance History on Bill</span>
                 </label>
+
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-slate-700 sm:col-span-2">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(billConfig.showKycDocuments)}
+                    onChange={(e) => setBillConfig({ ...billConfig, showKycDocuments: e.target.checked })}
+                    className="w-4 h-4 rounded text-primary focus:ring-primary accent-primary"
+                  />
+                  <span>
+                    {isMarathi
+                      ? 'बिलावर ग्राहक केवायसी फोटो (आधार कार्ड पुढील/मागील, चेहरा, चेक) दाखवा'
+                      : 'Show Customer KYC Photos (Aadhaar Front/Back, Face, Cheque) on Bills'}
+                  </span>
+                </label>
               </div>
 
               {/* Sub-Card: Bank & UPI Payment Details for Bills */}

@@ -12,6 +12,7 @@ import {
   Languages,
   Edit2,
   Check,
+  FileBadge,
 } from 'lucide-react';
 import type { Rental, RentalCycle, Party, Payment, ReturnLog } from '../../../data/adminMockData';
 import { calculatePartialReturnsBreakdown } from '../../../lib/supabase';
@@ -73,6 +74,12 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   );
   const [showCycles, setShowCycles] = useState<boolean>(true);
   const [showPayments, setShowPayments] = useState<boolean>(true);
+  const [showKycDocs, setShowKycDocs] = useState<boolean>(() => {
+    const stored = localStorage.getItem('anand_bill_show_kyc_docs');
+    if (stored !== null) return stored === 'true';
+    return Boolean(config.showKycDocuments);
+  });
+  const [enlargedImage, setEnlargedImage] = useState<{ url: string; title: string } | null>(null);
 
   // Sync when templateConfig prop updates (e.g. previewing from settings)
   useEffect(() => {
@@ -86,6 +93,12 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       setPrintTerms(Boolean(templateConfig.printTermsAndConditions));
     }
   }, [templateConfig?.printTermsAndConditions]);
+
+  useEffect(() => {
+    if (templateConfig?.showKycDocuments !== undefined) {
+      setShowKycDocs(Boolean(templateConfig.showKycDocuments));
+    }
+  }, [templateConfig?.showKycDocuments]);
 
   // Ensure simple bill is saved as default template style if not set
   useEffect(() => {
@@ -122,6 +135,20 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
     saveBillTemplateConfig({
       ...latestConfig,
       printTermsAndConditions: checked,
+    });
+  };
+
+  const handleToggleShowKycDocs = (checked: boolean) => {
+    setShowKycDocs(checked);
+    try {
+      localStorage.setItem('anand_bill_show_kyc_docs', String(checked));
+    } catch {
+      // ignore
+    }
+    const latestConfig = getBillTemplateConfig();
+    saveBillTemplateConfig({
+      ...latestConfig,
+      showKycDocuments: checked,
     });
   };
 
@@ -175,7 +202,35 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
     }
   };
 
-  const assignedCustomerNumber = customerNumberProp ?? party?.customerNumber ?? rental.customerNumber ?? 1;
+  // Resolve party details (including KYC photos) from prop or local storage fallback
+  const resolvedParty: Party | undefined = React.useMemo(() => {
+    if (party && (party.photoUrl || party.aadhaarUrl || party.aadhaarBackUrl || party.chequeUrl)) {
+      return party;
+    }
+    try {
+      const raw = localStorage.getItem('anand_parties');
+      if (raw) {
+        const all: Party[] = JSON.parse(raw);
+        const found = all.find(
+          (p) =>
+            (party?.id && p.id === party.id) ||
+            (rental.partyId && p.id === rental.partyId) ||
+            p.name.trim().toLowerCase() === (party?.name || rental.partyName || '').trim().toLowerCase()
+        );
+        if (found) {
+          return { ...(party || {}), ...found };
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return party;
+  }, [party, rental.partyId, rental.partyName]);
+
+  const partyDisplayName = resolvedParty?.name || party?.name || rental.partyName;
+  const partyDisplayMobile = resolvedParty?.mobile || party?.mobile || '';
+  const partyDisplayAddress = resolvedParty?.address || party?.address || '';
+  const assignedCustomerNumber = customerNumberProp ?? resolvedParty?.customerNumber ?? party?.customerNumber ?? rental.customerNumber ?? 1;
   const billNumber = currentBillNo;
 
   const issueDateFormatted = rental.issueDate
@@ -403,7 +458,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       paidLabel: 'जमा रक्कम / ऍडव्हान्स:',
       outstandingLabel: 'बाकी रक्कम (Outstanding Due):',
       customerSign: 'ग्राहकाची सही / अंगठा',
-      customerSignSub: `Customer Signature (${party?.name || rental.partyName})`,
+      customerSignSub: `Customer Signature (${partyDisplayName})`,
       authorizedSign: `${businessNameMr} करिता`,
       authorizedSignSub: 'Authorized Signatory / अधिकृत स्वाक्षरी',
       footerNote: `संगणकीकृत भाडे पावती • ${businessName} • ${address}`,
@@ -472,7 +527,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       paidLabel: 'Advance / Total Paid:',
       outstandingLabel: 'Net Outstanding Due:',
       customerSign: 'Customer / Receiver Signature',
-      customerSignSub: `Material Received in Good Condition (${party?.name || rental.partyName})`,
+      customerSignSub: `Material Received in Good Condition (${partyDisplayName})`,
       authorizedSign: `For ${businessName}`,
       authorizedSignSub: config.signatoryTitle || 'Authorized Signatory / Stamp',
       footerNote: `Computer-generated rental challan & bill issued by ${businessName}.`,
@@ -515,6 +570,125 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const renderKycDocumentsSection = (isSimpleBill: boolean) => {
+    if (!showKycDocs) return null;
+
+    const docs = [
+      {
+        id: 'photo',
+        title: selectedLanguage === 'marathi' ? '१. ग्राहक फोटो (चेहरा)' : '1. Customer Face Photo',
+        icon: User,
+        iconColor: 'text-emerald-600',
+        url: resolvedParty?.photoUrl,
+        missingText: selectedLanguage === 'marathi' ? 'फोटो उपलब्ध नाही' : 'No Face Photo',
+      },
+      {
+        id: 'aadhaarFront',
+        title: selectedLanguage === 'marathi' ? '२. आधार कार्ड (पुढील बाजू)' : '2. Aadhaar Card (Front)',
+        icon: FileBadge,
+        iconColor: 'text-blue-600',
+        url: resolvedParty?.aadhaarUrl,
+        missingText: selectedLanguage === 'marathi' ? 'पुढील बाजू नाही' : 'No Front ID',
+      },
+      {
+        id: 'aadhaarBack',
+        title: selectedLanguage === 'marathi' ? '३. आधार कार्ड (मागील बाजू)' : '3. Aadhaar Card (Back)',
+        icon: FileBadge,
+        iconColor: 'text-indigo-600',
+        url: resolvedParty?.aadhaarBackUrl,
+        missingText: selectedLanguage === 'marathi' ? 'मागील बाजू नाही' : 'No Back ID',
+      },
+      {
+        id: 'cheque',
+        title: selectedLanguage === 'marathi' ? '४. सिक्युरिटी चेक' : '4. Security Cheque',
+        icon: Landmark,
+        iconColor: 'text-amber-600',
+        url: resolvedParty?.chequeUrl,
+        missingText: selectedLanguage === 'marathi' ? 'चेक फोटो नाही' : 'No Cheque Photo',
+      },
+    ];
+
+    const hasAnyDoc = docs.some((d) => Boolean(d.url));
+
+    return (
+      <div className={`mt-5 pt-4 ${isSimpleBill ? 'border-t-2 border-slate-900' : 'border-t-2 border-slate-800'} print:break-inside-avoid print:mt-4 print:pt-3`}>
+        <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-200">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-700" />
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
+              {selectedLanguage === 'marathi'
+                ? 'ग्राहक ओळख व सुरक्षा दस्तऐवज (Customer KYC Proofs)'
+                : 'Customer Identification & Security Documents (KYC)'}
+            </h4>
+          </div>
+          <span className="text-[10px] font-bold text-slate-600">
+            {selectedLanguage === 'marathi' ? 'ग्राहक:' : 'Customer:'} {partyDisplayName}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 print:grid-cols-4">
+          {docs.map((doc) => {
+            const Icon = doc.icon;
+            return (
+              <div
+                key={doc.id}
+                className="border border-slate-300 rounded-xl p-2 bg-slate-50/70 print:bg-white text-center flex flex-col justify-between"
+              >
+                <div className="mb-1 flex items-center justify-center gap-1 text-[11px] font-bold text-slate-800 truncate">
+                  <Icon className={`w-3.5 h-3.5 ${doc.iconColor} flex-shrink-0`} />
+                  <span className="truncate">{doc.title}</span>
+                </div>
+
+                <div
+                  className={`h-28 sm:h-32 w-full flex items-center justify-center bg-white rounded-lg border border-slate-200 overflow-hidden ${
+                    doc.url ? 'cursor-pointer hover:opacity-90' : ''
+                  }`}
+                  onClick={() => {
+                    if (doc.url) setEnlargedImage({ url: doc.url, title: doc.title });
+                  }}
+                  title={doc.url ? 'Click to enlarge / पाहण्यासाठी क्लिक करा' : undefined}
+                >
+                  {doc.url ? (
+                    <img
+                      src={doc.url}
+                      alt={doc.title}
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <div className="text-center p-2 text-slate-400">
+                      <Icon className="w-6 h-6 mx-auto mb-1 text-slate-300" />
+                      <span className="text-[10px] block font-medium">
+                        {doc.missingText}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <span
+                  className={`mt-1.5 text-[9px] font-bold uppercase tracking-wider ${
+                    doc.url ? 'text-emerald-700' : 'text-slate-400'
+                  }`}
+                >
+                  {doc.url
+                    ? (selectedLanguage === 'marathi' ? '✓ जोडला आहे' : '✓ Attached')
+                    : (selectedLanguage === 'marathi' ? 'उपलब्ध नाही' : 'Not Attached')}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {!hasAnyDoc && (
+          <p className="mt-2 text-center text-[10px] text-slate-500 italic">
+            {selectedLanguage === 'marathi'
+              ? 'टीप: या ग्राहकासाठी अद्याप कोणतेही केवायसी कागदपत्रे जोडलेली नाहीत. ग्राहक खात्यामधून (Customers Tab) कागदपत्रे जोडू शकता.'
+              : 'Note: No KYC document photos have been uploaded for this customer yet. You can upload them from the Customers Tab.'}
+          </p>
+        )}
+      </div>
+    );
   };
 
   return createPortal(
@@ -803,6 +977,28 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               </span>
             </label>
 
+            {/* KYC / Customer Verification Proofs Checkbox */}
+            <label
+              className="flex items-center gap-1.5 bg-slate-200/90 hover:bg-slate-300/80 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-800 cursor-pointer transition-all select-none border border-slate-300/50 shadow-xs"
+              title={
+                selectedLanguage === 'marathi'
+                  ? 'बिलाच्या शेवटी ग्राहकाचे आधार कार्ड, चेहरा आणि चेक फोटो जोडण्यासाठी टिक करा'
+                  : 'Tick to display customer Aadhaar card, face, and cheque photo at the end of the bill'
+              }
+            >
+              <input
+                type="checkbox"
+                id="toggle-kyc-docs-modal"
+                checked={showKycDocs}
+                onChange={(e) => handleToggleShowKycDocs(e.target.checked)}
+                className="w-3.5 h-3.5 accent-primary rounded cursor-pointer text-primary focus:ring-primary"
+              />
+              <span className="flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                <span>{selectedLanguage === 'marathi' ? 'केवायसी / फोटो पुरावे' : 'KYC Documents'}</span>
+              </span>
+            </label>
+
             <button
               onClick={handlePrint}
               className="bg-primary hover:bg-primary-dark text-white font-bold px-4 py-2 rounded-xl shadow-md hover:shadow-orange-500/20 text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer"
@@ -878,8 +1074,8 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     <span className="font-mono font-bold text-slate-900 bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded text-[11px] mr-1.5">
                       Cust #{assignedCustomerNumber}
                     </span>
-                    <span className="font-bold text-black uppercase">{party?.name || rental.partyName}</span>{' '}
-                    <span className="font-mono text-slate-800 ml-3">{party?.mobile || ''}</span>
+                    <span className="font-bold text-black uppercase">{partyDisplayName}</span>{' '}
+                    <span className="font-mono text-slate-800 ml-3">{partyDisplayMobile}</span>
                   </div>
                   <div className="text-right">
                     <span className="font-bold text-black">{selectedLanguage === 'marathi' ? 'साहित्य वाटप:' : 'Dispatch Date:'}</span>{' '}
@@ -890,10 +1086,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 {/* Rental Duration & Period Row */}
                 <div className="flex justify-between items-baseline pt-1">
                   <div className="text-slate-700">
-                    {party?.address ? (
+                    {partyDisplayAddress ? (
                       <>
                         <span className="font-bold text-black">{selectedLanguage === 'marathi' ? 'Site:' : 'Site:'}</span>{' '}
-                        <span>{party.address}</span>
+                        <span>{partyDisplayAddress}</span>
                       </>
                     ) : (
                       <span>&nbsp;</span>
@@ -1249,16 +1445,34 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 </div>
               </div>
 
-              {/* FOOTER: Left Thank You | Right Signature */}
-              <div className="pt-4">
-                <div className="flex justify-between items-end">
-                  <div>
-                    <p className="text-base font-bold text-black">Thank you!</p>
+              {/* FOOTER: Left Party Signature | Center Thank You | Right Authorized Signature */}
+              <div className="pt-6">
+                <div className="flex justify-between items-end gap-3 sm:gap-6">
+                  {/* Left: Party / Customer Signature */}
+                  <div className="text-center min-w-[120px] sm:min-w-[140px]">
+                    <div className="border-b border-black w-32 sm:w-36 mb-1 mx-auto" />
+                    <p className="text-[10px] font-bold uppercase text-black tracking-wider">
+                      {selectedLanguage === 'marathi' ? 'ग्राहकाची सही / अंगठा' : "Customer's Signature"}
+                    </p>
+                    <p className="text-[9px] text-slate-700 font-semibold truncate max-w-[160px] mx-auto">
+                      {partyDisplayName}
+                    </p>
                   </div>
 
-                  <div className="text-center">
-                    <div className="border-b border-black w-32 mb-1" />
-                    <p className="text-[10px] font-semibold uppercase text-black tracking-wider">Authorized Signature</p>
+                  {/* Center: Thank you */}
+                  <div className="text-center pb-1">
+                    <p className="text-sm sm:text-base font-black text-black tracking-wide">Thank you!</p>
+                  </div>
+
+                  {/* Right: Authorized Signature */}
+                  <div className="text-center min-w-[120px] sm:min-w-[140px]">
+                    <div className="border-b border-black w-32 sm:w-36 mb-1 mx-auto" />
+                    <p className="text-[10px] font-bold uppercase text-black tracking-wider">
+                      {selectedLanguage === 'marathi' ? 'अधिकृत स्वाक्षरी' : 'Authorized Signature'}
+                    </p>
+                    <p className="text-[9px] text-slate-700 font-semibold truncate max-w-[160px] mx-auto">
+                      {selectedLanguage === 'marathi' ? businessNameMr : businessName}
+                    </p>
                   </div>
                 </div>
 
@@ -1283,6 +1497,9 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     )}
                   </div>
                 )}
+
+                {/* KYC / Customer Verification Documents (Aadhaar Front/Back, Face, Cheque) */}
+                {renderKycDocumentsSection(true)}
               </div>
             </div>
           ) : (
@@ -1373,13 +1590,13 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     <span className="font-mono text-xs font-bold text-slate-700 bg-slate-200/80 px-1.5 py-0.5 rounded">
                       Cust #{assignedCustomerNumber}
                     </span>
-                    <span>{party?.name || rental.partyName}</span>
+                    <span>{partyDisplayName}</span>
                   </p>
                   <p className="text-slate-600 font-medium">
-                    <span className="font-bold">{currentT.contactLabel}</span> {party?.mobile || 'Not specified'}
+                    <span className="font-bold">{currentT.contactLabel}</span> {partyDisplayMobile || 'Not specified'}
                   </p>
                   <p className="text-slate-600 font-medium">
-                    <span className="font-bold">{currentT.siteLabel}</span> {party?.address || 'Direct Site Delivery'}
+                    <span className="font-bold">{currentT.siteLabel}</span> {partyDisplayAddress || 'Direct Site Delivery'}
                   </p>
                 </div>
 
@@ -1782,10 +1999,44 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                   </p>
                 </div>
               </div>
+
+              {/* KYC / Customer Verification Documents (Aadhaar Front/Back, Face, Cheque) */}
+              {renderKycDocumentsSection(false)}
             </div>
           )}
         </div>
       </div>
+
+      {/* Lightbox Modal for Enlarge KYC Document */}
+      {enlargedImage && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/85 flex items-center justify-center p-4 print:hidden"
+          onClick={() => setEnlargedImage(null)}
+        >
+          <div
+            className="relative max-w-3xl w-full max-h-[90vh] bg-white rounded-2xl p-4 shadow-2xl flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full flex items-center justify-between pb-3 mb-2 border-b border-slate-200">
+              <span className="font-bold text-sm text-slate-900">{enlargedImage.title}</span>
+              <button
+                type="button"
+                onClick={() => setEnlargedImage(null)}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="w-full overflow-auto max-h-[75vh] flex items-center justify-center bg-slate-50 rounded-xl p-2">
+              <img
+                src={enlargedImage.url}
+                alt={enlargedImage.title}
+                className="max-h-[72vh] max-w-full object-contain rounded-lg shadow-sm"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );
