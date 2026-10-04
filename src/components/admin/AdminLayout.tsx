@@ -97,6 +97,7 @@ import {
   restoreBackupData,
   type RentalItemRecord,
 } from '../../lib/supabase';
+import { googleDriveBackupService } from '../../lib/googleDriveBackupService';
 import type { DeleteDataCategory } from './modals/DeleteDataConfirmModal';
 import type {
   PlateSizeType,
@@ -764,6 +765,46 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       status,
     };
   });
+
+  // Google Drive background auto-backup check (runs automatically every 2 days if enabled)
+  useEffect(() => {
+    if (!isLoading && rentals.length > 0) {
+      const getBackupData = () => {
+        let billConfig: any = null;
+        try {
+          billConfig = JSON.parse(localStorage.getItem('anand_bill_template_config') || 'null');
+        } catch {}
+
+        return {
+          appName: localStorage.getItem('anand_business_name') || 'ANAND BUILDERS & DEVELOPERS',
+          appNameMarathi: localStorage.getItem('anand_business_name_mr') || 'आनंद बिल्डिंग मटेरियल सप्लायर',
+          exportTimestamp: new Date().toISOString(),
+          exportDateFormatted: new Date().toLocaleString(),
+          stats: {
+            totalRentals: rentals.length,
+            totalCycles: rentalCycles.length,
+            totalReturns: returns.length,
+            totalPayments: payments.length,
+            totalParties: parties.length,
+            totalStock: stockItems.length,
+          },
+          rentals,
+          rentalCycles,
+          returns,
+          payments,
+          parties,
+          stockItems,
+          plateSettings,
+          plateTypes: plateSettings,
+          ledgerEntries: ledger,
+          notifications,
+          billConfig,
+        };
+      };
+
+      googleDriveBackupService.maybeAutoBackup(getBackupData);
+    }
+  }, [isLoading, rentals, rentalCycles, returns, payments, parties, stockItems, plateSettings, ledger, notifications]);
 
   // --- OPERATIONS CALLBACKS ---
 

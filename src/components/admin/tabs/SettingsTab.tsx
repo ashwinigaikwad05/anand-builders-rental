@@ -28,6 +28,7 @@ import {
 } from '../../../utils/billTemplateUtils';
 import { RentalBillModal } from '../modals/RentalBillModal';
 import { DeleteDataConfirmModal, type DeleteDataCategory } from '../modals/DeleteDataConfirmModal';
+import { GoogleDriveBackupSection } from '../GoogleDriveBackupSection';
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
 import type { Rental, Party, RentalCycle, Payment, ReturnLog } from '../../../data/adminMockData';
 import {
@@ -118,31 +119,34 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setIsDeleteModalOpen(true);
   };
 
+  const getCurrentData = () => ({
+    appName: businessName,
+    appNameMarathi: businessNameMr,
+    exportTimestamp: new Date().toISOString(),
+    exportDateFormatted: new Date().toLocaleString(),
+    stats: {
+      totalRentals: rentals.length,
+      totalCycles: rentalCycles.length,
+      totalReturns: returns.length,
+      totalPayments: payments.length,
+      totalParties: parties.length,
+      totalStock: stockItems.length,
+    },
+    rentals,
+    rentalCycles,
+    returns,
+    payments,
+    parties,
+    stockItems,
+    plateSettings,
+    plateTypes: plateSettings,
+    ledgerEntries: ledger,
+    notifications,
+    billConfig,
+  });
+
   const handleDownloadBackup = () => {
-    const backupData = {
-      appName: businessName,
-      appNameMarathi: businessNameMr,
-      exportTimestamp: new Date().toISOString(),
-      exportDateFormatted: new Date().toLocaleString(),
-      stats: {
-        totalRentals: rentals.length,
-        totalCycles: rentalCycles.length,
-        totalReturns: returns.length,
-        totalPayments: payments.length,
-        totalParties: parties.length,
-        totalStock: stockItems.length,
-      },
-      rentals,
-      rentalCycles,
-      returns,
-      payments,
-      parties,
-      stockItems,
-      plateSettings,
-      ledgerEntries: ledger,
-      notifications,
-      billConfig,
-    };
+    const backupData = getCurrentData();
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupData, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute('href', dataStr);
@@ -1076,6 +1080,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </button>
         </div>
       </form>
+
+      {/* -------------------------------------------------------------------------- */}
+      {/* GOOGLE DRIVE BACKUP & RESTORE SECTION (Google Drive बॅकअप व रिस्टोअर)        */}
+      {/* -------------------------------------------------------------------------- */}
+      <GoogleDriveBackupSection
+        getCurrentData={getCurrentData}
+        onRestoreBackup={onRestoreBackup}
+        isMarathi={isMarathi}
+      />
 
       {/* -------------------------------------------------------------------------- */}
       {/* DATA MANAGEMENT & DELETE DATA SECTION (डेटा व्यवस्थापन व डिलीट पर्याय) */}
