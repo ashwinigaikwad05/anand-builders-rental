@@ -326,25 +326,25 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
   };
 
   return (
-    <div className="bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-7 shadow-xs space-y-6 relative overflow-hidden">
+    <div className="bg-white border border-slate-200/90 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 lg:p-7 shadow-xs space-y-4 sm:space-y-6 relative overflow-hidden">
       {/* Header with Title and Status Badge */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center shadow-xs">
-            <Cloud className="w-6 h-6" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center shadow-xs flex-shrink-0">
+            <Cloud className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h4 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-sm sm:text-base lg:text-lg font-black text-slate-900 tracking-tight leading-snug">
                 {isMarathi
                   ? 'Google Drive बॅकअप (Backup & Restore)'
                   : 'Google Drive Backup & Restore'}
               </h4>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 uppercase tracking-wider">
+              <span className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 uppercase tracking-wider">
                 Cloud Sync
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-normal mt-0.5">
+            <p className="text-[11px] sm:text-xs text-slate-500 font-normal mt-0.5">
               {isMarathi
                 ? 'स्वयंचलित क्लाउड बॅकअप व मोबाइल ॲपसह पूर्ण सुसंगतता'
                 : 'Automatic cloud backup with 100% mobile app compatibility'}
@@ -354,14 +354,14 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
 
         {/* Status Badge */}
         <div
-          className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-black tracking-wide border shadow-xs ${
+          className={`inline-flex items-center gap-2 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-black tracking-wide border shadow-xs self-start sm:self-auto ${
             settings.isConnected
               ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
               : 'bg-amber-50 text-amber-800 border-amber-300'
           }`}
         >
           <span
-            className={`w-2.5 h-2.5 rounded-full ${
+            className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${
               settings.isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
             }`}
           />
@@ -380,7 +380,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
       {/* Notification Banner */}
       {notification.text && (
         <div
-          className={`p-3.5 rounded-2xl text-xs font-semibold flex items-center gap-2.5 border transition-all ${
+          className={`p-3 sm:p-3.5 rounded-xl sm:rounded-2xl text-xs font-semibold flex items-center gap-2.5 border transition-all ${
             notification.type === 'success'
               ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
               : notification.type === 'error'
@@ -391,11 +391,11 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
           {notification.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />}
           {notification.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />}
           {notification.type === 'info' && <Info className="w-4 h-4 text-sky-600 flex-shrink-0" />}
-          <span className="flex-1">{notification.text}</span>
+          <span className="flex-1 text-[11px] sm:text-xs leading-normal">{notification.text}</span>
           <button
             type="button"
             onClick={() => setNotification({ type: '', text: '' })}
-            className="text-slate-400 hover:text-slate-700 ml-auto cursor-pointer"
+            className="text-slate-400 hover:text-slate-700 ml-auto cursor-pointer p-0.5"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -403,51 +403,51 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
       )}
 
       {/* Connection Details Summary Box */}
-      <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 sm:p-5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-          <div>
-            <span className="text-slate-500 font-medium block">
+      <div className="bg-slate-50 border border-slate-200/80 rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-5">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 text-xs">
+          <div className="space-y-0.5">
+            <span className="text-slate-500 text-[10px] sm:text-xs font-medium block">
               {isMarathi ? 'Google Drive स्थिती' : 'Drive Status'}
             </span>
             <span
-              className={`font-black text-sm mt-0.5 block ${
+              className={`font-black text-xs sm:text-sm block ${
                 settings.isConnected ? 'text-emerald-700' : 'text-amber-700'
               }`}
             >
               {settings.isConnected
                 ? isMarathi
-                  ? 'जोडले आहे (Connected)'
+                  ? 'जोडले आहे'
                   : 'Connected'
                 : isMarathi
-                ? 'जोडलेले नाही (Not Connected)'
+                ? 'जोडलेले नाही'
                 : 'Not Connected'}
             </span>
           </div>
 
-          <div>
-            <span className="text-slate-500 font-medium block">
+          <div className="space-y-0.5 min-w-0">
+            <span className="text-slate-500 text-[10px] sm:text-xs font-medium block">
               {isMarathi ? 'जोडलेला ईमेल' : 'Connected Email'}
             </span>
-            <span className="font-bold text-slate-800 text-sm mt-0.5 block truncate" title={settings.connectedEmail || ''}>
+            <span className="font-bold text-slate-800 text-xs sm:text-sm block truncate" title={settings.connectedEmail || ''}>
               {settings.connectedEmail || '-'}
             </span>
           </div>
 
-          <div>
-            <span className="text-slate-500 font-medium block">
+          <div className="space-y-0.5">
+            <span className="text-slate-500 text-[10px] sm:text-xs font-medium block">
               {isMarathi ? 'शेवटचा बॅकअप' : 'Last Backup'}
             </span>
-            <span className="font-bold text-slate-800 text-sm mt-0.5 block">
+            <span className="font-bold text-slate-800 text-xs sm:text-sm block truncate">
               {formatDateDisplay(settings.lastBackupAt)}
             </span>
           </div>
 
-          <div>
-            <span className="text-slate-500 font-medium block">
+          <div className="space-y-0.5">
+            <span className="text-slate-500 text-[10px] sm:text-xs font-medium block">
               {isMarathi ? 'स्वयंचलित बॅकअप' : 'Automatic Backup'}
             </span>
             <span
-              className={`font-bold text-sm mt-0.5 block ${
+              className={`font-bold text-xs sm:text-sm block ${
                 settings.automaticBackupEnabled ? 'text-emerald-700' : 'text-slate-600'
               }`}
             >
@@ -463,11 +463,11 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
         </div>
 
         {settings.isConnected && settings.lastTestStatus && (
-          <div className="mt-3 pt-3 border-t border-slate-200/70 flex items-center justify-between text-xs text-slate-600">
-            <span className="font-medium">
+          <div className="mt-2.5 pt-2.5 border-t border-slate-200/70 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-600 gap-1">
+            <span className="font-medium text-[10px] sm:text-xs text-slate-500">
               {isMarathi ? 'Drive चाचणी स्थिती (Test Status):' : 'Drive Test Status:'}
             </span>
-            <span className="font-mono font-semibold text-slate-800">
+            <span className="font-mono font-semibold text-slate-800 text-[11px] sm:text-xs truncate">
               {settings.lastTestStatus}
             </span>
           </div>
@@ -481,7 +481,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
             type="button"
             onClick={handleConnect}
             disabled={loading}
-            className="w-full py-3.5 px-6 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-md shadow-sky-600/20 hover:shadow-sky-600/30 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full py-3 sm:py-3.5 px-4 sm:px-6 rounded-xl sm:rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-sky-600/20 hover:shadow-sky-600/30 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading && busyAction === 'connect' ? (
               <>
@@ -492,21 +492,21 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
               <>
                 <LinkIcon className="w-4 h-4" />
                 <span>
-                  {isMarathi ? 'Google Drive खाते जोडा (Connect Google Drive)' : 'Connect Google Drive'}
+                  {isMarathi ? 'Google Drive खाते जोडा (Connect)' : 'Connect Google Drive'}
                 </span>
               </>
             )}
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5 sm:space-y-3">
           {/* Main Action Buttons Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
             <button
               type="button"
               onClick={handleBackupNow}
               disabled={loading}
-              className="py-3 px-5 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              className="py-2.5 sm:py-3 px-4 sm:px-5 rounded-xl sm:rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px]"
             >
               {loading && busyAction === 'backup' ? (
                 <>
@@ -525,7 +525,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
               type="button"
               onClick={handleOpenPicker}
               disabled={loading}
-              className="py-3 px-5 rounded-2xl bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200/90 font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              className="py-2.5 sm:py-3 px-4 sm:px-5 rounded-xl sm:rounded-2xl bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200/90 font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px]"
             >
               <CloudDownload className="w-4 h-4 text-sky-600" />
               <span>
@@ -534,41 +534,39 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
             </button>
           </div>
 
-          {/* Secondary Action Toolbar */}
-          <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={handleTestDrive}
-                disabled={loading}
-                className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
-                title="Test Google Drive Connection"
-              >
-                <RefreshCw
-                  className={`w-3.5 h-3.5 ${
-                    loading && busyAction === 'test' ? 'animate-spin text-sky-600' : ''
-                  }`}
-                />
-                <span>{isMarathi ? 'कनेक्शन तपासा (Test)' : 'Test Drive'}</span>
-              </button>
+          {/* Secondary Action Toolbar: Grid on mobile, flex on desktop */}
+          <div className="grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-2 pt-1">
+            <button
+              type="button"
+              onClick={handleTestDrive}
+              disabled={loading}
+              className="w-full sm:w-auto py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60 min-h-[40px]"
+              title="Test Google Drive Connection"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${
+                  loading && busyAction === 'test' ? 'animate-spin text-sky-600' : ''
+                }`}
+              />
+              <span>{isMarathi ? 'कनेक्शन तपासा (Test)' : 'Test Drive'}</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={handleChangeAccount}
-                disabled={loading}
-                className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
-                title="Switch to another Google Account"
-              >
-                <UserCheck className="w-3.5 h-3.5" />
-                <span>{isMarathi ? 'खाते बदला (Change)' : 'Change Account'}</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleChangeAccount}
+              disabled={loading}
+              className="w-full sm:w-auto py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60 min-h-[40px]"
+              title="Switch to another Google Account"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>{isMarathi ? 'खाते बदला (Change)' : 'Change Account'}</span>
+            </button>
 
             <button
               type="button"
               onClick={handleDisconnect}
               disabled={loading}
-              className="py-1.5 px-3 rounded-xl text-rose-600 hover:bg-rose-50 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
+              className="col-span-2 sm:col-span-1 w-full sm:w-auto py-2 px-3 rounded-xl text-rose-600 hover:bg-rose-50 font-bold text-xs flex items-center justify-center sm:justify-end gap-1.5 transition-colors cursor-pointer disabled:opacity-60 min-h-[40px]"
             >
               <Unlink className="w-3.5 h-3.5" />
               <span>{isMarathi ? 'डिस्कनेक्ट (Disconnect)' : 'Disconnect'}</span>
@@ -578,9 +576,9 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
       )}
 
       {/* Informational Tip matching Mobile */}
-      <div className="p-3.5 rounded-2xl bg-sky-50/70 border border-sky-200/70 flex items-start gap-2.5">
+      <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-sky-50/70 border border-sky-200/70 flex items-start gap-2 sm:gap-2.5">
         <Info className="w-4 h-4 text-sky-600 flex-shrink-0 mt-0.5" />
-        <span className="text-xs text-sky-900 leading-relaxed font-normal">
+        <span className="text-[11px] sm:text-xs text-sky-900 leading-relaxed font-normal">
           {isMarathi
             ? 'दर २ दिवसांनी दिनांकानुसार JSON बॅकअप Google Drive च्या "Anand Plates Backups" फोल्डरमध्ये सुरक्षितपणे जतन केला जातो. Mobile ॲप आणि Web ॲप दोन्हीचे बॅकअप परस्पर वापरता येतात.'
             : 'Automated 2-day cadence JSON backups are stored securely inside Google Drive\'s "Anand Plates Backups" folder. Fully interchangeable between Mobile and Web.'}
@@ -591,18 +589,18 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
       {/* MODAL 1: AVAILABLE BACKUPS LIST / PICKER                            */}
       {/* =================================================================== */}
       {isPickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center">
-                  <CloudDownload className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-100 space-y-3 sm:space-y-4 max-h-[88vh] flex flex-col">
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center flex-shrink-0">
+                  <CloudDownload className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">
+                  <h3 className="text-sm sm:text-base font-black text-slate-900">
                     {isMarathi ? 'बॅकअप तारीख निवडा' : 'Select Backup Date'}
                   </h3>
-                  <span className="text-xs text-slate-500 font-medium">
+                  <span className="text-[10px] sm:text-xs text-slate-500 font-medium">
                     {availableBackups.length > 0
                       ? `${isMarathi ? 'उपलब्ध फाइल्स' : 'Available files'}: ${availableBackups.length}`
                       : isMarathi
@@ -621,19 +619,19 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
             </div>
 
             <div className="flex items-center justify-between text-xs text-slate-500">
-              <span>{isMarathi ? 'ड्राइव्हवरील बॅकअप सूची' : 'Drive Backups'}</span>
+              <span className="text-[11px] sm:text-xs">{isMarathi ? 'ड्राइव्हवरील बॅकअप सूची' : 'Drive Backups'}</span>
               <button
                 type="button"
                 onClick={fetchBackupsList}
                 disabled={loadingBackups}
-                className="inline-flex items-center gap-1 font-bold text-sky-700 hover:text-sky-800 cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-1 font-bold text-sky-700 hover:text-sky-800 cursor-pointer disabled:opacity-50 text-[11px] sm:text-xs"
               >
                 <RefreshCw className={`w-3 h-3 ${loadingBackups ? 'animate-spin' : ''}`} />
                 <span>{isMarathi ? 'रिफ्रेश करा' : 'Refresh'}</span>
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
               {loadingBackups ? (
                 <div className="py-12 flex flex-col items-center justify-center space-y-3">
                   <Loader2 className="w-8 h-8 text-sky-600 animate-spin" />
@@ -644,7 +642,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
                   </p>
                 </div>
               ) : availableBackups.length === 0 ? (
-                <div className="py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-6 space-y-2">
+                <div className="py-8 sm:py-12 text-center bg-slate-50 rounded-xl sm:rounded-2xl border border-dashed border-slate-200 p-4 sm:p-6 space-y-2">
                   <FileText className="w-8 h-8 text-slate-300 mx-auto" />
                   <p className="text-xs font-bold text-slate-700">
                     {isMarathi
@@ -663,17 +661,17 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
                   return (
                     <div
                       key={file.id}
-                      className="p-3.5 rounded-2xl border border-slate-200/80 hover:border-sky-300 bg-white hover:bg-sky-50/40 flex items-center justify-between gap-3 transition-all"
+                      className="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200/80 hover:border-sky-300 bg-white hover:bg-sky-50/40 flex items-center justify-between gap-2.5 transition-all"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0">
+                      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0">
                           <Calendar className="w-4 h-4" />
                         </div>
-                        <div className="min-w-0">
-                          <span className="font-extrabold text-xs text-slate-900 block truncate">
+                        <div className="min-w-0 flex-1">
+                          <span className="font-extrabold text-xs sm:text-sm text-slate-900 block truncate">
                             {formatDateDisplay(displayDate)}
                           </span>
-                          <span className="text-[11px] text-slate-400 font-mono block truncate">
+                          <span className="text-[10px] sm:text-[11px] text-slate-400 font-mono block truncate">
                             {file.name} • {formatFileSize(file.size)}
                           </span>
                         </div>
@@ -682,7 +680,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
                       <button
                         type="button"
                         onClick={() => handleSelectForRestore(file)}
-                        className="flex-shrink-0 px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                        className="flex-shrink-0 px-3 py-1.5 rounded-lg sm:rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer min-h-[36px]"
                       >
                         {isMarathi ? 'रिस्टोअर' : 'Restore'}
                       </button>
@@ -696,7 +694,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
               <button
                 type="button"
                 onClick={() => setIsPickerOpen(false)}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer text-center"
               >
                 {isMarathi ? 'बंद करा' : 'Close'}
               </button>
@@ -709,52 +707,52 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
       {/* MODAL 2: CONFIRM RESTORE DIALOG                                     */}
       {/* =================================================================== */}
       {isConfirmRestoreOpen && selectedBackupForRestore && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-100 space-y-3 sm:space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
-                <AlertCircle className="w-5 h-5" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div>
-                <h3 className="text-base font-black text-slate-900">
+                <h3 className="text-sm sm:text-base font-black text-slate-900">
                   {isMarathi ? 'बॅकअप रिस्टोअर करायचा?' : 'Restore Backup?'}
                 </h3>
-                <span className="text-xs text-slate-500 font-medium">
+                <span className="text-[10px] sm:text-xs text-slate-500 font-medium">
                   {isMarathi ? 'कृपया पुष्टी करा' : 'Please confirm your action'}
                 </span>
               </div>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 leading-relaxed font-semibold">
+            <div className="p-3 rounded-xl sm:rounded-2xl bg-rose-50 border border-rose-200 text-[11px] sm:text-xs text-rose-900 leading-relaxed font-semibold">
               <strong>{isMarathi ? 'सावधान:' : 'Warning:'}</strong>{' '}
               {isMarathi
                 ? 'हा बॅकअप घेतल्यास सध्याचा स्थानिक डेटा बदलेल आणि निवडलेल्या बॅकअपमधील डेटा लागू होईल. (सुरक्षेसाठी चालू डेटाचा सेव्ह स्थानिक स्तरावर जतन केला जाईल).'
                 : 'Restoring this backup will replace current records with the data from the chosen backup file.'}
             </div>
 
-            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-1.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">{isMarathi ? 'तारीख:' : 'Date:'}</span>
-                <span className="font-bold text-slate-900">
+            <div className="bg-slate-50 border border-slate-200/80 rounded-xl sm:rounded-2xl p-3 space-y-1 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 text-[11px] sm:text-xs">{isMarathi ? 'तारीख:' : 'Date:'}</span>
+                <span className="font-bold text-slate-900 text-[11px] sm:text-xs">
                   {formatDateDisplay(
                     selectedBackupForRestore.backupDate || selectedBackupForRestore.modifiedTime
                   )}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">{isMarathi ? 'फाइल:' : 'File:'}</span>
-                <span className="font-mono text-[11px] text-slate-700 truncate max-w-[200px]">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-slate-500 text-[11px] sm:text-xs">{isMarathi ? 'फाइल:' : 'File:'}</span>
+                <span className="font-mono text-[10px] sm:text-[11px] text-slate-700 truncate max-w-[180px] sm:max-w-[220px]">
                   {selectedBackupForRestore.name}
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-2.5 pt-2">
               <button
                 type="button"
                 onClick={() => setIsConfirmRestoreOpen(false)}
                 disabled={loading}
-                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer disabled:opacity-50"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 text-center"
               >
                 {isMarathi ? 'रद्द करा' : 'Cancel'}
               </button>
@@ -763,7 +761,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
                 type="button"
                 onClick={handleConfirmRestore}
                 disabled={loading}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs flex items-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-50"
               >
                 {loading && busyAction === 'restore' ? (
                   <>
@@ -788,17 +786,17 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
       {/* MODAL 3: OLD BACKUP DETECTION PROMPT                                */}
       {/* =================================================================== */}
       {isFoundBackupsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-100 space-y-3 sm:space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center flex-shrink-0">
-                <Cloud className="w-5 h-5" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center flex-shrink-0">
+                <Cloud className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div>
-                <h3 className="text-base font-black text-slate-900">
+                <h3 className="text-sm sm:text-base font-black text-slate-900">
                   {isMarathi ? 'Google Drive बॅकअप सापडले' : 'Backups Found on Google Drive'}
                 </h3>
-                <span className="text-xs text-slate-500 font-medium">
+                <span className="text-[10px] sm:text-xs text-slate-500 font-medium">
                   {isMarathi
                     ? `${availableBackups.length} पूर्वीचे बॅकअप उपलब्ध`
                     : `${availableBackups.length} backups found`}
@@ -812,11 +810,11 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
                 : `We found ${availableBackups.length} existing backups on your Google Drive. Would you like to keep current data or restore from an existing backup?`}
             </p>
 
-            <div className="space-y-2 pt-2">
+            <div className="space-y-2 pt-1 sm:pt-2">
               <button
                 type="button"
                 onClick={handleKeepCurrentData}
-                className="w-full py-3 px-4 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-black text-xs transition-colors cursor-pointer shadow-xs"
+                className="w-full py-2.5 sm:py-3 px-4 rounded-xl sm:rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-black text-xs transition-colors cursor-pointer shadow-xs text-center"
               >
                 {isMarathi ? 'सध्याचा डेटा ठेवा (Keep current data)' : 'Keep current data'}
               </button>
@@ -827,7 +825,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
                   setIsFoundBackupsModalOpen(false);
                   setIsPickerOpen(true);
                 }}
-                className="w-full py-3 px-4 rounded-2xl bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 font-extrabold text-xs transition-colors cursor-pointer"
+                className="w-full py-2.5 sm:py-3 px-4 rounded-xl sm:rounded-2xl bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 font-extrabold text-xs transition-colors cursor-pointer text-center"
               >
                 {isMarathi
                   ? 'बॅकअप निवडा व रिस्टोअर करा (Choose backup)'

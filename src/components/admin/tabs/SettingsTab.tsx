@@ -380,10 +380,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto text-left space-y-8 pb-12">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h3 className="text-2xl font-black text-slate-900 tracking-tight">System & Bill Settings</h3>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">
+          <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">System & Bill Settings</h3>
+          <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5">
             Configure business variables, banking info, and customize rental bill templates
           </p>
         </div>
@@ -393,7 +393,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           <button
             type="button"
             onClick={() => setIsPreviewOpen(true)}
-            className="bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm flex items-center gap-2 transition-all cursor-pointer"
+            className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[40px]"
             title="Preview currently configured bill template"
           >
             <Eye className="w-4 h-4 text-orange-400" />
@@ -1062,18 +1062,18 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
 
         {/* Submit & Save Button */}
-        <div className="flex justify-end gap-3 pt-2">
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 pt-2">
           <button
             type="button"
             onClick={() => setIsPreviewOpen(true)}
-            className="px-5 py-3 rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-sm transition-all flex items-center gap-1.5 cursor-pointer"
+            className="w-full sm:w-auto px-5 py-3 rounded-xl sm:rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
           >
             <Eye className="w-4 h-4" />
             <span>Preview Bill Template</span>
           </button>
           <button
             type="submit"
-            className="bg-primary hover:bg-primary-dark text-white font-bold px-7 py-3 rounded-2xl shadow-lg hover:shadow-orange-500/20 transition-all flex items-center gap-2 cursor-pointer"
+            className="w-full sm:w-auto bg-primary hover:bg-primary-dark text-white font-bold px-7 py-3 rounded-xl sm:rounded-2xl shadow-lg hover:shadow-orange-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer text-xs sm:text-sm min-h-[44px]"
           >
             <Save className="w-4 h-4" />
             <span>Save Settings Changes</span>
@@ -1093,20 +1093,20 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       {/* -------------------------------------------------------------------------- */}
       {/* DATA MANAGEMENT & DELETE DATA SECTION (डेटा व्यवस्थापन व डिलीट पर्याय) */}
       {/* -------------------------------------------------------------------------- */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b border-slate-100 pb-4 sm:pb-5">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl border border-rose-100 shadow-2xs">
+            <div className="p-2.5 sm:p-3 bg-rose-50 text-rose-600 rounded-xl sm:rounded-2xl border border-rose-100 shadow-2xs flex-shrink-0">
               <Database className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <h4 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2 flex-wrap">
                 <span>{isMarathi ? 'डेटा व्यवस्थापन व डिलीट पर्याय' : 'Data Management & Delete Options'}</span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 uppercase font-mono">
                   Danger Zone
                 </span>
               </h4>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
+              <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5">
                 {isMarathi
                   ? 'भाडे वाटप, पेमेंट्स, ग्राहक डेटा हटवा अथवा नवीन सुरुवातीसाठी संपूर्ण डेटाबेस स्वच्छ करा.'
                   : 'Manage, prune, or delete transaction history, inactive parties, or reset database.'}
@@ -1115,7 +1115,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
 
           {/* Quick Utility Actions */}
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-2.5">
             {/* Hidden JSON file input */}
             <input
               type="file"
@@ -1128,11 +1128,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <button
               type="button"
               onClick={handleDownloadBackup}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer min-h-[38px]"
               title="Download full JSON data backup"
             >
-              <Download className="w-3.5 h-3.5 text-slate-600" />
-              <span>{isMarathi ? 'बॅकअप डाउनलोड करा' : 'Download Backup (JSON)'}</span>
+              <Download className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+              <span className="truncate">{isMarathi ? 'बॅकअप डाउनलोड' : 'Download Backup'}</span>
             </button>
 
             {onRestoreBackup && (
@@ -1140,15 +1140,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isRestoring}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors cursor-pointer min-h-[38px]"
                 title="Upload and restore a JSON data backup"
               >
                 {isRestoring ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
                 ) : (
-                  <Upload className="w-3.5 h-3.5" />
+                  <Upload className="w-3.5 h-3.5 flex-shrink-0" />
                 )}
-                <span>{isMarathi ? 'बॅकअप अपलोड करा' : 'Restore Backup (JSON)'}</span>
+                <span className="truncate">{isMarathi ? 'बॅकअप अपलोड' : 'Restore Backup'}</span>
               </button>
             )}
 
@@ -1157,15 +1157,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 type="button"
                 onClick={handleLoadSample}
                 disabled={isSeeding}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition-colors cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition-colors cursor-pointer min-h-[38px]"
                 title="Populate system with verified starter plates, customers, and rentals"
               >
                 {isSeeding ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
                 ) : (
-                  <Sparkles className="w-3.5 h-3.5" />
+                  <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
                 )}
-                <span>{isMarathi ? '⚡ नमुना डेटा लोड करा' : '⚡ Load Sample Data'}</span>
+                <span className="truncate">{isMarathi ? '⚡ नमुना डेटा' : '⚡ Load Sample'}</span>
               </button>
             )}
 
@@ -1174,59 +1174,59 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 type="button"
                 onClick={handleRunDeduplication}
                 disabled={isDeduplicating}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-colors cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-colors cursor-pointer min-h-[38px]"
                 title="Deduplicate stored records"
               >
                 {isDeduplicating ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
                 ) : (
-                  <RefreshCw className="w-3.5 h-3.5" />
+                  <RefreshCw className="w-3.5 h-3.5 flex-shrink-0" />
                 )}
-                <span>{isMarathi ? 'ड्युप्लिकेट स्वच्छ करा' : 'Clean Duplicates'}</span>
+                <span className="truncate">{isMarathi ? 'ड्युप्लिकेट स्वच्छ' : 'Clean Dups'}</span>
               </button>
             )}
           </div>
         </div>
 
         {/* Current Database Summary Badges */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-center">
-            <span className="text-xs font-bold text-slate-500 block">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl sm:rounded-2xl p-3 sm:p-3.5 text-center">
+            <span className="text-[11px] sm:text-xs font-bold text-slate-500 block">
               {isMarathi ? 'भाडे वाटप' : 'Rentals'}
             </span>
-            <span className="text-xl font-black text-slate-900 font-mono mt-0.5 block">
+            <span className="text-lg sm:text-xl font-black text-slate-900 font-mono mt-0.5 block">
               {rentals.length}
             </span>
           </div>
-          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-center">
-            <span className="text-xs font-bold text-slate-500 block">
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl sm:rounded-2xl p-3 sm:p-3.5 text-center">
+            <span className="text-[11px] sm:text-xs font-bold text-slate-500 block">
               {isMarathi ? 'सायकल्स' : 'Cycles'}
             </span>
-            <span className="text-xl font-black text-slate-900 font-mono mt-0.5 block">
+            <span className="text-lg sm:text-xl font-black text-slate-900 font-mono mt-0.5 block">
               {rentalCycles.length}
             </span>
           </div>
-          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-center">
-            <span className="text-xs font-bold text-slate-500 block">
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl sm:rounded-2xl p-3 sm:p-3.5 text-center">
+            <span className="text-[11px] sm:text-xs font-bold text-slate-500 block">
               {isMarathi ? 'जमा नोंदी' : 'Returns'}
             </span>
-            <span className="text-xl font-black text-slate-900 font-mono mt-0.5 block">
+            <span className="text-lg sm:text-xl font-black text-slate-900 font-mono mt-0.5 block">
               {returns.length}
             </span>
           </div>
-          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-center">
-            <span className="text-xs font-bold text-slate-500 block">
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl sm:rounded-2xl p-3 sm:p-3.5 text-center">
+            <span className="text-[11px] sm:text-xs font-bold text-slate-500 block">
               {isMarathi ? 'पेमेंट्स' : 'Payments'}
             </span>
-            <span className="text-xl font-black text-slate-900 font-mono mt-0.5 block">
+            <span className="text-lg sm:text-xl font-black text-slate-900 font-mono mt-0.5 block">
               {payments.length}
             </span>
           </div>
-          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-center">
-            <span className="text-xs font-bold text-slate-500 block">
+          <div className="col-span-2 sm:col-span-1 bg-slate-50 border border-slate-200/80 rounded-xl sm:rounded-2xl p-3 sm:p-3.5 text-center">
+            <span className="text-[11px] sm:text-xs font-bold text-slate-500 block">
               {isMarathi ? 'ग्राहक' : 'Parties'}
             </span>
-            <span className="text-xl font-black text-slate-900 font-mono mt-0.5 block">
+            <span className="text-lg sm:text-xl font-black text-slate-900 font-mono mt-0.5 block">
               {parties.length}
             </span>
           </div>
@@ -1360,15 +1360,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
 
         {/* Master Danger Zone: Factory Reset */}
-        <div className="mt-4 bg-gradient-to-br from-rose-50 to-red-50/80 border-2 border-rose-300/80 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="mt-4 bg-gradient-to-br from-rose-50 to-red-50/80 border-2 border-rose-300/80 rounded-2xl p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <ShieldAlert className="w-5 h-5 text-rose-600 flex-shrink-0" />
-              <h5 className="text-sm font-black text-rose-950 uppercase tracking-wide">
+              <h5 className="text-xs sm:text-sm font-black text-rose-950 uppercase tracking-wide">
                 {isMarathi ? 'फॅक्टरी रिसेट: सर्व डेटा पूर्णपणे पुसून टाका' : 'Complete Factory Reset / Wipe All Data'}
               </h5>
             </div>
-            <p className="text-xs text-rose-800 leading-relaxed">
+            <p className="text-[11px] sm:text-xs text-rose-800 leading-relaxed">
               {isMarathi
                 ? 'सर्व भाडे वाटप, सायकल्स, जमा नोंदी, पेमेंट्स, आणि ग्राहक एकाच वेळी कायमचे नष्ट केले जातील. नवीन सुरुवातीसाठीच वापरा.'
                 : 'Permanently wipes all rentals, cycles, returns, payments, ledger logs, and customer accounts back to zero.'}
@@ -1378,7 +1378,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           <button
             type="button"
             onClick={() => handleOpenDeleteModal('factory_reset')}
-            className="flex-shrink-0 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs px-5 py-3 rounded-xl shadow-md hover:shadow-rose-600/30 flex items-center gap-2 transition-all cursor-pointer"
+            className="w-full sm:w-auto flex-shrink-0 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs px-4 sm:px-5 py-3 rounded-xl shadow-md hover:shadow-rose-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[44px]"
           >
             <Trash2 className="w-4 h-4" />
             <span>{isMarathi ? 'सर्व डेटा कायमचा हटवा' : 'Wipe All Data (Factory Reset)'}</span>
