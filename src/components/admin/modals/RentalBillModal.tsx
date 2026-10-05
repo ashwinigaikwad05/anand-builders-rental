@@ -575,118 +575,155 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   const renderKycDocumentsSection = (isSimpleBill: boolean) => {
     if (!showKycDocs) return null;
 
-    const docs = [
+    const allDocs = [
       {
         id: 'photo',
-        title: selectedLanguage === 'marathi' ? '१. ग्राहक फोटो (चेहरा)' : '1. Customer Face Photo',
+        title: selectedLanguage === 'marathi' ? 'ग्राहक फोटो (चेहरा)' : 'Customer Face Photo',
         icon: User,
         iconColor: 'text-emerald-600',
         url: resolvedParty?.photoUrl,
-        missingText: selectedLanguage === 'marathi' ? 'फोटो उपलब्ध नाही' : 'No Face Photo',
       },
       {
         id: 'aadhaarFront',
-        title: selectedLanguage === 'marathi' ? '२. आधार कार्ड (पुढील बाजू)' : '2. Aadhaar Card (Front)',
+        title: selectedLanguage === 'marathi' ? 'आधार कार्ड (पुढील बाजू)' : 'Aadhaar Card (Front)',
         icon: FileBadge,
         iconColor: 'text-blue-600',
         url: resolvedParty?.aadhaarUrl,
-        missingText: selectedLanguage === 'marathi' ? 'पुढील बाजू नाही' : 'No Front ID',
       },
       {
         id: 'aadhaarBack',
-        title: selectedLanguage === 'marathi' ? '३. आधार कार्ड (मागील बाजू)' : '3. Aadhaar Card (Back)',
+        title: selectedLanguage === 'marathi' ? 'आधार कार्ड (मागील बाजू)' : 'Aadhaar Card (Back)',
         icon: FileBadge,
         iconColor: 'text-indigo-600',
         url: resolvedParty?.aadhaarBackUrl,
-        missingText: selectedLanguage === 'marathi' ? 'मागील बाजू नाही' : 'No Back ID',
       },
       {
         id: 'cheque',
-        title: selectedLanguage === 'marathi' ? '४. सिक्युरिटी चेक' : '4. Security Cheque',
+        title: selectedLanguage === 'marathi' ? 'सुरक्षा चेक (सिक्युरिटी चेक)' : 'Security Cheque',
         icon: Landmark,
         iconColor: 'text-amber-600',
         url: resolvedParty?.chequeUrl,
-        missingText: selectedLanguage === 'marathi' ? 'चेक फोटो नाही' : 'No Cheque Photo',
       },
     ];
 
-    const hasAnyDoc = docs.some((d) => Boolean(d.url));
+    // Filter to ONLY documents that have actually been uploaded
+    const uploadedDocs = allDocs.filter(
+      (d) => Boolean(d.url && typeof d.url === 'string' && d.url.trim().length > 0)
+    );
+
+    // If no documents are uploaded, do NOT show 4 empty boxes on bill.
+    // In print mode, hide completely. On screen, show a clean informative banner.
+    if (uploadedDocs.length === 0) {
+      return (
+        <div className="mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500 italic print:hidden flex items-center justify-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-slate-400 shrink-0" />
+          <span>
+            {selectedLanguage === 'marathi'
+              ? 'टीप: या ग्राहकासाठी अद्याप कोणतेही केवायसी कागदपत्रे अपलोड केलेली नाहीत (ग्राहक खात्यामधून फोटो किंवा आधार जोडू शकता).'
+              : 'Note: No KYC document photos have been uploaded for this customer yet (can be added from Customers Tab).'}
+          </span>
+        </div>
+      );
+    }
+
+    // Adaptive grid and height based on the number of uploaded documents
+    let gridColsClass = 'grid-cols-1 sm:grid-cols-2 print:grid-cols-2';
+    let imgHeightClass = 'h-44 sm:h-52 print:h-44';
+    let containerMaxWidthClass = 'w-full';
+
+    if (uploadedDocs.length === 1) {
+      gridColsClass = 'grid-cols-1';
+      imgHeightClass = 'h-52 sm:h-64 print:h-56';
+      containerMaxWidthClass = 'max-w-md mx-auto';
+    } else if (uploadedDocs.length === 2) {
+      gridColsClass = 'grid-cols-1 sm:grid-cols-2 print:grid-cols-2';
+      imgHeightClass = 'h-44 sm:h-52 print:h-44';
+      containerMaxWidthClass = 'w-full';
+    } else if (uploadedDocs.length === 3) {
+      gridColsClass = 'grid-cols-1 sm:grid-cols-3 print:grid-cols-3';
+      imgHeightClass = 'h-36 sm:h-44 print:h-36';
+      containerMaxWidthClass = 'w-full';
+    } else if (uploadedDocs.length >= 4) {
+      gridColsClass = 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 print:grid-cols-2 md:print:grid-cols-4';
+      imgHeightClass = 'h-32 sm:h-40 print:h-32';
+      containerMaxWidthClass = 'w-full';
+    }
+
+    const marathiNumbers = ['१', '२', '३', '४'];
 
     return (
       <div className={`mt-5 pt-4 ${isSimpleBill ? 'border-t-2 border-slate-900' : 'border-t-2 border-slate-800'} print:break-inside-avoid print:mt-4 print:pt-3`}>
         <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-200">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-700" />
+            <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
             <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
               {selectedLanguage === 'marathi'
                 ? 'ग्राहक ओळख व सुरक्षा दस्तऐवज (Customer KYC Proofs)'
                 : 'Customer Identification & Security Documents (KYC)'}
             </h4>
           </div>
-          <span className="text-[10px] font-bold text-slate-600">
-            {selectedLanguage === 'marathi' ? 'ग्राहक:' : 'Customer:'} {partyDisplayName}
-          </span>
+          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+            <span>
+              {selectedLanguage === 'marathi' ? 'ग्राहक:' : 'Customer:'} {partyDisplayName}
+            </span>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono text-[9px] font-black">
+              {uploadedDocs.length} {selectedLanguage === 'marathi' ? 'दस्तऐवज जोडले' : 'Document(s)'}
+            </span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 print:grid-cols-4">
-          {docs.map((doc) => {
-            const Icon = doc.icon;
-            return (
-              <div
-                key={doc.id}
-                className="border border-slate-300 rounded-xl p-2 bg-slate-50/70 print:bg-white text-center flex flex-col justify-between"
-              >
-                <div className="mb-1 flex items-center justify-center gap-1 text-[11px] font-bold text-slate-800 truncate">
-                  <Icon className={`w-3.5 h-3.5 ${doc.iconColor} flex-shrink-0`} />
-                  <span className="truncate">{doc.title}</span>
-                </div>
+        <div className={containerMaxWidthClass}>
+          <div className={`grid ${gridColsClass} gap-3 sm:gap-4 print:gap-3`}>
+            {uploadedDocs.map((doc, idx) => {
+              const Icon = doc.icon;
+              const numLabel = selectedLanguage === 'marathi' ? `${marathiNumbers[idx] || idx + 1}. ` : `${idx + 1}. `;
+              const fullTitle = `${numLabel}${doc.title}`;
 
+              return (
                 <div
-                  className={`h-28 sm:h-32 w-full flex items-center justify-center bg-white rounded-lg border border-slate-200 overflow-hidden ${
-                    doc.url ? 'cursor-pointer hover:opacity-90' : ''
-                  }`}
-                  onClick={() => {
-                    if (doc.url) setEnlargedImage({ url: doc.url, title: doc.title });
-                  }}
-                  title={doc.url ? 'Click to enlarge / पाहण्यासाठी क्लिक करा' : undefined}
+                  key={doc.id}
+                  className="border border-slate-300 rounded-xl p-2.5 sm:p-3 bg-white print:bg-white text-center flex flex-col justify-between shadow-2xs print:shadow-none hover:border-primary/40 transition-all"
                 >
-                  {doc.url ? (
+                  <div className="mb-2 flex items-center justify-between gap-1.5 border-b border-slate-100 pb-1.5">
+                    <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-slate-800 text-left">
+                      <Icon className={`w-3.5 h-3.5 ${doc.iconColor} shrink-0`} />
+                      <span className="font-extrabold leading-tight break-words">{fullTitle}</span>
+                    </div>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                      {selectedLanguage === 'marathi' ? '✓ जोडले' : '✓ Attached'}
+                    </span>
+                  </div>
+
+                  <div
+                    className={`${imgHeightClass} w-full flex items-center justify-center bg-slate-50/70 rounded-lg border border-slate-200 overflow-hidden cursor-pointer hover:opacity-95 transition-all group relative p-1`}
+                    onClick={() => {
+                      if (doc.url) setEnlargedImage({ url: doc.url, title: fullTitle });
+                    }}
+                    title={selectedLanguage === 'marathi' ? 'मोठे करून पाहण्यासाठी क्लिक करा' : 'Click to enlarge'}
+                  >
                     <img
-                      src={doc.url}
-                      alt={doc.title}
-                      className="w-full h-full object-contain"
+                      src={doc.url!}
+                      alt={fullTitle}
+                      className="w-full h-full object-contain rounded"
                     />
-                  ) : (
-                    <div className="text-center p-2 text-slate-400">
-                      <Icon className="w-6 h-6 mx-auto mb-1 text-slate-300" />
-                      <span className="text-[10px] block font-medium">
-                        {doc.missingText}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center pointer-events-none print:hidden">
+                      <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 text-white text-[10px] px-2.5 py-1 rounded-full font-bold shadow-md">
+                        {selectedLanguage === 'marathi' ? 'पहा 🔍' : 'View 🔍'}
                       </span>
                     </div>
-                  )}
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-between text-[9px] text-slate-500 font-medium">
+                    <span>{selectedLanguage === 'marathi' ? 'दस्तऐवज पुरावा' : 'Identity Proof'}</span>
+                    <span className="text-emerald-700 font-bold uppercase tracking-wider">
+                      {selectedLanguage === 'marathi' ? 'सत्यापित प्रत' : 'Verified'}
+                    </span>
+                  </div>
                 </div>
-
-                <span
-                  className={`mt-1.5 text-[9px] font-bold uppercase tracking-wider ${
-                    doc.url ? 'text-emerald-700' : 'text-slate-400'
-                  }`}
-                >
-                  {doc.url
-                    ? (selectedLanguage === 'marathi' ? '✓ जोडला आहे' : '✓ Attached')
-                    : (selectedLanguage === 'marathi' ? 'उपलब्ध नाही' : 'Not Attached')}
-                </span>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-
-        {!hasAnyDoc && (
-          <p className="mt-2 text-center text-[10px] text-slate-500 italic">
-            {selectedLanguage === 'marathi'
-              ? 'टीप: या ग्राहकासाठी अद्याप कोणतेही केवायसी कागदपत्रे जोडलेली नाहीत. ग्राहक खात्यामधून (Customers Tab) कागदपत्रे जोडू शकता.'
-              : 'Note: No KYC document photos have been uploaded for this customer yet. You can upload them from the Customers Tab.'}
-          </p>
-        )}
       </div>
     );
   };

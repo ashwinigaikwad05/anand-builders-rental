@@ -134,8 +134,45 @@ runTest('Partial KYC documents handle missing items gracefully', () => {
   assert.strictEqual(hasAadhaarFront, true);
   assert.strictEqual(hasAadhaarBack, false);
   assert.strictEqual(hasCheque, false);
+
+  // Filter only uploaded documents
+  const allCandidateDocs = [
+    { id: 'photo', title: 'ग्राहक फोटो (चेहरा)', url: mockPartyPartial.photoUrl },
+    { id: 'aadhaarFront', title: 'आधार कार्ड (पुढील बाजू)', url: mockPartyPartial.aadhaarUrl },
+    { id: 'aadhaarBack', title: 'आधार कार्ड (मागील बाजू)', url: mockPartyPartial.aadhaarBackUrl },
+    { id: 'cheque', title: 'सुरक्षा चेक (सिक्युरिटी चेक)', url: mockPartyPartial.chequeUrl },
+  ];
+
+  const uploadedDocs = allCandidateDocs.filter(d => Boolean(d.url && d.url.trim()));
+  assert.strictEqual(uploadedDocs.length, 2);
+  assert.strictEqual(uploadedDocs[0].id, 'photo');
+  assert.strictEqual(uploadedDocs[1].id, 'aadhaarFront');
+});
+
+runTest('When customer has zero KYC documents uploaded, uploadedDocs is empty', () => {
+  const mockPartyEmpty = {
+    id: 'p-103',
+    name: 'रमेश पाटील',
+    mobile: '9822334466',
+    address: 'Near Old Bus Stand',
+    photoUrl: null,
+    aadhaarUrl: '',
+    aadhaarBackUrl: undefined,
+    chequeUrl: null,
+  };
+
+  const allCandidateDocs = [
+    { id: 'photo', title: 'ग्राहक फोटो (चेहरा)', url: mockPartyEmpty.photoUrl },
+    { id: 'aadhaarFront', title: 'आधार कार्ड (पुढील बाजू)', url: mockPartyEmpty.aadhaarUrl },
+    { id: 'aadhaarBack', title: 'आधार कार्ड (मागील बाजू)', url: mockPartyEmpty.aadhaarBackUrl },
+    { id: 'cheque', title: 'सुरक्षा चेक (सिक्युरिटी चेक)', url: mockPartyEmpty.chequeUrl },
+  ];
+
+  const uploadedDocs = allCandidateDocs.filter(d => Boolean(d.url && d.url.trim()));
+  assert.strictEqual(uploadedDocs.length, 0);
 });
 
 console.log('\n===========================================================================');
 console.log(`  🎉 SUMMARY: ALL ${passedTests} / ${totalTests} BILL SIGNATURE & KYC TESTS PASSED`);
 console.log('===========================================================================\n');
+
