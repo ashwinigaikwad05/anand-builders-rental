@@ -140,14 +140,14 @@ export const PlateTypesTab: React.FC<PlateTypesTabProps> = ({
   return (
     <div className="space-y-6 text-left">
       {/* Top Header with Add Plate Size Button */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-4 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200/80 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 bg-orange-100 text-primary rounded-xl font-bold">
+            <span className="p-2 bg-orange-100 text-primary rounded-xl font-bold shrink-0">
               <Ruler className="w-5 h-5" />
             </span>
             <div>
-              <h3 className="text-xl font-extrabold text-charcoal tracking-tight">
+              <h3 className="text-base sm:text-xl font-extrabold text-charcoal tracking-tight">
                 Plate Type Settings (प्लेट प्रकार)
               </h3>
               <p className="text-xs text-slate-500 font-light mt-0.5">
@@ -160,7 +160,7 @@ export const PlateTypesTab: React.FC<PlateTypesTabProps> = ({
         <button
           type="button"
           onClick={handleOpenAddModal}
-          className="bg-primary hover:bg-primary-dark text-white font-bold px-4 py-2.5 rounded-xl shadow-md hover:shadow-orange-500/20 text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer self-start sm:self-auto"
+          className="bg-primary hover:bg-primary-dark text-white font-bold px-4 py-2.5 sm:py-3 rounded-xl shadow-md hover:shadow-orange-500/20 text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer w-full sm:w-auto min-h-[44px]"
         >
           <Plus className="w-4 h-4" />
           <span>+ Add Plate Size (नवीन साईझ जोडा)</span>
@@ -168,7 +168,7 @@ export const PlateTypesTab: React.FC<PlateTypesTabProps> = ({
       </div>
 
       {/* Grid of Plate Type configuration blocks */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         {plates.map((plate) => {
           const isStandard = STANDARD_SIZES.includes(plate.plateType);
           const canDelete =
@@ -180,7 +180,7 @@ export const PlateTypesTab: React.FC<PlateTypesTabProps> = ({
           return (
             <div
               key={plate.plateType}
-              className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:border-primary/20 transition-all group relative"
+              className="bg-white border border-slate-200/60 rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col justify-between hover:border-primary/20 transition-all group relative"
             >
               <div>
                 <div className="flex justify-between items-start gap-2">
@@ -330,16 +330,16 @@ export const PlateTypesTab: React.FC<PlateTypesTabProps> = ({
 
       {/* MODAL: ADD NEW PLATE SIZE */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full overflow-hidden shadow-2xl animate-scaleUp">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 max-w-md w-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl animate-scaleUp">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
               <div className="flex items-center gap-2.5">
                 <span className="p-2 bg-orange-100 text-primary rounded-xl font-bold">
                   <Ruler className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="text-base font-extrabold text-slate-900">
+                  <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
                     Add New Plate Size
                   </h3>
                   <p className="text-[11px] text-slate-500">नवीन प्लेट साईझ / प्रकार जोडा</p>
@@ -349,14 +349,14 @@ export const PlateTypesTab: React.FC<PlateTypesTabProps> = ({
                 type="button"
                 onClick={handleCloseAddModal}
                 disabled={isSubmitting}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleAddSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleAddSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-grow">
               {formError && (
                 <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl text-xs font-semibold flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -428,19 +428,19 @@ export const PlateTypesTab: React.FC<PlateTypesTabProps> = ({
               </div>
 
               {/* Submit Buttons */}
-              <div className="flex justify-end gap-3 pt-3">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={handleCloseAddModal}
                   disabled={isSubmitting}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 font-bold text-xs cursor-pointer transition"
+                  className="w-full sm:w-auto px-4 py-3 sm:py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 font-bold text-xs cursor-pointer transition min-h-[44px] flex items-center justify-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="bg-primary hover:bg-primary-dark text-white font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-orange-500/20 text-xs flex items-center gap-2 transition cursor-pointer disabled:opacity-50"
+                  className="w-full sm:w-auto bg-primary hover:bg-primary-dark text-white font-bold px-5 py-3 sm:py-2.5 rounded-xl shadow-md hover:shadow-orange-500/20 text-xs flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50 min-h-[44px]"
                 >
                   {isSubmitting ? (
                     <>

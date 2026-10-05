@@ -177,7 +177,8 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
       </div>
 
       {/* Payments Logs List */}
-      <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
+      {/* Desktop Table View */}
+      <div className="hidden md:block bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
@@ -260,21 +261,104 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
         </div>
       </div>
 
+      {/* Mobile Card List View (visible on < 768px) */}
+      <div className="md:hidden space-y-3">
+        {filteredPayments.map((pay) => (
+          <div
+            key={pay.id}
+            className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2.5"
+          >
+            {/* Top row: Customer Name + Date */}
+            <div className="flex items-start justify-between gap-2">
+              <h4 className="font-bold text-slate-800 text-sm">{pay.partyName}</h4>
+              <span className="text-xs text-slate-400 font-mono shrink-0">
+                {formatMarathiDate(pay.date)}
+              </span>
+            </div>
+
+            {/* Amount and Mode Badge */}
+            <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                  {pay.type === 'refund' ? (isMarathi ? 'परतावा' : 'Refund') : (isMarathi ? 'जमा रक्कम' : 'Received')}
+                </span>
+                <span
+                  className={`text-base font-black ${
+                    pay.type === 'refund' ? 'text-amber-600' : 'text-emerald-600'
+                  }`}
+                >
+                  {pay.type === 'refund'
+                    ? `-₹${pay.amount.toLocaleString('en-IN')}`
+                    : `₹${pay.amount.toLocaleString('en-IN')}`}
+                </span>
+              </div>
+
+              <span
+                className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
+                  pay.paymentMode === 'Account 1'
+                    ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                    : pay.paymentMode === 'Account 2'
+                    ? 'bg-purple-50 text-purple-700 border border-purple-100'
+                    : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                }`}
+              >
+                {pay.paymentMode === 'Account 1' ? '🏦 Account 1' : pay.paymentMode === 'Account 2' ? '📱 Account 2' : '💵 Cash'}
+              </span>
+            </div>
+
+            {/* Footer row: Target cycle & reference voucher */}
+            <div className="flex items-center justify-between text-xs pt-0.5">
+              <div className="text-slate-500">
+                {pay.cycleNumber ? (
+                  <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px] font-bold px-2 py-0.5 rounded-md">
+                    Cycle #{pay.cycleNumber}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-slate-400">
+                    {isMarathi ? 'सर्वसाधारण जमा' : 'General Allocation'}
+                  </span>
+                )}
+              </div>
+
+              {pay.reference && (
+                <span className="text-[11px] text-slate-400 font-mono truncate max-w-[150px]">
+                  Ref: {pay.reference}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {payments.length === 0 ? (
+          <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center text-slate-400 text-sm">
+            {isMarathi ? 'कोणतीही जमा नोंद आढळली नाही.' : 'No payments recorded yet.'}
+          </div>
+        ) : filteredPayments.length === 0 ? (
+          <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center text-slate-400 text-sm">
+            {isMarathi ? 'फिल्टरशी जुळणारी नोंद सापडली नाही.' : 'No payment logs found matching filter.'}
+          </div>
+        ) : null}
+      </div>
+
       {/* Record Payment Dialog */}
       {isAddOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 max-w-lg w-full overflow-hidden shadow-2xl animate-scaleUp text-left">
-            <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h4 className="text-base font-bold text-charcoal flex items-center gap-2">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 max-w-lg w-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl animate-scaleUp text-left">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+              <h4 className="text-sm sm:text-base font-bold text-charcoal flex items-center gap-2">
                 <Wallet className="w-5 h-5 text-primary" />
-                Record Customer Payment
+                {isMarathi ? 'ग्राहकाची रक्कम जमा नोंदवा' : 'Record Customer Payment'}
               </h4>
-              <button onClick={() => setIsAddOpen(false)} className="p-1 text-slate-400 hover:text-slate-800 rounded-lg">
+              <button
+                onClick={() => setIsAddOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-800 rounded-lg min-h-[36px] min-w-[36px] flex items-center justify-center"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
+
             
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-grow">
               {validationError && (
                 <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 p-4 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2">
                   <Info className="w-4 h-4" /> {validationError}
@@ -432,20 +516,20 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                 />
               </div>
 
-              <div className="flex gap-4 pt-4 border-t border-slate-100 justify-end">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-4 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsAddOpen(false)}
-                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition-all"
+                  className="w-full sm:w-auto px-5 py-3 sm:py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition-all min-h-[44px] flex items-center justify-center"
                 >
-                  Cancel
+                  {isMarathi ? 'रद्द करा' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-sm shadow-md transition-all flex items-center gap-1.5"
+                  className="w-full sm:w-auto px-5 py-3 sm:py-2.5 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-sm shadow-md transition-all flex items-center justify-center gap-1.5 min-h-[44px]"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Verify & Record</span>
+                  <span>{isMarathi ? 'पडताळणी करून जमा करा' : 'Verify & Record'}</span>
                 </button>
               </div>
             </form>

@@ -174,3 +174,19 @@ export function buildGeneralPartyWhatsAppUrl(
       : `Hello ${partyName}, greeting from Anand Builders Shuttering Material Service. Please contact us regarding your rental account and shuttering plates. Thank you.`;
   return `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(msg)}`;
 }
+
+export function buildOutstandingDuesWhatsAppUrl(
+  mobile: string,
+  partyName: string,
+  pendingAmount: number,
+  lang: 'marathi' | 'english' = 'marathi'
+): string {
+  const { whatsappPhone } = getCleanPhoneNumber(mobile);
+  if (!whatsappPhone) return '#';
+  const msg =
+    lang === 'marathi'
+      ? `नमस्कार ${partyName}जी, आनंद बिल्डर्सकडून कळवण्यात येते की आपल्या खात्यावर एकूण ₹${pendingAmount.toLocaleString('en-IN')} शिल्लक थकबाकी बाकी आहे. कृपया लवकरात लवकर रक्कम जमा करून सहकार्य करावे. धन्यवाद!`
+      : `Hello ${partyName}, this is a gentle reminder from Anand Builders that an outstanding balance of ₹${pendingAmount.toLocaleString('en-IN')} is due on your account. Kindly settle the payment at your earliest convenience. Thank you.`;
+  return `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(msg)}`;
+}
+
