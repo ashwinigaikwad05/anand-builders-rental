@@ -29,9 +29,12 @@ import {
   formatDateRange,
   matchRentalSearch,
   formatPartyName,
-  formatPlateType,
   type RentalSearchTarget,
 } from '../../../utils/marathiUtils';
+import {
+  openCustomerWhatsAppChat,
+  buildBillWhatsAppSummary,
+} from '../../../utils/billPdfShareUtils.ts';
 
 interface PlateRowItem {
   id: string;
@@ -437,6 +440,41 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
     setRenewTarget(rental);
   };
 
+  // Direct WhatsApp Share Handler - opens WhatsApp chat immediately
+  const handleDirectWhatsAppShare = (rent: Rental) => {
+    const party = parties.find(
+      (p) =>
+        (rent.partyId && p.id === rent.partyId) ||
+        p.name.trim().toLowerCase() === rent.partyName?.trim().toLowerCase()
+    );
+    const mobile = party?.mobile || '';
+    const liveData = getLiveCycleData(rent);
+    const summary = buildBillWhatsAppSummary({
+      billNumber: rent.billNumber || 1,
+      partyName: rent.partyName,
+      partyMobile: mobile,
+      partyAddress: party?.address || '',
+      cycleStartDate: rent.issueDate,
+      cycleDays: rent.days || 40,
+      items:
+        rent.items && rent.items.length > 0
+          ? rent.items
+          : [
+              {
+                plateType: rent.plateType,
+                quantity: rent.quantity,
+                dailyRate: rent.dailyRate,
+                days: rent.days || 40,
+              },
+            ],
+      totalRent: liveData.finances.totalAmount || rent.totalRent,
+      paidAmount: liveData.finances.paidAmount || rent.paid,
+      pendingAmount: liveData.finances.pendingAmount || rent.pending,
+      lang: isMarathi ? 'marathi' : 'english',
+    });
+    openCustomerWhatsAppChat(mobile, summary);
+  };
+
   return (
     <div className="space-y-6 text-left">
       {/* Search and Filters Bar */}
@@ -832,14 +870,12 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                           <span>{isMarathi ? 'बिल' : 'Bill'} #{rent.billNumber || 1}</span>
                         </button>
 
-                        {/* Quick WhatsApp Bill Share */}
+                        {/* Quick WhatsApp Bill Share - opens WhatsApp directly */}
                         <button
-                          onClick={() => {
-                            setBillTarget(rent);
-                            setAutoShareBillId(rent.id);
-                          }}
+                          type="button"
+                          onClick={() => handleDirectWhatsAppShare(rent)}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-all cursor-pointer"
-                          title={isMarathi ? 'व्हॉट्सॲपवर बिलाची PDF पाठवा' : 'Share Bill PDF on WhatsApp'}
+                          title={isMarathi ? 'ग्राहकाचे व्हॉट्सॲप चॅट थेट उघडा' : 'Open WhatsApp chat directly'}
                         >
                           <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
                           <span>{isMarathi ? 'व्हॉट्सॲप' : 'WhatsApp'}</span>

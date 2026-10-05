@@ -175,7 +175,7 @@ export function triggerFileDownload(blob: Blob, filename: string): void {
 }
 
 /**
- * Opens WhatsApp chat with customer with prefilled summary
+ * Opens WhatsApp chat with customer with prefilled summary directly
  */
 export function openCustomerWhatsAppChat(mobile: string, message: string): void {
   const { whatsappPhone } = getCleanPhoneNumber(mobile);
@@ -184,69 +184,52 @@ export function openCustomerWhatsAppChat(mobile: string, message: string): void 
     ? `https://wa.me/${whatsappPhone}?text=${encodedMsg}`
     : `https://wa.me/?text=${encodedMsg}`;
 
-  window.open(waUrl, '_blank', 'noopener,noreferrer');
+  try {
+    const win = window.open(waUrl, '_blank', 'noopener,noreferrer');
+    if (!win || win.closed || typeof win.closed === 'undefined') {
+      window.location.href = waUrl;
+    }
+  } catch {
+    window.location.href = waUrl;
+  }
 }
 
 /**
  * Automated WhatsApp Bill PDF Sharing Handler
- * 1. Generates PDF blob
- * 2. Uses Web Share API (native WhatsApp file sharing on mobile / supported devices)
- * 3. Fallback for Desktop: Auto-downloads PDF + opens customer's WhatsApp chat with formatted text
+ * 1. Opens WhatsApp directly to customer chat without popup blockers
+ * 2. Generates and downloads the official bill PDF simultaneously
  */
 export async function autoShareBillPdfViaWhatsApp(
   element: HTMLElement,
   data: BillShareData,
   onStatusChange?: (status: 'idle' | 'generating' | 'shared' | 'downloaded' | 'error', message?: string) => void
-): Promise<{ success: boolean; method: 'web-share' | 'download-whatsapp'; filename: string }> {
+): Promise<{ success: boolean; method: 'direct-whatsapp-and-download'; filename: string }> {
   try {
-    onStatusChange?.('generating', data.lang === 'english' ? 'Generating PDF...' : 'पीडीएफ तयार होत आहे...');
+    const summaryText = buildBillWhatsAppSummary(data);
 
+    // 1. OPEN WHATSAPP CHAT DIRECTLY FIRST (Guaranteed 0ms synchronous action)
+    openCustomerWhatsAppChat(data.partyMobile, summaryText);
+
+    onStatusChange?.(
+      'generating',
+      data.lang === 'english' ? 'WhatsApp opened! Generating PDF...' : 'व्हॉट्सॲप उघडले! PDF तयार होत आहे...'
+    );
+
+    // 2. Generate and download PDF so customer receives both
     const cleanParty = (data.partyName || 'Customer').trim().replace(/\s+/g, '_');
     const pdfTitle = `Anand_Bill_#${data.billNumber}_${cleanParty}`;
     const { blob, filename } = await generateBillPdfBlob(element, pdfTitle);
-    const summaryText = buildBillWhatsAppSummary(data);
 
-    // Create File object for Web Share API
-    const pdfFile = new File([blob], filename, { type: 'application/pdf' });
-
-    // Check if Web Share API with files is supported
-    const nav = navigator as any;
-    const canShareFiles = typeof nav?.canShare === 'function' && nav.canShare({ files: [pdfFile] });
-
-    if (canShareFiles && typeof nav?.share === 'function') {
-      try {
-        await nav.share({
-          files: [pdfFile],
-          title: `Bill #${data.billNumber} - ${data.partyName}`,
-          text: summaryText,
-        });
-        onStatusChange?.('shared', data.lang === 'english' ? 'Shared via WhatsApp!' : 'व्हॉट्सॲपवर शेअर केले!');
-        return { success: true, method: 'web-share', filename };
-      } catch (shareErr: any) {
-        // If user cancelled share sheet, don't throw, proceed to fallback or return
-        if (shareErr.name === 'AbortError') {
-          onStatusChange?.('idle');
-          return { success: false, method: 'web-share', filename };
-        }
-        // Other share errors fall through to desktop fallback
-      }
-    }
-
-    // Fallback (Desktop WhatsApp Web or non-supported browsers):
-    // 1. Auto-download the PDF
     triggerFileDownload(blob, filename);
-
-    // 2. Open customer's WhatsApp chat
-    openCustomerWhatsAppChat(data.partyMobile, summaryText);
 
     onStatusChange?.(
       'downloaded',
       data.lang === 'english'
-        ? 'PDF downloaded & WhatsApp chat opened!'
-        : 'पीडीएफ डाउनलोड झाली व व्हॉट्सॲप चॅट उघडली आहे!'
+        ? 'WhatsApp opened directly & bill PDF downloaded!'
+        : 'व्हॉट्सॲप थेट उघडले व बिलाची PDF डाउनलोड झाली!'
     );
 
-    return { success: true, method: 'download-whatsapp', filename };
+    return { success: true, method: 'direct-whatsapp-and-download', filename };
   } catch (err: any) {
     onStatusChange?.('error', err?.message || 'Error sharing bill PDF');
     throw err;
