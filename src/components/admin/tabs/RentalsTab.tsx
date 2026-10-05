@@ -29,11 +29,11 @@ import {
   formatDateRange,
   matchRentalSearch,
   formatPartyName,
+  formatPlateType,
   type RentalSearchTarget,
 } from '../../../utils/marathiUtils';
 import {
-  openCustomerWhatsAppChat,
-  buildBillWhatsAppSummary,
+  buildBillWhatsAppUrl,
 } from '../../../utils/billPdfShareUtils.ts';
 
 interface PlateRowItem {
@@ -440,8 +440,8 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
     setRenewTarget(rental);
   };
 
-  // Direct WhatsApp Share Handler - opens WhatsApp chat immediately
-  const handleDirectWhatsAppShare = (rent: Rental) => {
+  // Helper to generate direct WhatsApp chat link for a rental
+  const getDirectWhatsAppUrl = (rent: Rental): string => {
     const party = parties.find(
       (p) =>
         (rent.partyId && p.id === rent.partyId) ||
@@ -449,7 +449,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
     );
     const mobile = party?.mobile || '';
     const liveData = getLiveCycleData(rent);
-    const summary = buildBillWhatsAppSummary({
+    return buildBillWhatsAppUrl({
       billNumber: rent.billNumber || 1,
       partyName: rent.partyName,
       partyMobile: mobile,
@@ -468,12 +468,13 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
               },
             ],
       totalRent: liveData.finances.totalAmount || rent.totalRent,
-      paidAmount: liveData.finances.paidAmount || rent.paid,
+      paidAmount: rent.paid,
       pendingAmount: liveData.finances.pendingAmount || rent.pending,
       lang: isMarathi ? 'marathi' : 'english',
     });
-    openCustomerWhatsAppChat(mobile, summary);
   };
+
+
 
   return (
     <div className="space-y-6 text-left">
@@ -871,15 +872,16 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                         </button>
 
                         {/* Quick WhatsApp Bill Share - opens WhatsApp directly */}
-                        <button
-                          type="button"
-                          onClick={() => handleDirectWhatsAppShare(rent)}
+                        <a
+                          href={getDirectWhatsAppUrl(rent)}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-all cursor-pointer"
                           title={isMarathi ? 'ग्राहकाचे व्हॉट्सॲप चॅट थेट उघडा' : 'Open WhatsApp chat directly'}
                         >
                           <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
                           <span>{isMarathi ? 'व्हॉट्सॲप' : 'WhatsApp'}</span>
-                        </button>
+                        </a>
 
                         {/* Return Action */}
                         {(effectiveStatus === 'active' || effectiveStatus === 'overdue') && onInitiateReturn && (

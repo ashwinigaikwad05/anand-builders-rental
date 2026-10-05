@@ -175,6 +175,18 @@ export function triggerFileDownload(blob: Blob, filename: string): void {
 }
 
 /**
+ * Generates direct WhatsApp URL with prefilled bill summary text
+ */
+export function buildBillWhatsAppUrl(data: BillShareData): string {
+  const summary = buildBillWhatsAppSummary(data);
+  const { whatsappPhone } = getCleanPhoneNumber(data.partyMobile);
+  const encodedMsg = encodeURIComponent(summary);
+  return whatsappPhone
+    ? `https://wa.me/${whatsappPhone}?text=${encodedMsg}`
+    : `https://wa.me/?text=${encodedMsg}`;
+}
+
+/**
  * Opens WhatsApp chat with customer with prefilled summary directly
  */
 export function openCustomerWhatsAppChat(mobile: string, message: string): void {
@@ -184,13 +196,23 @@ export function openCustomerWhatsAppChat(mobile: string, message: string): void 
     ? `https://wa.me/${whatsappPhone}?text=${encodedMsg}`
     : `https://wa.me/?text=${encodedMsg}`;
 
+  // Native dynamic anchor click guarantees opening in new tab/app without popup blockers
   try {
-    const win = window.open(waUrl, '_blank', 'noopener,noreferrer');
-    if (!win || win.closed || typeof win.closed === 'undefined') {
-      window.location.href = waUrl;
-    }
+    const link = document.createElement('a');
+    link.href = waUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      try {
+        document.body.removeChild(link);
+      } catch {
+        // ignore
+      }
+    }, 100);
   } catch {
-    window.location.href = waUrl;
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
   }
 }
 
