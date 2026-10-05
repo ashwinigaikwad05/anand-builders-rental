@@ -1,6 +1,7 @@
 import assert from 'node:assert';
 import {
   buildBillWhatsAppSummary,
+  buildBillWhatsAppUrl,
   getAutoWhatsAppShareSetting,
   setAutoWhatsAppShareSetting,
 } from '../src/utils/billPdfShareUtils.ts';
@@ -119,6 +120,23 @@ runTest('getAutoWhatsAppShareSetting & setAutoWhatsAppShareSetting manage persis
   assert.strictEqual(getAutoWhatsAppShareSetting(), true, 'Should update to true');
   setAutoWhatsAppShareSetting(false);
   assert.strictEqual(getAutoWhatsAppShareSetting(), false, 'Should update to false');
+});
+
+// TEST 5: Direct WhatsApp URL construction with wa.me link
+runTest('buildBillWhatsAppUrl produces valid wa.me link with encoded text', () => {
+  const url = buildBillWhatsAppUrl({
+    billNumber: 1,
+    partyName: 'राहुल शिंदे',
+    partyMobile: '7020914957',
+    totalRent: 3600,
+    paidAmount: 2000,
+    pendingAmount: 1600,
+    lang: 'marathi',
+  });
+
+  assert.ok(url.startsWith('https://wa.me/917020914957?text='), 'Should target 917020914957');
+  assert.ok(url.includes(encodeURIComponent('आनंद बिल्डर्स अँड डेव्हलपर्स')), 'URL text should be properly URI encoded');
+  assert.ok(url.includes(encodeURIComponent('राहुल शिंदे')), 'URL text should contain party name');
 });
 
 console.log('===========================================================================');
