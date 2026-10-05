@@ -233,11 +233,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           : 'RENTAL BILL & DELIVERY CHALLAN';
       const defaultTerms =
         lang === 'marathi' ? MARATHI_TERMS : ENGLISH_TERMS;
+      const defaultSignatory =
+        lang === 'marathi'
+          ? 'अधिकृत स्वाक्षरी / शिक्का'
+          : 'Authorized Signatory / Stamp';
       return {
         ...prev,
         billLanguage: lang,
         billTitle: defaultTitle,
         termsAndConditions: defaultTerms,
+        signatoryTitle: defaultSignatory,
       };
     });
   };

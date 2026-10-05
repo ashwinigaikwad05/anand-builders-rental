@@ -45,13 +45,14 @@ console.log('===================================================================
 
 console.log('\n✍️  SUITE 1: Party Signature Configuration & Marathi Labels');
 
-runTest('Party signature Marathi label is defined as ग्राहकाची सही / अंगठा', () => {
+runTest('Party signature Marathi label and sub are pure Marathi', () => {
   const marathiSignLabel = 'ग्राहकाची सही / अंगठा';
   const customerName = 'सुनील तानाजी भोसले';
-  const marathiSignSub = `Customer Signature (${customerName})`;
+  const marathiSignSub = `साहित्य सुस्थितीत मिळाले (${customerName})`;
 
   assert.strictEqual(marathiSignLabel, 'ग्राहकाची सही / अंगठा');
   assert.ok(marathiSignSub.includes(customerName));
+  assert.ok(!marathiSignSub.includes('Customer Signature'));
 });
 
 runTest('Party signature English label is defined as Customer\'s Signature', () => {
@@ -172,7 +173,49 @@ runTest('When customer has zero KYC documents uploaded, uploadedDocs is empty', 
   assert.strictEqual(uploadedDocs.length, 0);
 });
 
+console.log('\n🌐 SUITE 4: Pure Language Separation (Marathi vs English)');
+
+runTest('DEFAULT_BILL_TEMPLATE_CONFIG defaults to pure Marathi signatory title', () => {
+  assert.strictEqual(DEFAULT_BILL_TEMPLATE_CONFIG.signatoryTitle, 'अधिकृत स्वाक्षरी / शिक्का');
+  assert.ok(!DEFAULT_BILL_TEMPLATE_CONFIG.signatoryTitle.toLowerCase().includes('authorized'));
+});
+
+runTest('getBillTemplateConfig auto-migrates legacy hybrid bilingual signatoryTitle', () => {
+  localStorage.clear();
+  // Simulate old config in localStorage with legacy bilingual title
+  localStorage.setItem('anand_bill_template_config', JSON.stringify({
+    signatoryTitle: 'Authorized Signatory / अधिकृत स्वाक्षरी',
+    billLanguage: 'marathi'
+  }));
+
+  const marathiConfig = getBillTemplateConfig();
+  assert.strictEqual(marathiConfig.signatoryTitle, 'अधिकृत स्वाक्षरी / शिक्का');
+  assert.ok(!marathiConfig.signatoryTitle.toLowerCase().includes('authorized'));
+
+  // When language is English, cleans to English
+  localStorage.setItem('anand_bill_template_config', JSON.stringify({
+    signatoryTitle: 'Authorized Signatory / अधिकृत स्वाक्षरी',
+    billLanguage: 'english'
+  }));
+
+  const englishConfig = getBillTemplateConfig();
+  assert.strictEqual(englishConfig.signatoryTitle, 'Authorized Signatory / Stamp');
+  assert.ok(!englishConfig.signatoryTitle.includes('अधिकृत'));
+});
+
+runTest('Custom pure signatory titles are preserved intact', () => {
+  localStorage.clear();
+  localStorage.setItem('anand_bill_template_config', JSON.stringify({
+    signatoryTitle: 'व्यवस्थापक स्वाक्षरी',
+    billLanguage: 'marathi'
+  }));
+
+  const cfg = getBillTemplateConfig();
+  assert.strictEqual(cfg.signatoryTitle, 'व्यवस्थापक स्वाक्षरी');
+});
+
 console.log('\n===========================================================================');
 console.log(`  🎉 SUMMARY: ALL ${passedTests} / ${totalTests} BILL SIGNATURE & KYC TESTS PASSED`);
 console.log('===========================================================================\n');
+
 
