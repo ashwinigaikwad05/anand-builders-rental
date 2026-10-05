@@ -248,7 +248,7 @@ export const t = {
     langSection: {
       title: 'System Language',
       subtitle: 'Select display language for dashboard and entire system',
-      marathiBtn: 'मराठी',
+      marathiBtn: 'Marathi',
       englishBtn: 'English',
       activeBadge: 'Active Language',
     },
