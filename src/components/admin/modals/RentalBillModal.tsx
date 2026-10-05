@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Share2,
   Loader2,
+  Copy,
 } from 'lucide-react';
 import type { Rental, RentalCycle, Party, Payment, ReturnLog } from '../../../data/adminMockData';
 import { calculatePartialReturnsBreakdown } from '../../../lib/supabase';
@@ -31,6 +32,7 @@ import {
 import { formatPartyName, formatPlateType } from '../../../utils/marathiUtils';
 import {
   autoShareBillPdfViaWhatsApp,
+  copyBillImageToClipboard,
   getAutoWhatsAppShareSetting,
   setAutoWhatsAppShareSetting,
 } from '../../../utils/billPdfShareUtils';
@@ -678,6 +680,38 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
     }
   };
 
+  const [isCopyingImage, setIsCopyingImage] = useState(false);
+  const handleCopyBillImage = async () => {
+    const sheetEl = document.getElementById('rental-bill-sheet');
+    if (!sheetEl) return;
+    try {
+      setIsCopyingImage(true);
+      const success = await copyBillImageToClipboard(sheetEl);
+      if (success) {
+        setShareToast({
+          type: 'success',
+          message: selectedLanguage === 'marathi'
+            ? 'बिलाचा फोटो कॉपी झाला! व्हॉट्सॲपमध्ये फक्त Ctrl+V दाबा.'
+            : 'Bill image copied to clipboard! Press Ctrl+V in WhatsApp.',
+        });
+      } else {
+        setShareToast({
+          type: 'info',
+          message: selectedLanguage === 'marathi'
+            ? 'ब्राउझरमध्ये इमेज कॉपी उपलब्ध नाही, कृपया WhatsApp PDF वापरा.'
+            : 'Clipboard image copy unavailable, please use WhatsApp PDF.',
+        });
+      }
+    } catch {
+      setShareToast({
+        type: 'error',
+        message: selectedLanguage === 'marathi' ? 'फोटो कॉपी करताना त्रुटी आली' : 'Failed to copy image',
+      });
+    } finally {
+      setIsCopyingImage(false);
+    }
+  };
+
   // Trigger automatic WhatsApp sharing if enabled or explicitly requested
   const hasAutoSharedRef = React.useRef(false);
   useEffect(() => {
@@ -1201,6 +1235,30 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 {isSharingWhatsApp
                   ? (selectedLanguage === 'marathi' ? 'तयार होत आहे...' : 'Generating...')
                   : (selectedLanguage === 'marathi' ? 'व्हॉट्सॲप PDF' : 'WhatsApp PDF')}
+              </span>
+            </button>
+
+            {/* Copy Bill Image Button (for fast Ctrl+V WhatsApp pasting) */}
+            <button
+              type="button"
+              onClick={handleCopyBillImage}
+              disabled={isCopyingImage}
+              className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold px-3 py-2 rounded-xl shadow-md hover:shadow-indigo-600/20 text-xs sm:text-sm flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-70"
+              title={
+                selectedLanguage === 'marathi'
+                  ? 'बिलाचा संपूर्ण फोटो कॉपी करा (व्हॉट्सॲपवर Ctrl+V करून थेट पाठवू शकता)'
+                  : 'Copy full bill photo to clipboard (paste with Ctrl+V into WhatsApp)'
+              }
+            >
+              {isCopyingImage ? (
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+              ) : (
+                <Copy className="w-4 h-4 text-white" />
+              )}
+              <span>
+                {isCopyingImage
+                  ? (selectedLanguage === 'marathi' ? 'कॉपी होत आहे...' : 'Copying...')
+                  : (selectedLanguage === 'marathi' ? 'इमेज कॉपी' : 'Copy Image')}
               </span>
             </button>
 
