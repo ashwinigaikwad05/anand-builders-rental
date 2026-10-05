@@ -152,7 +152,7 @@ export function getMarathiPaymentMode(mode?: string, lang: 'marathi' | 'english'
     return lang === 'marathi' ? 'खाते १ (मुख्य बँक)' : 'Account 1 (Main Bank)';
   }
   if (lower === 'account 2' || lower.includes('upi') || lower.includes('digital') || lower.includes('डिजिटल')) {
-    return lang === 'marathi' ? 'खाते २ (UPI / डिजिटल)' : 'Account 2 (UPI / Digital)';
+    return lang === 'marathi' ? 'खाते २ (डिजिटल)' : 'Account 2 (UPI / Digital)';
   }
   if (lower === 'cash' || lower.includes('रोख')) {
     return lang === 'marathi' ? 'रोख' : 'Cash';

@@ -764,13 +764,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     <div className="flex items-center justify-between mb-2">
                       <FileText className={`w-5 h-5 ${billConfig.templateStyle === 'simple' ? 'text-primary' : 'text-slate-400'}`} />
                       <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-orange-100 text-primary">
-                        Recommended
+                        {isMarathi ? 'शिफारस' : 'Recommended'}
                       </span>
                     </div>
                     <h5 className="text-sm font-bold text-slate-900">{isMarathi ? 'साधे बिल' : 'Simple Bill'}</h5>
                     <p className="text-[11px] text-slate-500 mt-1 leading-snug">
                       {isMarathi
-                        ? 'स्वच्छ मराठी फॉरमॅट, सुटसुटीत साहित्य तक्ता, ठळक येणे बाकी आणि १-पान A4 प्रिंट.'
+                        ? 'स्वच्छ मराठी फॉरमॅट, सुटसुटीत साहित्य तक्ता, ठळक येणे बाकी आणि १-पान छपाई.'
                         : 'Clean pure layout, simple item table, highlighted outstanding due, and single-page A4 print.'}
                     </p>
                   </div>
@@ -790,9 +790,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         <span className="w-2 h-2 rounded-full bg-primary" />
                       )}
                     </div>
-                    <h5 className="text-sm font-bold text-slate-900">Modern Standard Challan</h5>
+                    <h5 className="text-sm font-bold text-slate-900">{isMarathi ? 'आधुनिक स्टँडर्ड चालान' : 'Modern Standard Challan'}</h5>
                     <p className="text-[11px] text-slate-500 mt-1 leading-snug">
-                      Full-featured rental bill & dispatch challan. Best for standard yard operations.
+                      {isMarathi
+                        ? 'सर्व वैशिष्ट्यांसह भाडे पावती व साहित्य चालान. दैनंदिन कामासाठी उत्तम.'
+                        : 'Full-featured rental bill & dispatch challan. Best for standard yard operations.'}
                     </p>
                   </div>
 
@@ -811,9 +813,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         <span className="w-2 h-2 rounded-full bg-primary" />
                       )}
                     </div>
-                    <h5 className="text-sm font-bold text-slate-900">Tax / GST Invoice</h5>
+                    <h5 className="text-sm font-bold text-slate-900">{isMarathi ? 'टॅक्स / जीएसटी इनव्हॉईस' : 'Tax / GST Invoice'}</h5>
                     <p className="text-[11px] text-slate-500 mt-1 leading-snug">
-                      Includes GSTIN number, HSN/SAC code (9973), and formal tax invoice layout.
+                      {isMarathi
+                        ? 'जीएसटी क्रमांक, एचएसएन कोड (९९७३) आणि अधिकृत टॅक्स इनव्हॉईस मांडणी.'
+                        : 'Includes GSTIN number, HSN/SAC code (9973), and formal tax invoice layout.'}
                     </p>
                   </div>
 
@@ -832,9 +836,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         <span className="w-2 h-2 rounded-full bg-primary" />
                       )}
                     </div>
-                    <h5 className="text-sm font-bold text-slate-900">Compact Dispatch Slip</h5>
+                    <h5 className="text-sm font-bold text-slate-900">{isMarathi ? 'कॉम्पॅक्ट पावती स्लिप' : 'Compact Dispatch Slip'}</h5>
                     <p className="text-[11px] text-slate-500 mt-1 leading-snug">
-                      Condensed 1-page layout for rapid printing and site driver acknowledgment.
+                      {isMarathi
+                        ? 'जलद प्रिंटिंग आणि ड्रायव्हर स्वाक्षरीसाठी संक्षिप्त १-पान मांडणी.'
+                        : 'Condensed 1-page layout for rapid printing and site driver acknowledgment.'}
                     </p>
                   </div>
                 </div>
@@ -843,18 +849,22 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               {/* Bill Fields Configuration Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase">Bill Document Title</label>
+                  <label className="text-xs font-bold text-slate-600 uppercase">
+                    {isMarathi ? 'बिल दस्तऐवज शीर्षक' : 'Bill Document Title'}
+                  </label>
                   <input
                     type="text"
                     value={billConfig.billTitle}
                     onChange={(e) => setBillConfig({ ...billConfig, billTitle: e.target.value })}
-                    placeholder="e.g. RENTAL DISPATCH CHALLAN & BILL"
+                    placeholder={isMarathi ? 'उदा. भाडे पावती व साहित्य चालान' : 'e.g. RENTAL DISPATCH CHALLAN & BILL'}
                     className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:outline-none px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase">Bill Number Prefix</label>
+                  <label className="text-xs font-bold text-slate-600 uppercase">
+                    {isMarathi ? 'बिल क्रमांक पूर्वपद' : 'Bill Number Prefix'}
+                  </label>
                   <input
                     type="text"
                     value={billConfig.billPrefix}
@@ -866,7 +876,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-600 uppercase">
-                    GSTIN Registration Number <span className="text-[10px] text-slate-400 font-normal">(Optional)</span>
+                    {isMarathi ? 'जीएसटी नोंदणी क्रमांक' : 'GSTIN Registration Number'}{' '}
+                    <span className="text-[10px] text-slate-400 font-normal">({isMarathi ? 'पर्यायी' : 'Optional'})</span>
                   </label>
                   <input
                     type="text"
@@ -878,12 +889,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase">Signatory Designation Title</label>
+                  <label className="text-xs font-bold text-slate-600 uppercase">
+                    {isMarathi ? 'स्वाक्षरी पदनाम शीर्षक' : 'Signatory Designation Title'}
+                  </label>
                   <input
                     type="text"
                     value={billConfig.signatoryTitle}
                     onChange={(e) => setBillConfig({ ...billConfig, signatoryTitle: e.target.value })}
-                    placeholder="e.g. Authorized Signatory / Stamp"
+                    placeholder={isMarathi ? 'उदा. अधिकृत स्वाक्षरी' : 'e.g. Authorized Signatory'}
                     className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:outline-none px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
                   />
                 </div>
@@ -898,7 +911,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     onChange={(e) => setBillConfig({ ...billConfig, showMarathiHeader: e.target.checked })}
                     className="w-4 h-4 rounded text-primary focus:ring-primary accent-primary"
                   />
-                  <span>Display Marathi business subtitle ({businessNameMr})</span>
+                  <span>{isMarathi ? `मराठी नाव दाखवा (${businessNameMr})` : `Display Marathi business subtitle (${businessNameMr})`}</span>
                 </label>
 
                 <label className="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-slate-700">
@@ -908,7 +921,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     onChange={(e) => setBillConfig({ ...billConfig, showLastPayment: e.target.checked })}
                     className="w-4 h-4 rounded text-primary focus:ring-primary accent-primary"
                   />
-                  <span>Show Last Payment & Balance History on Bill</span>
+                  <span>{isMarathi ? 'बिलावर मागील पेमेंट व बाकी इतिहास दाखवा' : 'Show Last Payment & Balance History on Bill'}</span>
                 </label>
 
                 <label className="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-slate-700 sm:col-span-2">
@@ -933,11 +946,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     <Landmark className="w-4 h-4 text-primary" />
                     <div>
                       <span className="text-xs font-bold uppercase tracking-wider text-slate-800 block">
-                        {isMarathi ? 'बँक खाते व UPI माहिती' : 'Bank Account & UPI Details'}
+                        {isMarathi ? 'बँक खाते व डिजिटल पेमेंट माहिती' : 'Bank Account & UPI Details'}
                       </span>
                       <span className="text-[11px] text-slate-500 font-normal">
                         {isMarathi
-                          ? 'बँकेचे नाव, खाते क्र., IFSC कोड आणि UPI आयडी बिलावर प्रिंट करण्यासाठी'
+                          ? 'बँकेचे नाव, खाते क्र., आयएफएससी कोड आणि युपीआय आयडी बिलावर प्रिंट करण्यासाठी'
                           : 'Add / update Bank Name, Account No, IFSC & UPI printed on all bills'}
                       </span>
                     </div>
@@ -949,7 +962,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       onChange={(e) => setBillConfig({ ...billConfig, showBankDetails: e.target.checked })}
                       className="w-4 h-4 rounded text-primary focus:ring-primary accent-primary"
                     />
-                    <span>Print on Bill</span>
+                    <span>{isMarathi ? 'बिलावर दाखवा' : 'Print on Bill'}</span>
                   </label>
                 </div>
 

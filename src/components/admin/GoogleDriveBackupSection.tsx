@@ -337,7 +337,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
             <div className="flex items-center gap-2 flex-wrap">
               <h4 className="text-sm sm:text-base lg:text-lg font-black text-slate-900 tracking-tight leading-snug">
                 {isMarathi
-                  ? 'Google Drive बॅकअप (Backup & Restore)'
+                  ? 'Google Drive बॅकअप व पुनर्प्राप्ती'
                   : 'Google Drive Backup & Restore'}
               </h4>
               <span className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 uppercase tracking-wider">
@@ -368,10 +368,10 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
           <span>
             {settings.isConnected
               ? isMarathi
-                ? 'सक्रिय (ACTIVE)'
+                ? 'सक्रिय'
                 : 'ACTIVE'
               : isMarathi
-              ? 'अक्रिय (INACTIVE)'
+              ? 'अक्रिय'
               : 'INACTIVE'}
           </span>
         </div>
@@ -456,7 +456,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
                   ? 'चालू (दर २ दिवसांनी)'
                   : 'ON (Every 2 days)'
                 : isMarathi
-                ? 'बंद (OFF)'
+                ? 'बंद'
                 : 'OFF'}
             </span>
           </div>
@@ -465,7 +465,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
         {settings.isConnected && settings.lastTestStatus && (
           <div className="mt-2.5 pt-2.5 border-t border-slate-200/70 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-600 gap-1">
             <span className="font-medium text-[10px] sm:text-xs text-slate-500">
-              {isMarathi ? 'Drive चाचणी स्थिती (Test Status):' : 'Drive Test Status:'}
+              {isMarathi ? 'Drive चाचणी स्थिती:' : 'Drive Test Status:'}
             </span>
             <span className="font-mono font-semibold text-slate-800 text-[11px] sm:text-xs truncate">
               {settings.lastTestStatus}
@@ -492,7 +492,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
               <>
                 <LinkIcon className="w-4 h-4" />
                 <span>
-                  {isMarathi ? 'Google Drive खाते जोडा (Connect)' : 'Connect Google Drive'}
+                  {isMarathi ? 'Google Drive खाते जोडा' : 'Connect Google Drive'}
                 </span>
               </>
             )}
@@ -516,7 +516,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
               ) : (
                 <>
                   <CloudUpload className="w-4 h-4" />
-                  <span>{isMarathi ? 'आता बॅकअप घ्या (Back Up Now)' : 'Back Up Now'}</span>
+                  <span>{isMarathi ? 'आता बॅकअप घ्या' : 'Back Up Now'}</span>
                 </>
               )}
             </button>
@@ -548,7 +548,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
                   loading && busyAction === 'test' ? 'animate-spin text-sky-600' : ''
                 }`}
               />
-              <span>{isMarathi ? 'कनेक्शन तपासा (Test)' : 'Test Drive'}</span>
+              <span>{isMarathi ? 'कनेक्शन तपासा' : 'Test Drive'}</span>
             </button>
 
             <button
@@ -559,7 +559,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
               title="Switch to another Google Account"
             >
               <UserCheck className="w-3.5 h-3.5" />
-              <span>{isMarathi ? 'खाते बदला (Change)' : 'Change Account'}</span>
+              <span>{isMarathi ? 'खाते बदला' : 'Change Account'}</span>
             </button>
 
             <button
@@ -569,7 +569,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
               className="col-span-2 sm:col-span-1 w-full sm:w-auto py-2 px-3 rounded-xl text-rose-600 hover:bg-rose-50 font-bold text-xs flex items-center justify-center sm:justify-end gap-1.5 transition-colors cursor-pointer disabled:opacity-60 min-h-[40px]"
             >
               <Unlink className="w-3.5 h-3.5" />
-              <span>{isMarathi ? 'डिस्कनेक्ट (Disconnect)' : 'Disconnect'}</span>
+              <span>{isMarathi ? 'डिस्कनेक्ट करा' : 'Disconnect'}</span>
             </button>
           </div>
         </div>
@@ -580,7 +580,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
         <Info className="w-4 h-4 text-sky-600 flex-shrink-0 mt-0.5" />
         <span className="text-[11px] sm:text-xs text-sky-900 leading-relaxed font-normal">
           {isMarathi
-            ? 'दर २ दिवसांनी दिनांकानुसार JSON बॅकअप Google Drive च्या "Anand Plates Backups" फोल्डरमध्ये सुरक्षितपणे जतन केला जातो. Mobile ॲप आणि Web ॲप दोन्हीचे बॅकअप परस्पर वापरता येतात.'
+            ? 'दर २ दिवसांनी दिनांकानुसार डेटा बॅकअप Google Drive च्या "Anand Plates Backups" फोल्डरमध्ये सुरक्षितपणे जतन केला जातो. मोबाईल ॲप आणि वेब ॲप दोन्हीचे बॅकअप परस्पर वापरता येतात.'
             : 'Automated 2-day cadence JSON backups are stored securely inside Google Drive\'s "Anand Plates Backups" folder. Fully interchangeable between Mobile and Web.'}
         </span>
       </div>
@@ -816,7 +816,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
                 onClick={handleKeepCurrentData}
                 className="w-full py-2.5 sm:py-3 px-4 rounded-xl sm:rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-black text-xs transition-colors cursor-pointer shadow-xs text-center"
               >
-                {isMarathi ? 'सध्याचा डेटा ठेवा (Keep current data)' : 'Keep current data'}
+                {isMarathi ? 'सध्याचा डेटा ठेवा' : 'Keep current data'}
               </button>
 
               <button
@@ -828,7 +828,7 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
                 className="w-full py-2.5 sm:py-3 px-4 rounded-xl sm:rounded-2xl bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 font-extrabold text-xs transition-colors cursor-pointer text-center"
               >
                 {isMarathi
-                  ? 'बॅकअप निवडा व रिस्टोअर करा (Choose backup)'
+                  ? 'बॅकअप निवडा व रिस्टोअर करा'
                   : 'Choose backup to restore'}
               </button>
             </div>

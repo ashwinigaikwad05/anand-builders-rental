@@ -47,7 +47,7 @@ export const DEFAULT_BILL_TEMPLATE_CONFIG: BillTemplateConfig = {
   upiId: 'anandbuilders@upi',
   termsAndConditions: MARATHI_TERMS,
   printTermsAndConditions: true,
-  signatoryTitle: 'अधिकृत स्वाक्षरी / शिक्का',
+  signatoryTitle: 'अधिकृत स्वाक्षरी',
   showMarathiHeader: true,
   showLastPayment: true,
   showKycDocuments: false,
@@ -67,10 +67,14 @@ export function getBillTemplateConfig(): BillTemplateConfig {
     const showKycDocuments = parsed.showKycDocuments !== undefined
       ? Boolean(parsed.showKycDocuments)
       : false;
-    const defaultSignatory = billLang === 'english' ? 'Authorized Signatory / Stamp' : 'अधिकृत स्वाक्षरी / शिक्का';
-    const signatoryTitle = (parsed.signatoryTitle && parsed.signatoryTitle !== 'Authorized Signatory / अधिकृत स्वाक्षरी')
-      ? parsed.signatoryTitle
-      : defaultSignatory;
+    const defaultSignatory = billLang === 'english' ? 'Authorized Signatory' : 'अधिकृत स्वाक्षरी';
+    const rawSignatory = parsed.signatoryTitle || '';
+    const isBilingualSignatory =
+      rawSignatory.includes('/') ||
+      rawSignatory === 'Authorized Signatory / अधिकृत स्वाक्षरी' ||
+      rawSignatory === 'Authorized Signatory / Stamp' ||
+      rawSignatory === 'अधिकृत स्वाक्षरी / शिक्का';
+    const signatoryTitle = (!isBilingualSignatory && rawSignatory.trim()) ? rawSignatory : defaultSignatory;
     return {
       ...DEFAULT_BILL_TEMPLATE_CONFIG,
       ...parsed,

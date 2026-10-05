@@ -851,7 +851,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                             >
                               <option value="Cash">{isMarathi ? 'रोख' : 'Cash'}</option>
                               <option value="Account 1">{isMarathi ? 'खाते १ (मुख्य बँक)' : 'Account 1 (Main Bank)'}</option>
-                              <option value="Account 2">{isMarathi ? 'खाते २ (UPI / डिजिटल)' : 'Account 2 (UPI / Digital)'}</option>
+                              <option value="Account 2">{isMarathi ? 'खाते २ (डिजिटल)' : 'Account 2 (UPI / Digital)'}</option>
                             </select>
                           </div>
                           <div className="space-y-1">
@@ -1037,7 +1037,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                             >
                               <option value="Cash">{isMarathi ? 'रोख' : 'Cash'}</option>
                               <option value="Account 1">{isMarathi ? 'खाते १ (मुख्य बँक)' : 'Account 1 (Main Bank)'}</option>
-                              <option value="Account 2">{isMarathi ? 'खाते २ (UPI / डिजिटल)' : 'Account 2 (UPI / Digital)'}</option>
+                              <option value="Account 2">{isMarathi ? 'खाते २ (डिजिटल)' : 'Account 2 (UPI / Digital)'}</option>
                             </select>
                           </div>
                           <div className="space-y-1">

@@ -635,7 +635,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                                     setEditingBillRentalId(rent.id);
                                   }}
                                   className="opacity-0 group-hover/bill:opacity-100 p-0.5 hover:bg-slate-100 rounded text-slate-400 hover:text-primary transition-opacity cursor-pointer"
-                                  title="Edit Bill Number / बिल नंबर बदला"
+                                  title={isMarathi ? 'बिल नंबर बदला' : 'Edit Bill Number'}
                                 >
                                   <Edit2 className="w-3 h-3" />
                                 </button>

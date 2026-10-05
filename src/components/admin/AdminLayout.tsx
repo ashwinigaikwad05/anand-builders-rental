@@ -199,6 +199,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
   };
 
   const curT = t[appLanguage] || t.marathi;
+  const isMarathi = appLanguage === 'marathi';
 
   // --- STATEFUL DB CONCEPT ---
   const [rawParties, setRawParties] = useState<PartyRecord[]>([]);
@@ -2419,7 +2420,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       addToast('success', detailsMessage);
     } catch (err: any) {
       console.error('Data deletion failed:', err);
-      addToast('error', err?.message || 'डेटा हटवताना अडचण आली / Failed to delete data.');
+      addToast('error', err?.message || (isMarathi ? 'डेटा हटवताना अडचण आली.' : 'Failed to delete data.'));
       throw err;
     } finally {
       setIsLoading(false);
@@ -2784,8 +2785,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
                 value={appLanguage}
                 onChange={(e) => handleLanguageChange(e.target.value as AppLanguage)}
                 className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer pr-1"
-                aria-label="Select System Language"
-                title="Select Language / भाषा निवडा"
+                aria-label={isMarathi ? 'भाषा निवडा' : 'Select Language'}
+                title={isMarathi ? 'भाषा निवडा' : 'Select Language'}
               >
                 <option value="marathi" className="font-bold text-slate-800 bg-white">मराठी</option>
                 <option value="english" className="font-bold text-slate-800 bg-white">English</option>

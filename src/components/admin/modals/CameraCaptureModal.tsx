@@ -309,19 +309,19 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
     title ||
     (documentType === 'aadhaar_front'
       ? isMarathi
-        ? 'आधार कार्ड - पुढील बाजू (Front Side)'
+        ? 'आधार कार्ड - पुढील बाजू'
         : 'Aadhaar Card - Front Side'
       : documentType === 'aadhaar_back'
       ? isMarathi
-        ? 'आधार कार्ड - मागील बाजू (Back Side)'
+        ? 'आधार कार्ड - मागील बाजू'
         : 'Aadhaar Card - Back Side'
       : documentType === 'face'
       ? isMarathi
-        ? 'ग्राहकाचा फोटो (Face Photo)'
+        ? 'ग्राहकाचा फोटो'
         : 'Customer Face Photo'
       : documentType === 'cheque'
       ? isMarathi
-        ? 'सिक्युरिटी चेक (Security Cheque)'
+        ? 'सिक्युरिटी चेक'
         : 'Security Cheque'
       : isMarathi
       ? 'दस्तऐवज कॅमेरा व संपादन'
@@ -536,7 +536,7 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
                 <div className="flex items-center justify-between text-xs font-bold text-slate-300">
                   <span className="flex items-center gap-1.5">
                     <Sun className="w-3.5 h-3.5 text-amber-400" />
-                    {isMarathi ? 'उजेड (Brightness)' : 'Brightness'}
+                    {isMarathi ? 'उजेड' : 'Brightness'}
                   </span>
                   <span className="font-mono text-primary">{Math.round(brightness * 100)}%</span>
                 </div>
@@ -553,7 +553,7 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
                 <div className="flex items-center justify-between text-xs font-bold text-slate-300 pt-1">
                   <span className="flex items-center gap-1.5">
                     <Sliders className="w-3.5 h-3.5 text-blue-400" />
-                    {isMarathi ? 'कॉन्ट्रास्ट (Contrast)' : 'Contrast'}
+                    {isMarathi ? 'कॉन्ट्रास्ट' : 'Contrast'}
                   </span>
                   <span className="font-mono text-primary">{Math.round(contrast * 100)}%</span>
                 </div>
@@ -689,9 +689,9 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
                       ? 'bg-primary text-white shadow-xs'
                       : 'text-slate-400 hover:text-white'
                   }`}
-                  title="ID Card Aspect (3:2)"
+                  title={isMarathi ? 'कार्ड आकार' : 'ID Card Aspect (3:2)'}
                 >
-                  <span className="hidden sm:inline">🪪 </span>ID Card
+                  <span className="hidden sm:inline">🪪 </span>{isMarathi ? 'कार्ड' : 'ID Card'}
                 </button>
                 <button
                   type="button"
@@ -701,7 +701,7 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
                       ? 'bg-primary text-white shadow-xs'
                       : 'text-slate-400 hover:text-white'
                   }`}
-                  title="Square 1:1"
+                  title={isMarathi ? 'चौरस १:१' : 'Square 1:1'}
                 >
                   1:1
                 </button>
@@ -713,9 +713,9 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
                       ? 'bg-primary text-white shadow-xs'
                       : 'text-slate-400 hover:text-white'
                   }`}
-                  title="Full / Original"
+                  title={isMarathi ? 'मूळ आकार' : 'Full / Original'}
                 >
-                  Full
+                  {isMarathi ? 'मूळ' : 'Full'}
                 </button>
               </div>
             </div>
@@ -728,7 +728,7 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
                 className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>{isMarathi ? 'पुन्हा काढा (Retake)' : 'Retake'}</span>
+                <span>{isMarathi ? 'पुन्हा काढा' : 'Retake'}</span>
               </button>
 
               <button
@@ -745,7 +745,7 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
                 ) : (
                   <>
                     <Check className="w-4 h-4" />
-                    <span>{isMarathi ? 'अपलोड करा (Save & Use)' : 'Save & Upload'}</span>
+                    <span>{isMarathi ? 'जतन व अपलोड करा' : 'Save & Upload'}</span>
                   </>
                 )}
               </button>

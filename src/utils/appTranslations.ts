@@ -92,7 +92,7 @@ export const t = {
     accounts: {
       acc1Title: 'खाते १ (मुख्य बँक)',
       acc1Sub: 'मुख्य बँक खाते जमा',
-      acc2Title: 'खाते २ (UPI / डिजिटल)',
+      acc2Title: 'खाते २ (डिजिटल)',
       acc2Sub: 'दुय्यम डिजिटल खाते जमा',
       cashTitle: 'रोख रक्कम',
       cashSub: 'हातशिल्लक रोख रक्कम',
@@ -160,7 +160,7 @@ export const t = {
     // Statement Reports
     reports: {
       compileTitle: 'अहवाल तयार करा',
-      printLayout: 'A4 प्रिंट:',
+      printLayout: 'प्रिंट मांडणी:',
       portrait: 'उभा',
       landscape: 'आडवा',
       reportType: 'अहवाल प्रकार',
@@ -181,8 +181,8 @@ export const t = {
       totalRecords: 'एकूण नोंदी:',
       paperSize: 'कागद साईझ:',
       reset: 'रीसेट',
-      exportCsv: 'CSV डाउनलोड',
-      printReport: 'A4 प्रिंट अहवाल',
+      exportCsv: 'सीएसव्ही डाउनलोड',
+      printReport: 'अहवाल प्रिंट करा',
       previewHeading: 'पूर्वावलोकन',
       recordsFound: 'नोंदी आढळल्या',
       selectedCustomer: 'ग्राहक:',

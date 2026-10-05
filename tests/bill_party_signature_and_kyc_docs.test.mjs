@@ -176,7 +176,7 @@ runTest('When customer has zero KYC documents uploaded, uploadedDocs is empty', 
 console.log('\n🌐 SUITE 4: Pure Language Separation (Marathi vs English)');
 
 runTest('DEFAULT_BILL_TEMPLATE_CONFIG defaults to pure Marathi signatory title', () => {
-  assert.strictEqual(DEFAULT_BILL_TEMPLATE_CONFIG.signatoryTitle, 'अधिकृत स्वाक्षरी / शिक्का');
+  assert.strictEqual(DEFAULT_BILL_TEMPLATE_CONFIG.signatoryTitle, 'अधिकृत स्वाक्षरी');
   assert.ok(!DEFAULT_BILL_TEMPLATE_CONFIG.signatoryTitle.toLowerCase().includes('authorized'));
 });
 
@@ -189,7 +189,7 @@ runTest('getBillTemplateConfig auto-migrates legacy hybrid bilingual signatoryTi
   }));
 
   const marathiConfig = getBillTemplateConfig();
-  assert.strictEqual(marathiConfig.signatoryTitle, 'अधिकृत स्वाक्षरी / शिक्का');
+  assert.strictEqual(marathiConfig.signatoryTitle, 'अधिकृत स्वाक्षरी');
   assert.ok(!marathiConfig.signatoryTitle.toLowerCase().includes('authorized'));
 
   // When language is English, cleans to English
@@ -199,7 +199,7 @@ runTest('getBillTemplateConfig auto-migrates legacy hybrid bilingual signatoryTi
   }));
 
   const englishConfig = getBillTemplateConfig();
-  assert.strictEqual(englishConfig.signatoryTitle, 'Authorized Signatory / Stamp');
+  assert.strictEqual(englishConfig.signatoryTitle, 'Authorized Signatory');
   assert.ok(!englishConfig.signatoryTitle.includes('अधिकृत'));
 });
 

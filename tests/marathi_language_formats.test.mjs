@@ -123,7 +123,7 @@ runTest('Upper Stat Widgets have Marathi metrics and subtitles', () => {
 
 runTest('Account Balances reflect Marathi accounting labels', () => {
   assert.strictEqual(t.marathi.accounts.acc1Title, 'खाते १ (मुख्य बँक)');
-  assert.strictEqual(t.marathi.accounts.acc2Title, 'खाते २ (UPI / डिजिटल)');
+  assert.strictEqual(t.marathi.accounts.acc2Title, 'खाते २ (डिजिटल)');
   assert.strictEqual(t.marathi.accounts.cashTitle, 'रोख रक्कम');
 });
 
@@ -351,11 +351,12 @@ console.log('\n💳 SUITE 7: Marathi Payment Modes & Status Badges');
 
 runTest('Payment modes translated accurately into Marathi', () => {
   assert.strictEqual(getMarathiPaymentMode('Account 1'), 'खाते १ (मुख्य बँक)');
-  assert.strictEqual(getMarathiPaymentMode('Account 2'), 'खाते २ (UPI / डिजिटल)');
+  assert.strictEqual(getMarathiPaymentMode('Account 2'), 'खाते २ (डिजिटल)');
   assert.strictEqual(getMarathiPaymentMode('Cash'), 'रोख');
   assert.strictEqual(getMarathiPaymentMode('Outstanding'), 'बाकी');
   assert.strictEqual(getMarathiPaymentMode('Udhari'), 'बाकी');
   // Also verify English mode
+  assert.strictEqual(getMarathiPaymentMode('Account 2', 'english'), 'Account 2 (UPI / Digital)');
   assert.strictEqual(getMarathiPaymentMode('Cash', 'english'), 'Cash');
   assert.strictEqual(getMarathiPaymentMode('Outstanding', 'english'), 'Outstanding');
 });
@@ -408,8 +409,8 @@ runTest('Sign-off blocks for auditor and proprietor are in Marathi', () => {
   const rep = t.marathi.reports;
   assert.strictEqual(rep.masterSummary, 'सर्वंकष हिशोब गोषवारा');
   assert.strictEqual(rep.compileTitle, 'अहवाल तयार करा');
-  assert.strictEqual(rep.exportCsv, 'CSV डाउनलोड');
-  assert.strictEqual(rep.printReport, 'A4 प्रिंट अहवाल');
+  assert.strictEqual(rep.exportCsv, 'सीएसव्ही डाउनलोड');
+  assert.strictEqual(rep.printReport, 'अहवाल प्रिंट करा');
 });
 
 // =============================================================================

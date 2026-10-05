@@ -183,8 +183,8 @@ export const DeleteDataConfirmModal: React.FC<DeleteDataConfirmModalProps> = ({
       default:
         return {
           title: isMarathi
-            ? 'सर्व डेटा पूर्णपणे पुसून टाका (Factory Reset)'
-            : 'Complete Factory Reset / Wipe All Data',
+            ? 'सर्व डेटा पूर्णपणे पुसून टाका'
+            : 'Complete Factory Reset',
           subtitle: isMarathi
             ? 'धोकादायक: संपूर्ण डेटाबेस स्वच्छ करून सुरुवातीच्या स्थितीत आणला जाईल'
             : 'DANGER: Complete database wipe back to fresh clean state',
@@ -224,7 +224,7 @@ export const DeleteDataConfirmModal: React.FC<DeleteDataConfirmModalProps> = ({
       setErrorMessage(
         details.requiresTypeIn
           ? isMarathi
-            ? 'कृपया खात्री करण्यासाठी "DELETE" किंवा "हटवा" टाईप करा.'
+            ? 'कृपया खात्री करण्यासाठी "हटवा" टाईप करा.'
             : 'Please type "DELETE" to confirm.'
           : isMarathi
           ? 'कृपया खात्री करण्यासाठी चेकबॉक्सवर क्लिक करा.'
@@ -330,7 +330,7 @@ export const DeleteDataConfirmModal: React.FC<DeleteDataConfirmModalProps> = ({
                 <Lock className="w-3.5 h-3.5 text-rose-500" />
                 <span>
                   {isMarathi
-                    ? 'खात्री करण्यासाठी खाली "DELETE" किंवा "हटवा" टाईप करा:'
+                    ? 'खात्री करण्यासाठी खाली "हटवा" टाईप करा:'
                     : 'Type "DELETE" below to confirm deletion:'}
                 </span>
               </label>
@@ -341,7 +341,7 @@ export const DeleteDataConfirmModal: React.FC<DeleteDataConfirmModalProps> = ({
                   setConfirmationInput(e.target.value);
                   setErrorMessage('');
                 }}
-                placeholder={isMarathi ? 'येथे DELETE किंवा हटवा टाईप करा' : 'Type DELETE here'}
+                placeholder={isMarathi ? 'येथे "हटवा" टाईप करा' : 'Type DELETE here'}
                 className="w-full bg-slate-50 border border-rose-300 focus:border-rose-500 focus:bg-white focus:outline-none px-4 py-2.5 rounded-xl text-sm font-bold text-slate-900 tracking-wider uppercase"
                 autoFocus
               />

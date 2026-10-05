@@ -102,7 +102,7 @@ export const OutstandingDuesTab: React.FC<OutstandingDuesTabProps> = ({
             {criticalCount > 0 && (
               <div className="flex items-center gap-2 bg-rose-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-2xs">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-300" />
-                <span>{isMarathi ? 'गंभीर थकबाकी (>₹5k):' : 'Critical (>₹5k):'}</span>
+                <span>{isMarathi ? 'गंभीर थकबाकी (>₹५,०००):' : 'Critical (>₹5,000):'}</span>
                 <span>{criticalCount}</span>
               </div>
             )}

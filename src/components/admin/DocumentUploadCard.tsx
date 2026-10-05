@@ -50,7 +50,7 @@ export const DocumentUploadCard: React.FC<DocumentUploadCardProps> = ({
   const processFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       setErrorMessage(
-        isMarathi ? 'कृपया इमेज फाईल (JPG, PNG) निवडा.' : 'Please select an image file (JPG, PNG, etc.)'
+        isMarathi ? 'कृपया केवळ फोटो फाईल निवडा.' : 'Please select an image file (JPG or PNG).'
       );
       return;
     }
@@ -294,7 +294,7 @@ export const DocumentUploadCard: React.FC<DocumentUploadCardProps> = ({
               </div>
 
               <p className="text-[10px] text-slate-400 font-light">
-                {isMarathi ? 'JPG, PNG, WebP (थेट कॅमेरा व संपादन)' : 'JPG, PNG, WebP (Live Camera & Edit)'}
+                {isMarathi ? 'थेट कॅमेरा किंवा फोटो निवडून संपादन करा' : 'Live Camera or Photo Upload & Edit'}
               </p>
             </div>
           )}

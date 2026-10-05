@@ -455,11 +455,11 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       daysSuffix: 'दिवस',
       extraDaysTitle: `अतिरिक्त वापर दिवस (${cycleDays} दिवसांनंतर)`,
       extraDaysSub: `${cycleDays} दिवसांच्या मुदतीनंतरचा प्रतिदिन वापर`,
-      bankTitle: 'बँक व UPI माहिती:',
+      bankTitle: 'बँक व डिजिटल पेमेंट तपशील:',
       bankLabel: 'बँक:',
       acNoLabel: 'खाते क्र.:',
-      ifscLabel: 'IFSC कोड:',
-      upiLabel: 'UPI आयडी:',
+      ifscLabel: 'आयएफएससी कोड:',
+      upiLabel: 'युपीआय आयडी:',
       termsTitle: 'नियम व अटी:',
       summaryTitle: 'हिशोब सारांश',
       baseRentLabel: `${cycleDays} दिवसांचे भाडे:`,
@@ -467,7 +467,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       totalDueLabel: 'एकूण देय रक्कम:',
       paidLabel: 'जमा रक्कम / ऍडव्हान्स:',
       outstandingLabel: 'निव्वळ येणे बाकी:',
-      customerSign: 'ग्राहकाची सही / अंगठा',
+      customerSign: 'ग्राहकाची सही',
       customerSignSub: `साहित्य सुस्थितीत मिळाले (${partyDisplayName})`,
       authorizedSign: `${businessNameMr} करिता`,
       authorizedSignSub:
@@ -475,7 +475,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
         !config.signatoryTitle.toLowerCase().includes('authorized') &&
         !config.signatoryTitle.includes('/')
           ? config.signatoryTitle
-          : 'अधिकृत स्वाक्षरी / शिक्का',
+          : 'अधिकृत स्वाक्षरी',
       footerNote: `संगणकीकृत भाडे पावती • ${businessNameMr} • ${address}`,
       cyclesTitle: 'भाडे सायकल तपशील व इतिहास',
       cycleCol: 'सायकल #',
@@ -508,8 +508,8 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       addressPrefix: 'Yard Address:',
       billTitle: 'RENTAL BILL & DELIVERY CHALLAN',
       billNoLabel: 'BILL NO.:',
-      customerTitle: 'Billed To / Customer:',
-      contactLabel: 'Mobile / Phone:',
+      customerTitle: 'Customer Details:',
+      contactLabel: 'Mobile No.:',
       siteLabel: 'Delivery Site Address:',
       challanDetailsTitle: 'Challan Details:',
       issueDateLabel: 'Issue Date:',
@@ -541,7 +541,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       totalDueLabel: 'Total Billed Amount:',
       paidLabel: 'Advance / Total Paid:',
       outstandingLabel: 'Net Outstanding Due:',
-      customerSign: 'Customer / Receiver Signature',
+      customerSign: 'Customer Signature',
       customerSignSub: `Material Received in Good Condition (${partyDisplayName})`,
       authorizedSign: `For ${businessName}`,
       authorizedSignSub:
@@ -550,7 +550,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
         !config.signatoryTitle.includes('सही') &&
         !config.signatoryTitle.includes('/')
           ? config.signatoryTitle
-          : 'Authorized Signatory / Stamp',
+          : 'Authorized Signatory',
       footerNote: `Computer-generated rental challan & bill issued by ${businessName}.`,
       cyclesTitle: 'Rental Cycles Breakdown & History',
       cycleCol: 'Cycle #',
@@ -883,7 +883,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                       setIsEditingBillNo(true);
                     }}
                     className="p-1 hover:bg-white text-slate-700 hover:text-primary rounded-lg transition-colors cursor-pointer"
-                    title={selectedLanguage === 'marathi' ? 'बिल नंबर बदला (Edit Bill Number)' : 'Edit Bill Number'}
+                    title={selectedLanguage === 'marathi' ? 'बिल नंबर बदला' : 'Edit Bill Number'}
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
@@ -1114,7 +1114,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                         setIsEditingBillNo(true);
                       }}
                       className="no-print p-0.5 text-slate-400 hover:text-primary transition-colors cursor-pointer"
-                      title="Edit Bill Number / बिल नंबर बदला"
+                      title={selectedLanguage === 'marathi' ? 'बिल नंबर बदला' : 'Edit Bill Number'}
                     >
                       <Edit2 className="w-3 h-3" />
                     </button>
@@ -1641,7 +1641,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                       setIsEditingBillNo(true);
                     }}
                     className="no-print p-0.5 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                    title="Edit Bill Number / बिल नंबर बदला"
+                    title={selectedLanguage === 'marathi' ? 'बिल नंबर बदला' : 'Edit Bill Number'}
                   >
                     <Edit2 className="w-3 h-3" />
                   </button>

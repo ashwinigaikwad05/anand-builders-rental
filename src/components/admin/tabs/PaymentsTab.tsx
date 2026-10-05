@@ -147,7 +147,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
           >
             <option value="All">{isMarathi ? 'सर्व पेमेंट खाती' : 'All Payment Accounts'}</option>
             <option value="Account 1">{isMarathi ? 'खाते १ (मुख्य बँक)' : 'Account 1 (Main Bank)'}</option>
-            <option value="Account 2">{isMarathi ? 'खाते २ (UPI / डिजिटल)' : 'Account 2 (UPI / Digital)'}</option>
+            <option value="Account 2">{isMarathi ? 'खाते २ (डिजिटल)' : 'Account 2 (UPI / Digital)'}</option>
             <option value="Cash">{isMarathi ? 'रोख' : 'Cash'}</option>
           </select>
 
@@ -480,7 +480,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   >
                     <span className="text-sm">📱</span>
                     <span>{isMarathi ? 'खाते २' : 'Account 2'}</span>
-                    <span className="text-[10px] text-slate-400 font-normal">{isMarathi ? 'UPI / डिजिटल' : 'UPI / Digital'}</span>
+                    <span className="text-[10px] text-slate-400 font-normal">{isMarathi ? 'डिजिटल पेमेंट' : 'UPI / Digital'}</span>
                   </button>
 
                   <button
@@ -508,7 +508,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   type="text"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
-                  placeholder={isMarathi ? 'उदा. UPI Ref / चेक क्र. / पावती क्रमांक' : 'e.g. UPI Ref / Cheque No / Voucher ID'}
+                  placeholder={isMarathi ? 'उदा. ट्रान्झॅक्शन आयडी / चेक क्र. / पावती क्रमांक' : 'e.g. UPI Ref / Cheque No / Voucher ID'}
                   className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-2.5 rounded-xl text-sm font-medium font-mono"
                 />
               </div>
