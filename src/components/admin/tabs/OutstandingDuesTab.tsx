@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import type { Party, Payment } from '../../../data/adminMockData';
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
-import { formatMarathiDate } from '../../../utils/marathiUtils';
+import { formatMarathiDate, formatPartyName } from '../../../utils/marathiUtils';
 import {
   getCleanPhoneNumber,
   buildOutstandingDuesWhatsAppUrl,
@@ -58,6 +58,8 @@ export const OutstandingDuesTab: React.FC<OutstandingDuesTabProps> = ({
     return parties.filter((p) => {
       const matchesSearch =
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        formatPartyName(p.name, 'marathi').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        formatPartyName(p.name, 'english').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (p.mobile && p.mobile.includes(searchTerm)) ||
         (p.customerNumber && p.customerNumber.toString().includes(searchTerm));
 
@@ -249,7 +251,7 @@ export const OutstandingDuesTab: React.FC<OutstandingDuesTabProps> = ({
                           #{party.customerNumber || 1}
                         </span>
                         <div>
-                          <span className="font-bold text-slate-800 block">{party.name}</span>
+                          <span className="font-bold text-slate-800 block">{formatPartyName(party.name, isMarathi ? 'marathi' : 'english')}</span>
                           {party.mobile && (
                             <span className="text-xs text-slate-400 font-mono block">
                               {party.mobile}
@@ -371,7 +373,7 @@ export const OutstandingDuesTab: React.FC<OutstandingDuesTabProps> = ({
                     #{party.customerNumber || 1}
                   </span>
                   <div>
-                    <h4 className="font-bold text-slate-800 text-sm">{party.name}</h4>
+                    <h4 className="font-bold text-slate-800 text-sm">{formatPartyName(party.name, isMarathi ? 'marathi' : 'english')}</h4>
                     {party.mobile && (
                       <span className="text-xs text-slate-400 font-mono">{party.mobile}</span>
                     )}

@@ -25,7 +25,7 @@ import { EditStockModal } from '../modals/EditStockModal';
 import { DeleteStockConfirmModal } from '../modals/DeleteStockConfirmModal';
 
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
-import { formatMarathiDate } from '../../../utils/marathiUtils';
+import { formatMarathiDate, formatPartyName, formatPlateType } from '../../../utils/marathiUtils';
 
 interface StockTabProps {
   stockItems: InventoryStockItem[];
@@ -172,9 +172,9 @@ export const StockTab: React.FC<StockTabProps> = ({
             id: `rent-${r.id}-${idx}`,
             date: r.issueDate,
             type: 'rental',
-            plateSize: it.plateType,
+            plateSize: formatPlateType(it.plateType, isMarathi ? 'marathi' : 'english'),
             quantity: it.quantity,
-            label: isMarathi ? `भाड्याने दिले (${r.partyName})` : `Dispatched to ${r.partyName}`,
+            label: isMarathi ? `भाड्याने दिले (${formatPartyName(r.partyName, 'marathi')})` : `Dispatched to ${formatPartyName(r.partyName, 'english')}`,
             details: `Bill #${r.billNumber || r.id.slice(0, 6)}`,
           });
         });
@@ -183,9 +183,9 @@ export const StockTab: React.FC<StockTabProps> = ({
           id: `rent-${r.id}`,
           date: r.issueDate,
           type: 'rental',
-          plateSize: r.plateType,
+          plateSize: formatPlateType(r.plateType, isMarathi ? 'marathi' : 'english'),
           quantity: r.quantity,
-          label: isMarathi ? `भाड्याने दिले (${r.partyName})` : `Dispatched to ${r.partyName}`,
+          label: isMarathi ? `भाड्याने दिले (${formatPartyName(r.partyName, 'marathi')})` : `Dispatched to ${formatPartyName(r.partyName, 'english')}`,
           details: `Bill #${r.billNumber || r.id.slice(0, 6)}`,
         });
       }
@@ -196,10 +196,10 @@ export const StockTab: React.FC<StockTabProps> = ({
         id: `ret-${ret.id}`,
         date: ret.returnDate,
         type: 'return',
-        plateSize: ret.plateType || 'Centering Plate',
+        plateSize: formatPlateType(ret.plateType || 'Centering Plate', isMarathi ? 'marathi' : 'english'),
         quantity: ret.returnedQuantity,
         label: isMarathi ? 'यार्डमध्ये जमा' : 'Returned to Yard',
-        details: isMarathi ? `${ret.partyName} कडून परत` : `Received back from ${ret.partyName}`,
+        details: isMarathi ? `${formatPartyName(ret.partyName, 'marathi')} कडून परत` : `Received back from ${formatPartyName(ret.partyName, 'english')}`,
       });
     });
 

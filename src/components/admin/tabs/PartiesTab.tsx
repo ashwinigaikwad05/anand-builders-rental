@@ -28,7 +28,7 @@ import { getCleanPhoneNumber, buildGeneralPartyWhatsAppUrl } from '../../../util
 import { DocumentUploadCard } from '../DocumentUploadCard';
 import { ImageLightboxModal } from '../ImageLightboxModal';
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
-import { formatMarathiDate, formatPhoneNumber } from '../../../utils/marathiUtils';
+import { formatMarathiDate, formatPhoneNumber, formatPartyName } from '../../../utils/marathiUtils';
 
 interface PartiesTabProps {
   parties: Party[];
@@ -95,6 +95,8 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
     .filter(
       (p) =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        formatPartyName(p.name, 'marathi').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        formatPartyName(p.name, 'english').toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.mobile.includes(searchTerm)
     )
     .sort((a, b) => (a.customerNumber || 1) - (b.customerNumber || 1));
@@ -345,9 +347,9 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                 </button>
                 <div className="flex flex-wrap items-center gap-2.5">
                   <span className="font-mono text-xs font-black px-2.5 py-1 rounded-xl bg-orange-100 text-primary border border-orange-200">
-                    Customer #{selectedParty.customerNumber || 1}
+                    {isMarathi ? 'ग्राहक #' : 'Customer #'}{selectedParty.customerNumber || 1}
                   </span>
-                  <h3 className="text-2xl font-black text-charcoal">{selectedParty.name}</h3>
+                  <h3 className="text-2xl font-black text-charcoal">{formatPartyName(selectedParty.name, isMarathi ? 'marathi' : 'english')}</h3>
 
                   {/* KYC Verification Status Badge */}
                   {(() => {
@@ -919,7 +921,7 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
                               </div>
                             )}
                             <div className="min-w-0">
-                              <div className="font-bold text-slate-800 text-sm whitespace-nowrap">{party.name}</div>
+                              <div className="font-bold text-slate-800 text-sm whitespace-nowrap">{formatPartyName(party.name, isMarathi ? 'marathi' : 'english')}</div>
                               {/* Document Badges - Horizontal Single Row */}
                               <div className="flex items-center gap-1 mt-1 whitespace-nowrap flex-nowrap">
                                 <button

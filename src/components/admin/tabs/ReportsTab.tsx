@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import type { Party, PlateStock, Rental, ReturnLog, Payment, RentalCycle } from '../../../data/adminMockData';
 import { getStoredAppLanguage, t, type AppLanguage } from '../../../utils/appTranslations';
+import { formatPartyName } from '../../../utils/marathiUtils';
 
 export type ReportType = 'all' | 'rental' | 'return' | 'payment' | 'outstanding' | 'bill_history';
 
@@ -104,13 +105,10 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
     }
   };
 
-  // Capitalize name helper
+  // Format name helper ensuring pure Marathi in Marathi mode and pure English in English mode
   const formatName = (name?: string) => {
     if (!name) return '';
-    return name
-      .split(' ')
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-      .join(' ');
+    return formatPartyName(name, isMr ? 'marathi' : 'english');
   };
 
   // Helper to fetch all cycles for a rental

@@ -13,6 +13,9 @@ import {
   Edit2,
   Check,
   FileBadge,
+  MessageSquare,
+  Share2,
+  Loader2,
 } from 'lucide-react';
 import type { Rental, RentalCycle, Party, Payment, ReturnLog } from '../../../data/adminMockData';
 import { calculatePartialReturnsBreakdown } from '../../../lib/supabase';
@@ -25,6 +28,12 @@ import {
   type BillTemplateStyle,
   type BillLanguage,
 } from '../../../utils/billTemplateUtils';
+import { formatPartyName, formatPlateType } from '../../../utils/marathiUtils';
+import {
+  autoShareBillPdfViaWhatsApp,
+  getAutoWhatsAppShareSetting,
+  setAutoWhatsAppShareSetting,
+} from '../../../utils/billPdfShareUtils';
 
 interface RentalBillModalProps {
   rental: Rental;
@@ -45,6 +54,7 @@ interface RentalBillModalProps {
   };
   billNumber?: number | string;
   customerNumber?: number | string;
+  autoShareWhatsApp?: boolean;
   onUpdateBillNumber?: (rentalId: string, newBillNumber: number | string) => void;
   onClose: () => void;
 }
@@ -60,6 +70,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   finances,
   billNumber: billNumberProp,
   customerNumber: customerNumberProp,
+  autoShareWhatsApp = false,
   onUpdateBillNumber,
   onClose,
 }) => {
@@ -80,6 +91,14 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
     return Boolean(config.showKycDocuments);
   });
   const [enlargedImage, setEnlargedImage] = useState<{ url: string; title: string } | null>(null);
+
+  // Auto WhatsApp share state & persistent preference
+  const [autoWhatsApp, setAutoWhatsApp] = useState<boolean>(() => {
+    if (autoShareWhatsApp) return true;
+    return getAutoWhatsAppShareSetting();
+  });
+  const [isSharingWhatsApp, setIsSharingWhatsApp] = useState<boolean>(false);
+  const [shareToast, setShareToast] = useState<{ type: 'success' | 'info' | 'error'; message: string } | null>(null);
 
   // Sync when templateConfig prop updates (e.g. previewing from settings)
   useEffect(() => {
@@ -227,7 +246,8 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
     return party;
   }, [party, rental.partyId, rental.partyName]);
 
-  const partyDisplayName = resolvedParty?.name || party?.name || rental.partyName;
+  const rawPartyName = resolvedParty?.name || party?.name || rental.partyName;
+  const partyDisplayName = formatPartyName(rawPartyName, selectedLanguage);
   const partyDisplayMobile = resolvedParty?.mobile || party?.mobile || '';
   const partyDisplayAddress = resolvedParty?.address || party?.address || '';
   const assignedCustomerNumber = customerNumberProp ?? resolvedParty?.customerNumber ?? party?.customerNumber ?? rental.customerNumber ?? 1;
@@ -465,7 +485,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       baseRentLabel: `${cycleDays} दिवसांचे भाडे:`,
       extraRentLabel: 'अतिरिक्त दिवस भाडे:',
       totalDueLabel: 'एकूण देय रक्कम:',
-      paidLabel: 'जमा रक्कम / ऍडव्हान्स:',
+      paidLabel: 'जमा रक्कम:',
       outstandingLabel: 'निव्वळ येणे बाकी:',
       customerSign: 'ग्राहकाची सही',
       customerSignSub: `साहित्य सुस्थितीत मिळाले (${partyDisplayName})`,
@@ -492,7 +512,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       paymentDateCol: 'दिनांक',
       paymentModeCol: 'पेमेंट प्रकार',
       paymentCycleCol: 'सायकल',
-      paymentRefCol: 'संदर्भ / तपशील',
+      paymentRefCol: 'संदर्भ',
       paymentAmtCol: 'जमा रक्कम (₹)',
       noPaymentsText: 'या भाडे खात्यावर अद्याप कोणतेही पेमेंट जमा नोंदवलेले नाही.',
       totalCyclesRentLabel: 'सर्व सायकल्स एकूण भाडे:',
@@ -594,6 +614,81 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   const handlePrint = () => {
     window.print();
   };
+
+  const handleToggleAutoWhatsApp = (checked: boolean) => {
+    setAutoWhatsApp(checked);
+    setAutoWhatsAppShareSetting(checked);
+  };
+
+  const handleShareWhatsApp = async () => {
+    const sheetEl = document.getElementById('rental-bill-sheet');
+    if (!sheetEl) return;
+
+    try {
+      setIsSharingWhatsApp(true);
+      await autoShareBillPdfViaWhatsApp(
+        sheetEl,
+        {
+          billNumber,
+          partyName: rawPartyName,
+          partyMobile: partyDisplayMobile,
+          partyAddress: partyDisplayAddress,
+          cycleStartDate: cycleStartFormatted !== '-' ? cycleStartFormatted : issueDateFormatted,
+          cycleEndDate: cycleEndFormatted,
+          cycleDays,
+          items: plateItems.map((it) => ({
+            plateType: it.plateType,
+            quantity: it.quantity,
+            dailyRate: it.dailyRate,
+            days: it.days,
+            totalRent: it.quantity * it.dailyRate * (it.days || cycleDays),
+          })),
+          totalRent: totalCycleAmount,
+          paidAmount: totalPaidAmount,
+          pendingAmount: totalPendingAmount,
+          lang: selectedLanguage,
+          phones,
+        },
+        (status, message) => {
+          if (status === 'shared') {
+            setShareToast({
+              type: 'success',
+              message: message || (selectedLanguage === 'marathi' ? 'बिलाची PDF व्हॉट्सॲपवर पाठवली!' : 'Bill PDF shared on WhatsApp!'),
+            });
+          } else if (status === 'downloaded') {
+            setShareToast({
+              type: 'info',
+              message: message || (selectedLanguage === 'marathi' ? 'PDF डाउनलोड झाली व व्हॉट्सॲप चॅट उघडली!' : 'PDF downloaded and WhatsApp opened!'),
+            });
+          } else if (status === 'error') {
+            setShareToast({
+              type: 'error',
+              message: message || (selectedLanguage === 'marathi' ? 'व्हॉट्सॲप शेअर अयशस्वी' : 'Failed to share on WhatsApp'),
+            });
+          }
+        }
+      );
+    } catch (err: any) {
+      setShareToast({
+        type: 'error',
+        message: err?.message || (selectedLanguage === 'marathi' ? 'व्हॉट्सॲप शेअर करताना त्रुटी आली' : 'Error sharing on WhatsApp'),
+      });
+    } finally {
+      setIsSharingWhatsApp(false);
+    }
+  };
+
+  // Trigger automatic WhatsApp sharing if enabled or explicitly requested
+  const hasAutoSharedRef = React.useRef(false);
+  useEffect(() => {
+    if ((autoShareWhatsApp || autoWhatsApp) && !hasAutoSharedRef.current) {
+      hasAutoSharedRef.current = true;
+      const timer = setTimeout(() => {
+        handleShareWhatsApp();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [autoShareWhatsApp, autoWhatsApp]);
 
   const renderKycDocumentsSection = (isSimpleBill: boolean) => {
     if (!showKycDocs) return null;
@@ -1059,9 +1154,59 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               </span>
             </label>
 
+            {/* Auto WhatsApp Share Checkbox */}
+            <label
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all select-none border shadow-xs ${
+                autoWhatsApp
+                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                  : 'bg-slate-200/90 hover:bg-slate-300/80 text-slate-800 border-slate-300/50'
+              }`}
+              title={
+                selectedLanguage === 'marathi'
+                  ? 'बिल उघडल्यावर किंवा तयार झाल्यावर आपोआप व्हॉट्सॲपवर PDF शेअर करण्यासाठी टिक करा'
+                  : 'Tick to automatically prompt WhatsApp PDF share when opening bill'
+              }
+            >
+              <input
+                type="checkbox"
+                id="toggle-auto-whatsapp-modal"
+                checked={autoWhatsApp}
+                onChange={(e) => handleToggleAutoWhatsApp(e.target.checked)}
+                className="w-3.5 h-3.5 accent-emerald-600 rounded cursor-pointer text-emerald-600 focus:ring-emerald-500"
+              />
+              <span className="flex items-center gap-1">
+                <Share2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>{selectedLanguage === 'marathi' ? 'ऑटो व्हॉट्सॲप' : 'Auto WhatsApp'}</span>
+              </span>
+            </label>
+
+            {/* WhatsApp PDF Share Button */}
+            <button
+              type="button"
+              onClick={handleShareWhatsApp}
+              disabled={isSharingWhatsApp}
+              className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold px-3.5 py-2 rounded-xl shadow-md hover:shadow-emerald-600/20 text-xs sm:text-sm flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+              title={
+                selectedLanguage === 'marathi'
+                  ? 'ग्राहकाच्या व्हॉट्सॲपवर बिलाची PDF व तपशील थेट पाठवा'
+                  : 'Share bill PDF & summary directly to customer on WhatsApp'
+              }
+            >
+              {isSharingWhatsApp ? (
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+              ) : (
+                <MessageSquare className="w-4 h-4 text-white" />
+              )}
+              <span>
+                {isSharingWhatsApp
+                  ? (selectedLanguage === 'marathi' ? 'तयार होत आहे...' : 'Generating...')
+                  : (selectedLanguage === 'marathi' ? 'व्हॉट्सॲप PDF' : 'WhatsApp PDF')}
+              </span>
+            </button>
+
             <button
               onClick={handlePrint}
-              className="bg-primary hover:bg-primary-dark text-white font-bold px-4 py-2 rounded-xl shadow-md hover:shadow-orange-500/20 text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer"
+              className="bg-primary hover:bg-primary-dark text-white font-bold px-3.5 py-2 rounded-xl shadow-md hover:shadow-orange-500/20 text-xs sm:text-sm flex items-center gap-1.5 transition-all cursor-pointer"
               title="Print Bill or Save PDF"
             >
               <Printer className="w-4 h-4" />
@@ -1090,15 +1235,25 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
             >
               {/* TOP HEADER: Left Company Info | Right INVOICE & Meta */}
               <div className="flex justify-between items-start pb-4">
-                <div className="text-left space-y-0.5">
-                  <h1 className="text-xl sm:text-2xl font-black text-black tracking-tight uppercase">
-                    {selectedLanguage === 'marathi' ? businessNameMr : businessName}
-                  </h1>
-                  <p className="text-xs text-slate-800 font-medium">{address}</p>
-                  <p className="text-xs text-slate-800 font-medium">
-                    {selectedLanguage === 'marathi' ? 'फोन:' : 'Ph:'} {phones.split(',')[0]?.trim() || '7020914957'}
-                    {phones.split(',')[1] && `, ${phones.split(',')[1].trim()}`}
-                  </p>
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <img
+                    src="/logo.png"
+                    alt="ANAND Logo"
+                    className="h-14 sm:h-16 w-auto object-contain flex-shrink-0"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                  <div className="text-left space-y-0.5">
+                    <h1 className="text-xl sm:text-2xl font-black text-black tracking-tight uppercase leading-tight">
+                      {selectedLanguage === 'marathi' ? businessNameMr : businessName}
+                    </h1>
+                    <p className="text-xs text-slate-800 font-medium">{address}</p>
+                    <p className="text-xs text-slate-800 font-medium">
+                      {selectedLanguage === 'marathi' ? 'फोन:' : 'Ph:'} {phones.split(',')[0]?.trim() || '7020914957'}
+                      {phones.split(',')[1] && `, ${phones.split(',')[1].trim()}`}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="text-right space-y-0.5">
@@ -1187,9 +1342,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                       <tr key={index}>
                         <td className="py-2.5 pr-4 text-black">
                           <div className="font-bold uppercase text-[12px]">
-                            {selectedLanguage === 'marathi'
-                              ? (item.plateType.toLowerCase().includes('plate') ? item.plateType : `स्टील प्लेट ${item.plateType}`)
-                              : (item.plateType.toLowerCase().includes('plate') ? item.plateType : `Steel Plate ${item.plateType}`)}
+                            {formatPlateType(item.plateType, selectedLanguage)}
                           </div>
                           {/* Explicit Day-Wise Calculation Formula */}
                           <div className="text-[11px] font-mono font-medium text-slate-700 bg-slate-100/90 border border-slate-300 px-2 py-0.5 rounded mt-1 inline-block">
@@ -1578,7 +1731,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               <div className={`border-b-2 border-slate-800 ${isCompact ? 'pb-3 mb-4' : 'pb-5 mb-6'}`}>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div className="flex items-center gap-3">
-                    <div className={`${isCompact ? 'w-11 h-11' : 'w-14 h-14'} rounded-2xl bg-slate-900 flex items-center justify-center p-2 shadow-md flex-shrink-0`}>
+                    <div className={`${isCompact ? 'w-11 h-11' : 'w-14 h-14'} rounded-2xl bg-white border border-slate-200 flex items-center justify-center p-1.5 shadow-2xs flex-shrink-0`}>
                       <img
                         src="/logo.png"
                         alt="Anand Logo"
@@ -1707,7 +1860,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                         <tr key={index} className="hover:bg-slate-50/50">
                           <td className="py-2 px-3 text-center text-slate-500 font-bold">{index + 1}</td>
                           <td className="py-2 px-3">
-                            <div className="font-bold text-slate-900">{currentT.platePrefix} — {item.plateType}</div>
+                            <div className="font-bold text-slate-900">{formatPlateType(item.plateType, selectedLanguage)}</div>
                             <div className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded mt-0.5 inline-block border border-slate-200">
                               {item.quantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'plates'} × ₹{Number(item.dailyRate).toFixed(2)} × {itemDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'days'}
                             </div>
@@ -2103,6 +2256,30 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               />
             </div>
           </div>
+        </div>
+      )}
+      {/* WhatsApp Sharing Notification Toast */}
+      {shareToast && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl shadow-2xl border flex items-center gap-3 animate-slideUp text-xs font-bold ${
+            shareToast.type === 'success'
+              ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-900/30'
+              : shareToast.type === 'info'
+              ? 'bg-slate-900 text-white border-slate-700 shadow-slate-900/40'
+              : 'bg-rose-600 text-white border-rose-500 shadow-rose-900/30'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 flex-shrink-0" />
+            <span>{shareToast.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShareToast(null)}
+            className="p-1 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
     </div>,

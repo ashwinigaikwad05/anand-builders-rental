@@ -42,7 +42,7 @@ import {
   t,
   type AppLanguage,
 } from '../../../utils/appTranslations';
-import { formatMarathiDate, formatDateRange, getMarathiPaymentMode } from '../../../utils/marathiUtils';
+import { formatMarathiDate, formatDateRange, getMarathiPaymentMode, formatPartyName } from '../../../utils/marathiUtils';
 
 interface DashboardTabProps {
   parties: Party[];
@@ -366,7 +366,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <h5 className="font-bold text-white text-sm">{item.rental.partyName}</h5>
+                    <h5 className="font-bold text-white text-sm">{formatPartyName(item.rental.partyName, isMr ? 'marathi' : 'english')}</h5>
                     <p className="text-[11px] text-purple-200 font-mono font-semibold">+91 {item.partyMobile}</p>
                   </div>
                   <span className="bg-purple-400/20 text-purple-200 border border-purple-400/30 text-[9px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">
@@ -722,7 +722,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                     <div className="space-y-2">
                       <div className="flex justify-between items-start gap-2">
                         <div>
-                          <h5 className="font-bold text-slate-900 text-sm">{rental.partyName}</h5>
+                          <h5 className="font-bold text-slate-900 text-sm">{formatPartyName(rental.partyName, isMr ? 'marathi' : 'english')}</h5>
                           <span className="text-[11px] text-slate-500 font-mono flex items-center gap-1 mt-0.5">
                             <Phone className="w-3 h-3 text-slate-400" />
                             {partyMobile ? `+91 ${partyMobile}` : 'No phone logged'}
@@ -1049,7 +1049,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 <tbody className="divide-y divide-slate-100">
                   {activeRentals.slice(0, 5).map((rent) => (
                     <tr key={rent.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-4 font-bold text-slate-800">{rent.partyName}</td>
+                      <td className="px-6 py-4 font-bold text-slate-800">{formatPartyName(rent.partyName, isMr ? 'marathi' : 'english')}</td>
                       <td className="px-6 py-4 text-slate-500 font-mono">{rent.plateType}</td>
                       <td className="px-6 py-4 font-bold text-slate-800">{rent.quantity}</td>
                       <td className="px-6 py-4 text-slate-500 font-mono text-xs">{formatMarathiDate(rent.issueDate)}</td>
@@ -1144,7 +1144,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   className="p-4 px-6 hover:bg-slate-50/50 transition-colors flex justify-between items-center text-left"
                 >
                   <div className="space-y-0.5">
-                    <p className="text-sm font-bold text-slate-800">{pay.partyName}</p>
+                    <p className="text-sm font-bold text-slate-800">{formatPartyName(pay.partyName, isMr ? 'marathi' : 'english')}</p>
                     <p className="text-xs text-slate-400 font-light">
                       {formatMarathiDate(pay.date)} • {getMarathiPaymentMode(pay.paymentMode, isMr ? 'marathi' : 'english')} {pay.cycleNumber ? `(${curT.cycleAlerts.cycle} ${pay.cycleNumber})` : ''}
                     </p>

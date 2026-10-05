@@ -67,6 +67,13 @@ export function getBillTemplateConfig(): BillTemplateConfig {
     const showKycDocuments = parsed.showKycDocuments !== undefined
       ? Boolean(parsed.showKycDocuments)
       : false;
+    const defaultTitle = billLang === 'english' ? 'RENTAL BILL & CHALLAN' : 'भाडे पावती व साहित्य चालान';
+    const rawTitle = parsed.billTitle || '';
+    const isBilingualTitle =
+      rawTitle.includes('/') ||
+      (/[a-zA-Z]/.test(rawTitle) && /[\u0900-\u097F]/.test(rawTitle));
+    const billTitle = (!isBilingualTitle && rawTitle.trim()) ? rawTitle : defaultTitle;
+
     const defaultSignatory = billLang === 'english' ? 'Authorized Signatory' : 'अधिकृत स्वाक्षरी';
     const rawSignatory = parsed.signatoryTitle || '';
     const isBilingualSignatory =
@@ -75,16 +82,24 @@ export function getBillTemplateConfig(): BillTemplateConfig {
       rawSignatory === 'Authorized Signatory / Stamp' ||
       rawSignatory === 'अधिकृत स्वाक्षरी / शिक्का';
     const signatoryTitle = (!isBilingualSignatory && rawSignatory.trim()) ? rawSignatory : defaultSignatory;
+
+    const rawTerms = Array.isArray(parsed.termsAndConditions) ? parsed.termsAndConditions : [];
+    const hasWrongLangTerms = billLang === 'english'
+      ? rawTerms.some((t: string) => /[\u0900-\u097F]/.test(t))
+      : rawTerms.some((t: string) => /[a-zA-Z]/.test(t) && !/[\u0900-\u097F]/.test(t));
+    const termsAndConditions = (rawTerms.length > 0 && !hasWrongLangTerms)
+      ? rawTerms
+      : (billLang === 'english' ? ENGLISH_TERMS : MARATHI_TERMS);
+
     return {
       ...DEFAULT_BILL_TEMPLATE_CONFIG,
       ...parsed,
       printTermsAndConditions,
       showKycDocuments,
+      billTitle,
       signatoryTitle,
       billLanguage: billLang,
-      termsAndConditions: Array.isArray(parsed.termsAndConditions)
-        ? parsed.termsAndConditions
-        : (billLang === 'english' ? ENGLISH_TERMS : MARATHI_TERMS),
+      termsAndConditions,
     };
   } catch {
     return DEFAULT_BILL_TEMPLATE_CONFIG;

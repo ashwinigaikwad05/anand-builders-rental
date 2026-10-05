@@ -8,7 +8,7 @@ import {
   type PartialReturnsBreakdownResult,
 } from '../../../lib/supabase';
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
-import { formatMarathiDate, formatDateRange, getMarathiPaymentMode } from '../../../utils/marathiUtils';
+import { formatMarathiDate, formatDateRange, getMarathiPaymentMode, formatPartyName, formatPlateType } from '../../../utils/marathiUtils';
 
 export interface ReturnInputPayload extends Omit<ReturnLog, 'id' | 'partyName' | 'plateType' | 'issuedQuantity'> {
   collectedAmount?: number;
@@ -150,6 +150,8 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
 
   const filteredReturns = returns.filter((r) =>
     r.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    formatPartyName(r.partyName, 'marathi').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    formatPartyName(r.partyName, 'english').toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.plateType.includes(searchTerm)
   );
 
@@ -431,7 +433,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                 {filteredReturns.map((ret) => (
                   <tr key={ret.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-5 py-4 text-slate-500 font-mono text-xs">{formatMarathiDate(ret.returnDate)}</td>
-                    <td className="px-5 py-4 font-bold text-slate-800">{ret.partyName}</td>
+                    <td className="px-5 py-4 font-bold text-slate-800">{formatPartyName(ret.partyName, isMarathi ? 'marathi' : 'english')}</td>
                     <td className="px-4 py-4 font-mono text-slate-500 text-xs">{ret.plateType}</td>
                     <td className="px-4 py-4 font-bold text-emerald-600">
                       <div>+{ret.returnedQuantity}</div>
@@ -522,7 +524,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                     <div key={rent.id} className="p-4 hover:bg-slate-50/50 transition-colors flex justify-between items-center text-left text-xs sm:text-sm">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5">
-                          <p className="font-bold text-slate-800">{rent.partyName}</p>
+                          <p className="font-bold text-slate-800">{formatPartyName(rent.partyName, isMarathi ? 'marathi' : 'english')}</p>
                           {cyc && (
                             <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.2 rounded font-bold">
                               {isMarathi ? 'सायकल' : 'Cyc'} {cyc.cycleNumber}
@@ -591,7 +593,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                 >
                   <option value="">{isMarathi ? '-- पार्टी निवडा --' : '-- Choose Party --'}</option>
                   {parties.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <option key={p.id} value={p.id}>{formatPartyName(p.name, isMarathi ? 'marathi' : 'english')}</option>
                   ))}
                 </select>
               </div>
@@ -611,7 +613,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                     const cyc = getActiveCycle(r);
                     return (
                       <option key={r.id} value={r.id}>
-                        {r.plateType} Width {cyc ? `[${isMarathi ? 'सायकल' : 'Cycle'} ${cyc.cycleNumber}]` : ''} ({isMarathi ? 'दिलेले:' : 'Issued'} {r.quantity} • {isMarathi ? 'शिल्लक:' : 'Remaining:'} {remaining} {isMarathi ? 'नग' : 'plates'})
+                        {formatPlateType(r.plateType, isMarathi ? 'marathi' : 'english')} {cyc ? `[${isMarathi ? 'सायकल' : 'Cycle'} ${cyc.cycleNumber}]` : ''} ({isMarathi ? 'दिलेले:' : 'Issued:'} {r.quantity} • {isMarathi ? 'शिल्लक:' : 'Remaining:'} {remaining} {isMarathi ? 'नग' : 'plates'})
                       </option>
                     );
                   })}

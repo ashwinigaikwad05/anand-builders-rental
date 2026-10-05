@@ -30,7 +30,7 @@ import {
   buildWhatsAppUrl,
 } from '../../../utils/alertMessaging';
 import { t, type AppLanguage } from '../../../utils/appTranslations';
-import { formatMarathiDate } from '../../../utils/marathiUtils';
+import { formatMarathiDate, formatPartyName } from '../../../utils/marathiUtils';
 
 export type DashboardDetailField =
   | 'total_stock'
@@ -213,7 +213,7 @@ export const DashboardDetailModal: React.FC<DashboardDetailModalProps> = ({
       const { telLink } = getCleanPhoneNumber(partyMobile);
       const whatsappUrl = buildWhatsAppUrl(
         partyMobile,
-        rent.partyName,
+        formatPartyName(rent.partyName, isMr ? 'marathi' : 'english'),
         activeCycle.cycleNumber,
         alertStatus.statusType,
         daysLeft,
@@ -779,12 +779,12 @@ const WithPartiesDetailView: React.FC<{
 
         const whatsappText = isMr
           ? `*आनंद सेंट्रिंग प्लेट्स - साहित्य वाटप*\n` +
-            `ग्राहक: ${rent.partyName}\n` +
+            `ग्राहक: ${formatPartyName(rent.partyName, 'marathi')}\n` +
             `दिनांक: ${formatMarathiDate(rent.issueDate)}\n` +
             `साहित्य: ${itemsSummary}\n` +
             `एकूण भाडे: ₹${rent.totalRent.toLocaleString('en-IN')} | जमा: ₹${rent.paid.toLocaleString('en-IN')} | बाकी: ₹${rent.pending.toLocaleString('en-IN')}`
           : `*Anand Centring Plates - Rental Dispatch*\n` +
-            `Customer: ${rent.partyName}\n` +
+            `Customer: ${formatPartyName(rent.partyName, 'english')}\n` +
             `Date: ${formatMarathiDate(rent.issueDate)}\n` +
             `Items: ${itemsSummary}\n` +
             `Total Rent: ₹${rent.totalRent.toLocaleString('en-IN')} | Paid: ₹${rent.paid.toLocaleString('en-IN')} | Due: ₹${rent.pending.toLocaleString('en-IN')}`;
@@ -798,7 +798,7 @@ const WithPartiesDetailView: React.FC<{
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h4 className="font-extrabold text-sm text-slate-800">{rent.partyName}</h4>
+                <h4 className="font-extrabold text-sm text-slate-800">{formatPartyName(rent.partyName, isMr ? 'marathi' : 'english')}</h4>
                 <p className="text-xs text-slate-400 font-mono flex items-center gap-1">
                   <Phone className="w-3 h-3" />
                   {mobile ? `+91 ${mobile}` : isMr ? 'मोबाईल नोंद नाही' : 'No phone'}
@@ -916,7 +916,7 @@ const OutstandingDuesDetailView: React.FC<{
         {filtered.map((party) => {
           const { telLink, whatsappPhone } = getCleanPhoneNumber(party.mobile);
           const whatsappMsg = encodeURIComponent(
-            `नमस्कार ${party.name}, आनंद सेंट्रिंग प्लेट्स कडून: आपले एकूण भाडे बाकी ₹${party.pending.toLocaleString('en-IN')} येणे बाकी आहे. कृपया लवकरात लवकर जमा करावे.`
+            `नमस्कार ${formatPartyName(party.name, 'marathi')}, आनंद सेंट्रिंग प्लेट्स कडून: आपले एकूण भाडे बाकी ₹${party.pending.toLocaleString('en-IN')} येणे बाकी आहे. कृपया लवकरात लवकर जमा करावे.`
           );
 
           return (
@@ -926,7 +926,7 @@ const OutstandingDuesDetailView: React.FC<{
             >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <h4 className="font-extrabold text-sm text-slate-800">{party.name}</h4>
+                  <h4 className="font-extrabold text-sm text-slate-800">{formatPartyName(party.name, isMr ? 'marathi' : 'english')}</h4>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
                     {isMr ? 'बाकी' : 'Due'}
                   </span>
@@ -1100,7 +1100,7 @@ const CycleAlertsDetailView: React.FC<{
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="font-extrabold text-sm text-slate-800">{rental.partyName}</h4>
+                    <h4 className="font-extrabold text-sm text-slate-800">{formatPartyName(rental.partyName, isMr ? 'marathi' : 'english')}</h4>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${alertStatus.badgeColorClass}`}>
                       {isMr ? alertStatus.statusLabelMr : alertStatus.statusLabel}
                     </span>
@@ -1257,7 +1257,7 @@ const AccountPaymentsDetailView: React.FC<{
             {filtered.map((pay) => (
               <tr key={pay.id} className="hover:bg-slate-50/60 transition-colors">
                 <td className="px-4 py-3 text-slate-500 font-mono text-xs">{formatMarathiDate(pay.date)}</td>
-                <td className="px-4 py-3 font-bold text-slate-800">{pay.partyName}</td>
+                <td className="px-4 py-3 font-bold text-slate-800">{formatPartyName(pay.partyName, isMr ? 'marathi' : 'english')}</td>
                 <td className="px-4 py-3 font-black text-right text-emerald-600 text-sm">
                   +₹{pay.amount.toLocaleString('en-IN')}
                 </td>
@@ -1310,12 +1310,12 @@ const TodayRentalsDetailView: React.FC<{
 
         const whatsappText = isMr
           ? `*आनंद सेंट्रिंग प्लेट्स - साहित्य वाटप*\n` +
-            `ग्राहक: ${rent.partyName}\n` +
+            `ग्राहक: ${formatPartyName(rent.partyName, 'marathi')}\n` +
             `दिनांक: ${formatMarathiDate(rent.issueDate)}\n` +
             `साहित्य: ${itemsSummary}\n` +
             `एकूण भाडे: ₹${rent.totalRent.toLocaleString('en-IN')} | जमा: ₹${rent.paid.toLocaleString('en-IN')} | बाकी: ₹${rent.pending.toLocaleString('en-IN')}`
           : `*Anand Centring Plates - Rental Dispatch*\n` +
-            `Customer: ${rent.partyName}\n` +
+            `Customer: ${formatPartyName(rent.partyName, 'english')}\n` +
             `Date: ${formatMarathiDate(rent.issueDate)}\n` +
             `Items: ${itemsSummary}\n` +
             `Total Rent: ₹${rent.totalRent.toLocaleString('en-IN')} | Paid: ₹${rent.paid.toLocaleString('en-IN')} | Due: ₹${rent.pending.toLocaleString('en-IN')}`;
@@ -1329,7 +1329,7 @@ const TodayRentalsDetailView: React.FC<{
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h4 className="font-extrabold text-sm text-slate-800">{rent.partyName}</h4>
+                <h4 className="font-extrabold text-sm text-slate-800">{formatPartyName(rent.partyName, isMr ? 'marathi' : 'english')}</h4>
                 <p className="text-xs text-slate-400 font-mono">
                   {mobile ? `+91 ${mobile}` : isMr ? 'फोन नाही' : 'No phone'}
                 </p>
@@ -1416,7 +1416,7 @@ const TodayReturnsDetailView: React.FC<{
         >
           <div className="flex justify-between items-start">
             <div>
-              <h4 className="font-extrabold text-sm text-slate-800">{ret.partyName}</h4>
+              <h4 className="font-extrabold text-sm text-slate-800">{formatPartyName(ret.partyName, isMr ? 'marathi' : 'english')}</h4>
               <p className="text-xs text-slate-400 font-mono">{formatMarathiDate(ret.returnDate)}</p>
             </div>
             <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -1497,7 +1497,7 @@ const OverdueRentalsDetailView: React.FC<{
         const elapsed = calculateCalendarDays(cycle.startDate, todayStr);
         const overdueDays = Math.max(0, elapsed - targetDays);
         const whatsappMsg = encodeURIComponent(
-          `नमस्कार ${rent.partyName}, आनंद सेंट्रिंग प्लेट्स कडून: आपल्या ${targetDays} दिवस भाडे कराराची मुदत संपली आहे (${overdueDays} दिवस जास्त झाले). कृपया साहित्य जमा करावे किंवा मुदत वाढवून घ्यावी.`
+          `नमस्कार ${formatPartyName(rent.partyName, 'marathi')}, आनंद सेंट्रिंग प्लेट्स कडून: आपल्या ${targetDays} दिवस भाडे कराराची मुदत संपली आहे (${overdueDays} दिवस जास्त झाले). कृपया साहित्य जमा करावे किंवा मुदत वाढवून घ्यावी.`
         );
 
         return (
@@ -1508,7 +1508,7 @@ const OverdueRentalsDetailView: React.FC<{
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <div className="flex items-center gap-2">
-                  <h4 className="font-extrabold text-sm text-slate-800">{rent.partyName}</h4>
+                  <h4 className="font-extrabold text-sm text-slate-800">{formatPartyName(rent.partyName, isMr ? 'marathi' : 'english')}</h4>
                   <span className="bg-rose-100 text-rose-800 border border-rose-300 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">
                     {isMr ? `${overdueDays} दिवस मुदत संपली` : `${overdueDays} Days Overdue`}
                   </span>

@@ -3,7 +3,7 @@ import { Plus, Search, Wallet, X, Check, Info } from 'lucide-react';
 import type { Party, Payment, Rental, RentalCycle } from '../../../data/adminMockData';
 
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
-import { formatMarathiDate, getMarathiPaymentMode } from '../../../utils/marathiUtils';
+import { formatMarathiDate, getMarathiPaymentMode, formatPartyName } from '../../../utils/marathiUtils';
 
 interface PaymentsTabProps {
   payments: Payment[];
@@ -53,6 +53,8 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
   const filteredPayments = payments.filter((p) => {
     const matchesSearch =
       p.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      formatPartyName(p.partyName, 'marathi').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      formatPartyName(p.partyName, 'english').toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.paymentMode.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -160,7 +162,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
             <option value="All">{isMarathi ? 'सर्व ग्राहक/पार्टी' : 'All Parties'}</option>
             {parties.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name}
+                {formatPartyName(p.name, isMarathi ? 'marathi' : 'english')}
               </option>
             ))}
           </select>
@@ -197,7 +199,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                 <tr key={pay.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4 text-slate-500 font-mono text-xs">{formatMarathiDate(pay.date)}</td>
                   <td className="px-6 py-4">
-                    <div className="font-bold text-slate-800">{pay.partyName}</div>
+                    <div className="font-bold text-slate-800">{formatPartyName(pay.partyName, isMarathi ? 'marathi' : 'english')}</div>
                     {pay.rentalId && <div className="text-[11px] text-slate-400 font-mono">ID: {pay.rentalId}</div>}
                   </td>
                   <td className="px-6 py-4">
@@ -273,7 +275,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
           >
             {/* Top row: Customer Name + Date */}
             <div className="flex items-start justify-between gap-2">
-              <h4 className="font-bold text-slate-800 text-sm">{pay.partyName}</h4>
+              <h4 className="font-bold text-slate-800 text-sm">{formatPartyName(pay.partyName, isMarathi ? 'marathi' : 'english')}</h4>
               <span className="text-xs text-slate-400 font-mono shrink-0">
                 {formatMarathiDate(pay.date)}
               </span>
@@ -385,8 +387,8 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   {parties.map((p, idx) => (
                     <option key={p.id} value={p.id}>
                       {isMarathi
-                        ? `ग्राहक #${p.customerNumber || idx + 1} — ${p.name} (बाकी: ₹${p.pending.toLocaleString('en-IN')})`
-                        : `Customer #${p.customerNumber || idx + 1} — ${p.name} (Outstanding: ₹${p.pending.toLocaleString('en-IN')})`}
+                        ? `ग्राहक #${p.customerNumber || idx + 1} — ${formatPartyName(p.name, 'marathi')} (बाकी: ₹${p.pending.toLocaleString('en-IN')})`
+                        : `Customer #${p.customerNumber || idx + 1} — ${formatPartyName(p.name, 'english')} (Outstanding: ₹${p.pending.toLocaleString('en-IN')})`}
                     </option>
                   ))}
                 </select>

@@ -387,3 +387,140 @@ export function matchRentalSearch(rental: RentalSearchTarget, queryRaw?: string)
   return false;
 }
 
+/**
+ * Format party / customer name to pure Marathi or pure English.
+ * Strips bilingual brackets or slashes so that in Marathi mode, only Marathi is displayed,
+ * and in English mode, only English is displayed.
+ *
+ * Examples:
+ * - "माउली कन्स्ट्रक्शन (Mauli Construction)" ->
+ *     lang === 'marathi': "माउली कन्स्ट्रक्शन"
+ *     lang === 'english': "Mauli Construction"
+ * - "Mauli Construction (माउली कन्स्ट्रक्शन)" ->
+ *     lang === 'marathi': "माउली कन्स्ट्रक्शन"
+ *     lang === 'english': "Mauli Construction"
+ * - "माउली कन्स्ट्रक्शन / Mauli Construction" ->
+ *     lang === 'marathi': "माउली कन्स्ट्रक्शन"
+ *     lang === 'english': "Mauli Construction"
+ * - "रमेश पाटील" -> "रमेश पाटील"
+ * - "Ramesh Patil" -> "Ramesh Patil"
+ */
+export function formatPartyName(
+  rawName?: string | null,
+  lang: 'marathi' | 'english' = 'marathi'
+): string {
+  if (!rawName) return '';
+  const trimmed = rawName.trim();
+  if (!trimmed) return '';
+
+  // 1. Check for parentheses: "Main (Sub)"
+  const parenMatch = trimmed.match(/^([^(]+)\(([^)]+)\)$/);
+  if (parenMatch) {
+    const part1 = parenMatch[1].trim();
+    const part2 = parenMatch[2].trim();
+
+    const part1HasDevanagari = /[\u0900-\u097F]/.test(part1);
+    const part2HasDevanagari = /[\u0900-\u097F]/.test(part2);
+    const part1HasLatin = /[a-zA-Z]/.test(part1);
+    const part2HasLatin = /[a-zA-Z]/.test(part2);
+
+    if (lang === 'marathi') {
+      if (part1HasDevanagari && !part2HasDevanagari) return part1;
+      if (part2HasDevanagari && !part1HasDevanagari) return part2;
+      if (part1HasDevanagari) return part1;
+      if (part2HasDevanagari) return part2;
+      return part1;
+    } else {
+      if (part2HasLatin && !part1HasLatin) return part2;
+      if (part1HasLatin && !part2HasLatin) return part1;
+      if (part1HasLatin) return part1;
+      if (part2HasLatin) return part2;
+      return part1;
+    }
+  }
+
+  // 2. Check for slash or pipe: "Part1 / Part2" or "Part1 | Part2"
+  if (trimmed.includes('/') || trimmed.includes('|')) {
+    const delimiter = trimmed.includes('/') ? '/' : '|';
+    const parts = trimmed.split(delimiter).map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      const devanagariPart = parts.find((p) => /[\u0900-\u097F]/.test(p));
+      const latinPart = parts.find((p) => /[a-zA-Z]/.test(p));
+
+      if (lang === 'marathi' && devanagariPart) return devanagariPart;
+      if (lang === 'english' && latinPart) return latinPart;
+    }
+  }
+
+  // 3. Clean any remaining inline bilingual parentheses, e.g. "आनंद (Anand)" or "Anand (आनंद)"
+  if (lang === 'marathi') {
+    const withoutLatinParens = trimmed.replace(/\s*\([a-zA-Z0-9\s.,&'-]+\)\s*/g, ' ').trim();
+    if (withoutLatinParens && /[\u0900-\u097F]/.test(withoutLatinParens)) {
+      return withoutLatinParens;
+    }
+  } else {
+    const withoutDevanagariParens = trimmed.replace(/\s*\([\u0900-\u097F\s.,&'-]+\)\s*/g, ' ').trim();
+    if (withoutDevanagariParens && /[a-zA-Z]/.test(withoutDevanagariParens)) {
+      return withoutDevanagariParens;
+    }
+  }
+
+  return trimmed;
+}
+
+/**
+ * Format plate type / item name into pure Marathi or pure English.
+ * Prevents bilingual or unlocalized text on bills and tabs.
+ */
+export function formatPlateType(
+  rawType?: string | null,
+  lang: 'marathi' | 'english' = 'marathi'
+): string {
+  if (!rawType) return lang === 'marathi' ? 'स्टील प्लेट' : 'Steel Plate';
+  const trimmed = rawType.trim();
+  if (!trimmed) return lang === 'marathi' ? 'स्टील प्लेट' : 'Steel Plate';
+
+  // Extract dimensions like "24x3", "24×3", "21*3", etc.
+  const sizeMatch = trimmed.match(/(\d+\s*[*×xX]\s*\d+)/);
+  const size = sizeMatch ? sizeMatch[1].replace(/[*xX]/g, '×') : '';
+
+  if (lang === 'marathi') {
+    if (/^\d+\s*[*×xX]\s*\d+$/.test(trimmed)) {
+      return `स्टील प्लेट ${trimmed.replace(/[*xX]/g, '×')}`;
+    }
+    let cleaned = trimmed
+      .replace(/steel\s*plates?/gi, 'स्टील प्लेट')
+      .replace(/centering\s*plates?/gi, 'सेन्टरिंग प्लेट')
+      .replace(/column\s*box(es)?/gi, 'कॉलम बॉक्स')
+      .replace(/scaffoldings?/gi, 'स्कॅफोल्डिंग')
+      .replace(/props?/gi, 'प्रॉप्स')
+      .replace(/runners?/gi, 'रनर')
+      .replace(/spans?/gi, 'स्पॅन')
+      .replace(/\s*\([A-Za-z0-9\s.,&'-]+\)\s*/g, ' ')
+      .trim();
+
+    if (!/[\u0900-\u097F]/.test(cleaned)) {
+      cleaned = size ? `स्टील प्लेट ${size}` : `स्टील प्लेट ${cleaned}`;
+    }
+    return cleaned;
+  } else {
+    if (/^\d+\s*[*×xX]\s*\d+$/.test(trimmed)) {
+      return `Steel Plate ${trimmed.replace(/[*×]/g, 'x')}`;
+    }
+    let cleaned = trimmed
+      .replace(/स्टील\s*प्लेट्स?/g, 'Steel Plate')
+      .replace(/सेन्टरिंग\s*प्लेट्स?/g, 'Centering Plate')
+      .replace(/कॉलम\s*बॉक्स/g, 'Column Box')
+      .replace(/स्कॅफोल्डिंग/g, 'Scaffolding')
+      .replace(/प्रॉप्स?/g, 'Props')
+      .replace(/रनर/g, 'Runners')
+      .replace(/स्पॅन/g, 'Span')
+      .replace(/\s*\([\u0900-\u097F\s.,&'-]+\)\s*/g, ' ')
+      .trim();
+
+    if (!/[a-zA-Z]/.test(cleaned)) {
+      cleaned = size ? `Steel Plate ${size}` : `Steel Plate ${cleaned}`;
+    }
+    return cleaned;
+  }
+}

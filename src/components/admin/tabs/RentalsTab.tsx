@@ -13,6 +13,7 @@ import {
   FileText,
   ArrowUpDown,
   Edit2,
+  MessageSquare,
 } from 'lucide-react';
 import type { Party, PlateStock, Rental, RentalItem, RentalCycle, Payment, ReturnLog } from '../../../data/adminMockData';
 import {
@@ -23,7 +24,14 @@ import {
 import { RenewRentalModal } from '../modals/RenewRentalModal';
 import { RentalBillModal } from '../modals/RentalBillModal';
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
-import { formatMarathiDate, formatDateRange, matchRentalSearch, type RentalSearchTarget } from '../../../utils/marathiUtils';
+import {
+  formatMarathiDate,
+  formatDateRange,
+  matchRentalSearch,
+  formatPartyName,
+  formatPlateType,
+  type RentalSearchTarget,
+} from '../../../utils/marathiUtils';
 
 interface PlateRowItem {
   id: string;
@@ -90,6 +98,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   const [renewTarget, setRenewTarget] = useState<Rental | null>(null);
   const [historyTarget, setHistoryTarget] = useState<Rental | null>(null);
   const [billTarget, setBillTarget] = useState<Rental | null>(null);
+  const [autoShareBillId, setAutoShareBillId] = useState<string | null>(null);
 
   // Form states for Add Rental
   const [selectedPartyId, setSelectedPartyId] = useState('');
@@ -482,7 +491,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
             <option value="All">{isMarathi ? 'सर्व ग्राहक' : 'All Parties'}</option>
             {parties.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name}
+                {formatPartyName(p.name, isMarathi ? 'marathi' : 'english')}
               </option>
             ))}
           </select>
@@ -573,7 +582,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                           <span className="inline-flex items-center gap-2 bg-white border border-slate-200/90 px-3 py-1 rounded-lg shadow-2xs">
                             <span className="font-black text-primary">{isMarathi ? 'ग्राहक' : 'Customer'} #{currentCustNum}</span>
                             <span className="text-slate-300">•</span>
-                            <span className="text-slate-800 font-bold uppercase">{rent.partyName}</span>
+                            <span className="text-slate-800 font-bold uppercase">{formatPartyName(rent.partyName, isMarathi ? 'marathi' : 'english')}</span>
                             {partyAddress && (
                               <>
                                 <span className="text-slate-300">•</span>
@@ -642,7 +651,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                               )}
                             </div>
                           )}
-                          <span className="font-bold text-slate-900 text-sm">{rent.partyName}</span>
+                          <span className="font-bold text-slate-900 text-sm">{formatPartyName(rent.partyName, isMarathi ? 'marathi' : 'english')}</span>
                         </div>
                         <div className="text-[11px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5 flex-wrap">
                           <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded text-[10px]">
@@ -812,12 +821,28 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       <div className="inline-flex items-center justify-end gap-1.5">
                         {/* View & Print Rental Bill */}
                         <button
-                          onClick={() => setBillTarget(rent)}
+                          onClick={() => {
+                            setBillTarget(rent);
+                            setAutoShareBillId(null);
+                          }}
                           className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs transition-all cursor-pointer"
                           title={`Generate / Print Rental Bill #${rent.billNumber || 1}`}
                         >
                           <FileText className="w-3.5 h-3.5 text-orange-400" />
                           <span>{isMarathi ? 'बिल' : 'Bill'} #{rent.billNumber || 1}</span>
+                        </button>
+
+                        {/* Quick WhatsApp Bill Share */}
+                        <button
+                          onClick={() => {
+                            setBillTarget(rent);
+                            setAutoShareBillId(rent.id);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-all cursor-pointer"
+                          title={isMarathi ? 'व्हॉट्सॲपवर बिलाची PDF पाठवा' : 'Share Bill PDF on WhatsApp'}
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>{isMarathi ? 'व्हॉट्सॲप' : 'WhatsApp'}</span>
                         </button>
 
                         {/* Return Action */}
@@ -1063,10 +1088,10 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                 </div>
                 <div>
                   <h4 className="text-base font-bold text-charcoal">
-                    Dispatch Plates - New Rental Sheet (Cycle 1)
+                    {isMarathi ? 'साहित्य वाटप — नवीन भाडे नोंद (सायकल १)' : 'Dispatch Plates - New Rental Sheet (Cycle 1)'}
                   </h4>
                   <p className="text-[11px] text-slate-400 font-light">
-                    Issue centering plates and configure standard 40-day rental cycle
+                    {isMarathi ? 'सेन्टरिंग प्लेट्स द्या आणि ४० दिवसांचे भाडे चक्र निश्चित करा' : 'Issue centering plates and configure standard 40-day rental cycle'}
                   </p>
                 </div>
               </div>
@@ -1092,7 +1117,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
-                    Customer Party *
+                    {isMarathi ? 'ग्राहक / पार्टी *' : 'Customer Party *'}
                   </label>
                   <select
                     value={selectedPartyId}
@@ -1100,10 +1125,10 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                     required
                     className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-4 py-3 rounded-xl text-sm font-semibold text-slate-800"
                   >
-                    <option value="">-- Choose Party --</option>
+                    <option value="">{isMarathi ? '-- पार्टी निवडा --' : '-- Choose Party --'}</option>
                     {parties.map((p, idx) => (
                       <option key={p.id} value={p.id}>
-                        Customer #{p.customerNumber || idx + 1} — {p.name} ({p.mobile})
+                        {isMarathi ? 'ग्राहक #' : 'Customer #'}{p.customerNumber || idx + 1} — {formatPartyName(p.name, isMarathi ? 'marathi' : 'english')} ({p.mobile})
                       </option>
                     ))}
                   </select>
@@ -1111,7 +1136,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
-                    Dispatch Issue Date *
+                    {isMarathi ? 'वाटप दिनांक *' : 'Dispatch Issue Date *'}
                   </label>
                   <input
                     type="date"
@@ -1126,11 +1151,11 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
               {/* Multi-Plate Rows Section */}
               <div className="space-y-3">
                 <div className="hidden lg:grid grid-cols-12 gap-3 text-xs font-bold text-slate-600 uppercase tracking-wider px-1">
-                  <div className="col-span-4">Shuttering Plate Size *</div>
-                  <div className="col-span-3">Dispatch Quantity *</div>
-                  <div className="col-span-2">Daily Rate (₹/day) *</div>
-                  <div className="col-span-2">Standard Term (Days) *</div>
-                  <div className="col-span-1 text-center">Action</div>
+                  <div className="col-span-4">{isMarathi ? 'प्लेट साईझ *' : 'Shuttering Plate Size *'}</div>
+                  <div className="col-span-3">{isMarathi ? 'वाटप संख्या *' : 'Dispatch Quantity *'}</div>
+                  <div className="col-span-2">{isMarathi ? 'प्रतिदिन दर (₹) *' : 'Daily Rate (₹/day) *'}</div>
+                  <div className="col-span-2">{isMarathi ? 'भाडे मुदत (दिवस) *' : 'Standard Term (Days) *'}</div>
+                  <div className="col-span-1 text-center">{isMarathi ? 'क्रिया' : 'Action'}</div>
                 </div>
 
                 <div className="space-y-3">
@@ -1142,7 +1167,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       {/* Plate Size */}
                       <div className="lg:col-span-4 space-y-1 sm:space-y-0">
                         <label className="lg:hidden text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
-                          Plate Size *
+                          {isMarathi ? 'प्लेट साईझ *' : 'Plate Size *'}
                         </label>
                         <select
                           value={row.plateType}
@@ -1150,7 +1175,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                           required
                           className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
                         >
-                          <option value="">-- Choose Width --</option>
+                          <option value="">{isMarathi ? '-- साईझ निवडा --' : '-- Choose Width --'}</option>
                           {plates.map((p) => {
                             const isSelectedElsewhere = plateRows.some(
                               (r) => r.id !== row.id && r.plateType === p.plateType
@@ -1161,7 +1186,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                                 value={p.plateType}
                                 disabled={isSelectedElsewhere}
                               >
-                                {p.plateType} ({p.available} avail.){isSelectedElsewhere ? ' - Already Added' : ''}
+                                {formatPlateType(p.plateType, isMarathi ? 'marathi' : 'english')} ({p.available} {isMarathi ? 'शिल्लक' : 'avail.'}){isSelectedElsewhere ? (isMarathi ? ' - आधीच जोडले' : ' - Already Added') : ''}
                               </option>
                             );
                           })}
@@ -1171,14 +1196,14 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       {/* Quantity */}
                       <div className="lg:col-span-3 space-y-1 sm:space-y-0">
                         <label className="lg:hidden text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
-                          Dispatch Quantity *
+                          {isMarathi ? 'वाटप संख्या *' : 'Dispatch Quantity *'}
                         </label>
                         <input
                           type="number"
                           min="1"
                           required
                           value={row.quantity}
-                          placeholder="e.g. 100"
+                          placeholder={isMarathi ? 'उदा. १००' : 'e.g. 100'}
                           onFocus={(e) => e.target.select()}
                           onChange={(e) => handleUpdatePlateRow(row.id, 'quantity', e.target.value)}
                           onBlur={() => {
@@ -1196,7 +1221,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       {/* Daily Rate */}
                       <div className="lg:col-span-2 space-y-1 sm:space-y-0">
                         <label className="lg:hidden text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
-                          Daily Rate (₹/day) *
+                          {isMarathi ? 'प्रतिदिन दर (₹) *' : 'Daily Rate (₹/day) *'}
                         </label>
                         <input
                           type="number"
@@ -1224,7 +1249,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       {/* Rental Term */}
                       <div className="lg:col-span-2 space-y-1 sm:space-y-0">
                         <label className="lg:hidden text-xs font-bold text-slate-600 uppercase tracking-wider block mb-1">
-                          Standard Term (Days) *
+                          {isMarathi ? 'भाडे मुदत (दिवस) *' : 'Standard Term (Days) *'}
                         </label>
                         <input
                           type="number"
@@ -1232,7 +1257,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                           max="365"
                           required
                           value={row.days}
-                          placeholder="e.g. 40"
+                          placeholder={isMarathi ? 'उदा. ४०' : 'e.g. 40'}
                           onFocus={(e) => e.target.select()}
                           onChange={(e) => handleUpdatePlateRow(row.id, 'days', e.target.value)}
                           onBlur={() => {
@@ -1254,7 +1279,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                             type="button"
                             onClick={() => handleRemovePlateRow(row.id)}
                             className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                            title="Remove this plate"
+                            title={isMarathi ? 'ही प्लेट काढा' : 'Remove this plate'}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1275,7 +1300,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                     className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-primary bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>+ Add Plate</span>
+                    <span>+ {isMarathi ? 'आणखी प्लेट जोडा' : 'Add Plate'}</span>
                   </button>
                 </div>
               </div>
@@ -1285,7 +1310,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-3 border-b border-slate-200/70">
                   <div className="space-y-1 text-left">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                      Calculated {plateRows[0]?.days ? `${plateRows[0].days}-Day ` : ''}Base Rent
+                      {isMarathi ? `हिशोब केलेले ${plateRows[0]?.days ? `${plateRows[0].days} दिवसांचे ` : ''}भाडे` : `Calculated ${plateRows[0]?.days ? `${plateRows[0].days}-Day ` : ''}Base Rent`}
                     </span>
                     <div className="space-y-0.5 text-[11px] text-slate-500 font-mono">
                       {plateRows.map((r, idx) => {
@@ -1294,7 +1319,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                         const d = parseInt(String(r.days), 10) || 0;
                         return (
                           <div key={idx}>
-                            {q} plates ({r.plateType}) × ₹{rate.toFixed(2)}/day × {d} days = ₹{(q * rate * d).toLocaleString('en-IN')}
+                            {q} {isMarathi ? 'प्लेट्स' : 'plates'} ({formatPlateType(r.plateType, isMarathi ? 'marathi' : 'english')}) × ₹{rate.toFixed(2)}/{isMarathi ? 'दिवस' : 'day'} × {d} {isMarathi ? 'दिवस' : 'days'} = ₹{(q * rate * d).toLocaleString('en-IN')}
                           </div>
                         );
                       })}
@@ -1310,7 +1335,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5 text-left">
                     <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
-                      Advance Amount Paid (₹) *
+                      {isMarathi ? 'जमा रक्कम (₹) *' : 'Advance Amount Paid (₹) *'}
                     </label>
                     <input
                       type="number"
@@ -1332,23 +1357,23 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
 
                   <div className="space-y-1.5 text-left">
                     <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
-                      Dispatch Payment Mode *
+                      {isMarathi ? 'पेमेंट प्रकार *' : 'Dispatch Payment Mode *'}
                     </label>
                     <select
                       value={paymentMode}
                       onChange={(e) => setPaymentMode(e.target.value as any)}
                       className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
                     >
-                      <option value="Outstanding">Outstanding</option>
-                      <option value="Account 1">Account 1 (Bank)</option>
-                      <option value="Account 2">Account 2 (Digital)</option>
-                      <option value="Cash">Cash</option>
+                      <option value="Outstanding">{isMarathi ? 'बाकी' : 'Outstanding'}</option>
+                      <option value="Account 1">{isMarathi ? 'खाते १ (मुख्य बँक)' : 'Account 1 (Bank)'}</option>
+                      <option value="Account 2">{isMarathi ? 'खाते २ (डिजिटल)' : 'Account 2 (Digital)'}</option>
+                      <option value="Cash">{isMarathi ? 'रोख' : 'Cash'}</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="flex justify-between items-center pt-3 border-t border-slate-200 text-xs font-bold">
-                  <span className="text-slate-500 uppercase tracking-wider">Outstanding Dues:</span>
+                  <span className="text-slate-500 uppercase tracking-wider">{isMarathi ? 'येणे बाकी:' : 'Outstanding Dues:'}</span>
                   <span className={`text-base font-black ${calculatedPending > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                     ₹{calculatedPending.toLocaleString('en-IN')}
                   </span>
@@ -1362,14 +1387,14 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                   onClick={() => setIsAddOpen(false)}
                   className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition-all"
                 >
-                  Cancel
+                  {isMarathi ? 'रद्द करा' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
                   className="px-6 py-2.5 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-sm shadow-md hover:shadow-orange-500/20 transition-all flex items-center gap-1.5"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Dispatch Material</span>
+                  <span>{isMarathi ? 'साहित्य वाटप पूर्ण करा' : 'Dispatch Material'}</span>
                 </button>
               </div>
             </form>
@@ -1401,7 +1426,11 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
           finances={getLiveCycleData(billTarget).finances}
           billNumber={billTarget.billNumber}
           customerNumber={getCustomerNumberForRental(billTarget)}
-          onClose={() => setBillTarget(null)}
+          autoShareWhatsApp={autoShareBillId === billTarget.id}
+          onClose={() => {
+            setBillTarget(null);
+            setAutoShareBillId(null);
+          }}
           onUpdateBillNumber={(rentalId, newBill) => {
             if (onUpdateBillNumber) {
               onUpdateBillNumber(rentalId, newBill);

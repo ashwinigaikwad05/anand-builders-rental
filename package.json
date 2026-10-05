@@ -6,11 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test": "node tests/master_calculations.test.mjs && node tests/marathi_language_formats.test.mjs && node tests/bill_history_and_edit_bill_number.test.mjs && node tests/aadhaar_camera_and_back_side.test.mjs && node tests/bill_party_signature_and_kyc_docs.test.mjs",
+    "test": "node tests/master_calculations.test.mjs && node tests/marathi_language_formats.test.mjs && node tests/bill_history_and_edit_bill_number.test.mjs && node tests/aadhaar_camera_and_back_side.test.mjs && node tests/bill_party_signature_and_kyc_docs.test.mjs && node tests/bill_whatsapp_pdf_share.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.34.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

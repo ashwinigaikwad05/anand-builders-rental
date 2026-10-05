@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User } from 'lucide-react';
 import type { Party, LedgerEntry } from '../../../data/adminMockData';
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
-import { formatMarathiDate } from '../../../utils/marathiUtils';
+import { formatMarathiDate, formatPartyName } from '../../../utils/marathiUtils';
 
 interface LedgerTabProps {
   parties: Party[];
@@ -53,7 +53,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({ parties, ledger, appLangua
             >
               <option value="">{isMarathi ? '-- ग्राहक निवडा --' : '-- Choose Party --'}</option>
               {parties.map((p, idx) => (
-                <option key={p.id} value={p.id}>{isMarathi ? 'ग्राहक #' : 'Customer #'}{p.customerNumber || idx + 1} — {p.name}</option>
+                <option key={p.id} value={p.id}>{isMarathi ? 'ग्राहक #' : 'Customer #'}{p.customerNumber || idx + 1} — {formatPartyName(p.name, isMarathi ? 'marathi' : 'english')}</option>
               ))}
             </select>
           </div>
@@ -98,7 +98,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({ parties, ledger, appLangua
               </div>
             )}
             <div>
-              <h4 className="text-base font-black text-charcoal">{selectedParty.name}</h4>
+              <h4 className="text-base font-black text-charcoal">{formatPartyName(selectedParty.name, isMarathi ? 'marathi' : 'english')}</h4>
               <p className="text-xs text-slate-500 font-mono">+91 {selectedParty.mobile} {selectedParty.address ? `• ${selectedParty.address}` : ''}</p>
             </div>
           </div>
