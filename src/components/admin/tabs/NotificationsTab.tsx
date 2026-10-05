@@ -1,6 +1,7 @@
 import React from 'react';
 import { Bell, Check, Trash2, AlertTriangle, ShieldAlert } from 'lucide-react';
 import type { AdminNotification } from '../../../data/adminMockData';
+import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
 import { formatMarathiDate } from '../../../utils/marathiUtils';
 
 interface NotificationsTabProps {
@@ -8,6 +9,7 @@ interface NotificationsTabProps {
   onMarkRead: (notificationId: string) => void;
   onClearNotification: (notificationId: string) => void;
   onMarkAllRead: () => void;
+  appLanguage?: AppLanguage;
 }
 
 export const NotificationsTab: React.FC<NotificationsTabProps> = ({
@@ -15,7 +17,9 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({
   onMarkRead,
   onClearNotification,
   onMarkAllRead,
+  appLanguage,
 }) => {
+  const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return (
@@ -31,9 +35,11 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({
             )}
           </div>
           <div>
-            <h3 className="text-lg font-bold text-charcoal">Yard Alerts & Notifications</h3>
+            <h3 className="text-lg font-bold text-charcoal">
+              {isMarathi ? 'यार्ड सूचना व अलर्ट्स' : 'Yard Alerts & Notifications'}
+            </h3>
             <p className="text-xs text-slate-500 font-light mt-0.5">
-              You have {unreadCount} unread system notifications
+              {isMarathi ? `आपल्याकडे ${unreadCount} न वाचलेल्या सूचना आहेत` : `You have ${unreadCount} unread system notifications`}
             </p>
           </div>
         </div>
@@ -41,9 +47,9 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({
         {unreadCount > 0 && (
           <button
             onClick={onMarkAllRead}
-            className="text-xs bg-slate-900 border border-slate-800 hover:border-slate-700 text-white font-bold px-3 py-1.5 rounded-lg transition-all"
+            className="text-xs bg-slate-900 border border-slate-800 hover:border-slate-700 text-white font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer"
           >
-            Mark All as Read
+            {isMarathi ? 'सर्व वाचले म्हणून खूण करा' : 'Mark All as Read'}
           </button>
         )}
       </div>
@@ -84,16 +90,16 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({
                 {!not.isRead && (
                   <button
                     onClick={() => onMarkRead(not.id)}
-                    className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded transition"
-                    title="Mark as Read"
+                    className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded transition cursor-pointer"
+                    title={isMarathi ? 'वाचले म्हणून खूण करा' : 'Mark as Read'}
                   >
                     <Check className="w-4 h-4" />
                   </button>
                 )}
                 <button
                   onClick={() => onClearNotification(not.id)}
-                  className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded transition"
-                  title="Clear Notification"
+                  className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                  title={isMarathi ? 'सूचना हटवा' : 'Clear Notification'}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -104,7 +110,7 @@ export const NotificationsTab: React.FC<NotificationsTabProps> = ({
 
         {notifications.length === 0 && (
           <div className="p-12 text-center text-slate-400 font-light italic">
-            You have no notifications or alerts to review.
+            {isMarathi ? 'सध्या कोणतीही नवीन सूचना किंवा अलर्ट नाही.' : 'You have no notifications or alerts to review.'}
           </div>
         )}
       </div>

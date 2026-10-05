@@ -468,9 +468,9 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
             className="bg-white border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700"
           >
             <option value="All">{isMarathi ? 'सर्व स्थिती' : 'All Statuses'}</option>
-            <option value="active">{isMarathi ? 'सक्रिय (Active)' : 'Active'}</option>
-            <option value="overdue">{isMarathi ? 'मुदत संपली (Overdue)' : 'Overdue'}</option>
-            <option value="returned">{isMarathi ? 'जमा (Returned)' : 'Returned'}</option>
+            <option value="active">{isMarathi ? 'सक्रिय' : 'Active'}</option>
+            <option value="overdue">{isMarathi ? 'मुदत संपली' : 'Overdue'}</option>
+            <option value="returned">{isMarathi ? 'जमा' : 'Returned'}</option>
           </select>
 
           {/* Party Filter */}
@@ -510,7 +510,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
               className="bg-transparent focus:outline-none text-xs sm:text-sm font-semibold text-slate-700 cursor-pointer"
               title="Sort Rentals"
             >
-              <option value="customer-serial">{isMarathi ? '👥 ग्राहक क्र. व सर्व बिले (Serial)' : '👥 Customer Serial (Cust #1, #2... All Bills)'}</option>
+              <option value="customer-serial">{isMarathi ? '👥 ग्राहक क्र. व सर्व बिले' : '👥 Customer Serial (Cust #1, #2... All Bills)'}</option>
               <option value="bill-asc">{isMarathi ? '🧾 बिल क्र. (१, २, ३... क्रमाने)' : '🧾 Bill # (Ascending 1, 2, 3...)'}</option>
               <option value="bill-desc">{isMarathi ? '🧾 नवीन बिले प्रथम' : '🧾 Bill # (Newest First)'}</option>
               <option value="date-desc">{isMarathi ? '📅 वाटप दिनांक (नवीन प्रथम)' : '📅 Issue Date (Newest First)'}</option>
@@ -655,7 +655,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                               <span className="text-slate-300">•</span>
                               <span
                                 className="inline-flex items-center gap-1 text-[11px] font-sans font-medium text-slate-600 bg-slate-100/90 hover:bg-slate-200/70 transition-colors px-1.5 py-0.5 rounded max-w-[220px] truncate"
-                                title={`${isMarathi ? 'कामाचे ठिकाण (साइट पत्ता)' : 'Site / Delivery Address'}: ${partyAddress}`}
+                                title={`${isMarathi ? 'कामाचे ठिकाण' : 'Delivery Address'}: ${partyAddress}`}
                               >
                                 <span className="text-slate-400 text-[10px]">📍</span>
                                 <span className="truncate">{partyAddress}</span>

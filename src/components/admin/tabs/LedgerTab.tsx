@@ -39,28 +39,28 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({ parties, ledger, appLangua
       <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm space-y-4">
         <h4 className="text-sm font-bold text-charcoal flex items-center gap-1.5">
           <User className="w-4 h-4 text-primary" />
-          Filter Account Statement
+          {isMarathi ? 'खातेवही स्टेटमेंट फिल्टर' : 'Filter Account Statement'}
         </h4>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Party Selector */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Customer Party *</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">{isMarathi ? 'ग्राहक निवडा *' : 'Customer Party *'}</label>
             <select
               value={selectedPartyId}
               onChange={(e) => setSelectedPartyId(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold"
             >
-              <option value="">-- Choose Party --</option>
+              <option value="">{isMarathi ? '-- ग्राहक निवडा --' : '-- Choose Party --'}</option>
               {parties.map((p, idx) => (
-                <option key={p.id} value={p.id}>Customer #{p.customerNumber || idx + 1} — {p.name}</option>
+                <option key={p.id} value={p.id}>{isMarathi ? 'ग्राहक #' : 'Customer #'}{p.customerNumber || idx + 1} — {p.name}</option>
               ))}
             </select>
           </div>
 
           {/* From Date */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">From Date</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">{isMarathi ? 'दिनांक पासून' : 'From Date'}</label>
             <input
               type="date"
               value={fromDate}
@@ -71,7 +71,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({ parties, ledger, appLangua
 
           {/* To Date */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">To Date</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">{isMarathi ? 'दिनांक पर्यंत' : 'To Date'}</label>
             <input
               type="date"
               value={toDate}
@@ -108,7 +108,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({ parties, ledger, appLangua
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                 : 'bg-slate-50 text-slate-500 border border-slate-200'
             }`}>
-              {selectedParty.status}
+              {isMarathi ? (selectedParty.status === 'active' ? 'सक्रिय' : 'बंद') : selectedParty.status}
             </span>
           </div>
         </div>
@@ -117,23 +117,23 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({ parties, ledger, appLangua
       {selectedParty && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div className="bg-slate-50 p-5 rounded-2xl border border-slate-150 space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Total Billed charges (Debits)</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase">{isMarathi ? 'एकूण नावे आकारणी (भाडे)' : 'Total Billed Charges (Debits)'}</span>
             <h4 className="text-xl font-black text-rose-600">₹{totalDebit.toLocaleString('en-IN')}</h4>
-            <p className="text-[9px] text-slate-400 font-light">Based on selected date filter</p>
+            <p className="text-[9px] text-slate-400 font-light">{isMarathi ? 'निवडलेल्या तारखेनुसार' : 'Based on selected date filter'}</p>
           </div>
           
           <div className="bg-slate-50 p-5 rounded-2xl border border-slate-150 space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Total Received Payments (Credits)</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase">{isMarathi ? 'एकूण जमा भरणा (पेमेंट्स)' : 'Total Received Payments (Credits)'}</span>
             <h4 className="text-xl font-black text-emerald-600 font-bold">₹{totalCredit.toLocaleString('en-IN')}</h4>
-            <p className="text-[9px] text-slate-400 font-light">Based on selected date filter</p>
+            <p className="text-[9px] text-slate-400 font-light">{isMarathi ? 'निवडलेल्या तारखेनुसार' : 'Based on selected date filter'}</p>
           </div>
 
           <div className="bg-slate-50 p-5 rounded-2xl border border-slate-150 space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Current Account Balance</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase">{isMarathi ? 'चालू खात्याची बाकी' : 'Current Account Balance'}</span>
             <h4 className={`text-xl font-black ${currentOutstanding > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
               ₹{currentOutstanding.toLocaleString('en-IN')}
             </h4>
-            <p className="text-[9px] text-slate-400 font-light">Current ledger outstanding dues</p>
+            <p className="text-[9px] text-slate-400 font-light">{isMarathi ? 'खातेवहीनुसार येणे बाकी' : 'Current ledger outstanding dues'}</p>
           </div>
         </div>
       )}
@@ -141,7 +141,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({ parties, ledger, appLangua
       {/* Ledger Table */}
       <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-          <h4 className="text-sm font-bold text-charcoal">Account Statement Ledger Logs</h4>
+          <h4 className="text-sm font-bold text-charcoal">{isMarathi ? 'खातेवही हिशोब नोंदी' : 'Account Statement Ledger Logs'}</h4>
         </div>
 
         <div className="overflow-x-auto">
@@ -174,7 +174,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({ parties, ledger, appLangua
               {filteredLedger.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-6 py-10 text-center text-slate-400 font-light italic">
-                    Please select a party or modify date filters to view ledger records.
+                    {isMarathi ? 'खातेवही पाहण्यासाठी कृपया ग्राहक निवडा किंवा तारीख फिल्टर तपासा.' : 'Please select a party or modify date filters to view ledger records.'}
                   </td>
                 </tr>
               )}

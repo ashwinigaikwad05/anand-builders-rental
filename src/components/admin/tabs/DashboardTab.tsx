@@ -21,6 +21,7 @@ import {
   X,
   Sparkles,
   Upload,
+  Globe,
 } from 'lucide-react';
 import type { Party, PlateStock, Rental, Payment, ReturnLog, RentalCycle, RentalItem } from '../../../data/adminMockData';
 import {
@@ -37,10 +38,11 @@ import {
 } from '../../../utils/alertMessaging';
 import {
   getStoredAppLanguage,
+  setStoredAppLanguage,
   t,
   type AppLanguage,
 } from '../../../utils/appTranslations';
-import { formatMarathiDate, formatDateRange } from '../../../utils/marathiUtils';
+import { formatMarathiDate, formatDateRange, getMarathiPaymentMode } from '../../../utils/marathiUtils';
 
 interface DashboardTabProps {
   parties: Party[];
@@ -279,6 +281,54 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   return (
     <div className="space-y-8 text-left">
 
+      {/* Language Switcher Bar on Dashboard */}
+      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-primary/10 text-primary rounded-xl">
+            <Globe className="w-4 h-4" />
+          </div>
+          <div>
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
+              {curT.langSection.title}
+            </h4>
+            <p className="text-[11px] text-slate-500 font-light">
+              {curT.langSection.subtitle}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
+          <button
+            type="button"
+            onClick={() => {
+              setStoredAppLanguage('marathi');
+              setCurrentLang('marathi');
+            }}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              currentLang === 'marathi'
+                ? 'bg-primary text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            {curT.langSection.marathiBtn}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setStoredAppLanguage('english');
+              setCurrentLang('english');
+            }}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              currentLang === 'english'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            {curT.langSection.englishBtn}
+          </button>
+        </div>
+      </div>
+
       {/* 40-Day Completion Top Notification Popup Alert */}
       {isAlertModalOpen && completed40Alerts.length > 0 && (
         <div className="bg-gradient-to-r from-purple-950 via-slate-900 to-rose-950 text-white p-5 rounded-3xl border border-purple-800 shadow-xl relative animate-fadeIn">
@@ -373,7 +423,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </div>
             <p className="text-xs text-slate-600 font-medium max-w-xl leading-relaxed">
               {currentLang === 'marathi'
-                ? 'सध्या पोर्टलमध्ये कोणताही डेटा नाही. प्रणाली तपासण्यासाठी आपण एका क्लिकवर नमुना (डेमो) डेटा लोड करू शकता किंवा सेटिंग्समधून बॅकअप फाइल अपलोड करू शकता.'
+                ? 'सध्या पोर्टलमध्ये कोणताही डेटा नाही. प्रणाली तपासण्यासाठी आपण एका क्लिकवर नमुना डेटा लोड करू शकता किंवा सेटिंग्समधून बॅकअप फाइल अपलोड करू शकता.'
                 : 'The admin portal currently has 0 records. You can load sample demo data with 1 click to test the dashboard, or restore a backup file in Settings.'}
             </p>
           </div>
@@ -703,10 +753,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                           <span className="font-bold text-amber-600">
                             {alert.elapsedDays} / {alert.targetDays} {curT.cycleAlerts.days}
                             {alert.daysLeft < 0
-                              ? ` (+${alert.extraDays} जादा)`
+                              ? (isMr ? ` (+${alert.extraDays} दिवस जादा)` : ` (+${alert.extraDays} days extra)`)
                               : alert.daysLeft === 0
-                              ? ' (आज समाप्त)'
-                              : ` (${alert.daysLeft} बाकी)`}
+                              ? (isMr ? ' (आज समाप्त)' : ' (Ends today)')
+                              : (isMr ? ` (${alert.daysLeft} दिवस बाकी)` : ` (${alert.daysLeft} days left)`)}
                           </span>
                         </div>
                         <div className="flex justify-between text-slate-600">
@@ -1096,7 +1146,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   <div className="space-y-0.5">
                     <p className="text-sm font-bold text-slate-800">{pay.partyName}</p>
                     <p className="text-xs text-slate-400 font-light">
-                      {formatMarathiDate(pay.date)} • {pay.paymentMode} {pay.cycleNumber ? `(${curT.cycleAlerts.cycle} ${pay.cycleNumber})` : ''}
+                      {formatMarathiDate(pay.date)} • {getMarathiPaymentMode(pay.paymentMode, isMr ? 'marathi' : 'english')} {pay.cycleNumber ? `(${curT.cycleAlerts.cycle} ${pay.cycleNumber})` : ''}
                     </p>
                   </div>
                   <div className="text-right">

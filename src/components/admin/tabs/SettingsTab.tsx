@@ -87,7 +87,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [defaultRate, setDefaultRate] = useState<number>(() => parseFloat(localStorage.getItem('anand_default_rate') || '1.50'));
   const [rentalCycle, setRentalCycle] = useState<number>(() => parseInt(localStorage.getItem('anand_rental_cycle') || '40'));
 
-  const [account1Name, setAccount1Name] = useState(() => localStorage.getItem('anand_acc1_name') || 'Account 1 (Bank Direct)');
+  const [account1Name, setAccount1Name] = useState(() => localStorage.getItem('anand_acc1_name') || 'Account 1 (Main Bank)');
   const [account2Name, setAccount2Name] = useState(() => localStorage.getItem('anand_acc2_name') || 'Account 2 (UPI / Digital)');
   const [cashAccountName, setCashAccountName] = useState(() => {
     const saved = localStorage.getItem('anand_cash_name');
@@ -184,7 +184,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const handleLoadSample = async () => {
     if (!onLoadSampleData) return;
     const confirmMsg = isMarathi
-      ? 'नमुना (डेमो) साहित्य, ग्राहक आणि भाडे नोंदी लोड करायच्या आहेत का?'
+      ? 'नमुना साहित्य, ग्राहक आणि भाडे नोंदी लोड करायच्या आहेत का?'
       : 'Load starter demo plates, customers, and rental records?';
     if (!window.confirm(confirmMsg)) return;
     try {
@@ -555,7 +555,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   </h4>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-primary border border-orange-200">
                     {billConfig.templateStyle === 'simple'
-                      ? 'Simple Bill (साधे बिल)'
+                      ? (isMarathi ? 'साधे बिल' : 'Simple Bill')
                       : billConfig.templateStyle === 'standard'
                       ? 'Standard Challan'
                       : billConfig.templateStyle === 'tax_invoice'
@@ -618,11 +618,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Language / भाषा</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">{isMarathi ? 'भाषा' : 'Language'}</span>
                   <span className="font-bold text-primary capitalize">
                     {billConfig.billLanguage === 'marathi'
-                      ? 'मराठी (Marathi)'
-                      : 'English'}
+                      ? (isMarathi ? 'मराठी' : 'Marathi')
+                      : (isMarathi ? 'इंग्रजी' : 'English')}
                   </span>
                 </div>
                 <div>
@@ -710,7 +710,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-black text-slate-900">मराठी (Marathi)</span>
+                      <span className="text-sm font-black text-slate-900">मराठी</span>
                       {billConfig.billLanguage === 'marathi' && (
                         <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-orange-500 text-white">
                           Selected
@@ -767,9 +767,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         Recommended
                       </span>
                     </div>
-                    <h5 className="text-sm font-bold text-slate-900">Simple Bill (साधे बिल)</h5>
+                    <h5 className="text-sm font-bold text-slate-900">{isMarathi ? 'साधे बिल' : 'Simple Bill'}</h5>
                     <p className="text-[11px] text-slate-500 mt-1 leading-snug">
-                      Clean Marathi & English format, simple item table, highlighted outstanding due, and single-page A4 print.
+                      {isMarathi
+                        ? 'स्वच्छ मराठी फॉरमॅट, सुटसुटीत साहित्य तक्ता, ठळक येणे बाकी आणि १-पान A4 प्रिंट.'
+                        : 'Clean pure layout, simple item table, highlighted outstanding due, and single-page A4 print.'}
                     </p>
                   </div>
 
@@ -931,10 +933,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     <Landmark className="w-4 h-4 text-primary" />
                     <div>
                       <span className="text-xs font-bold uppercase tracking-wider text-slate-800 block">
-                        Bank Account & UPI Details (बँक खाते तपशील)
+                        {isMarathi ? 'बँक खाते व UPI माहिती' : 'Bank Account & UPI Details'}
                       </span>
                       <span className="text-[11px] text-slate-500 font-normal">
-                        Add / update Bank Name, Account No, IFSC & UPI printed on all bills
+                        {isMarathi
+                          ? 'बँकेचे नाव, खाते क्र., IFSC कोड आणि UPI आयडी बिलावर प्रिंट करण्यासाठी'
+                          : 'Add / update Bank Name, Account No, IFSC & UPI printed on all bills'}
                       </span>
                     </div>
                   </div>

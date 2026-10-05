@@ -198,7 +198,7 @@ export const StockTab: React.FC<StockTabProps> = ({
         type: 'return',
         plateSize: ret.plateType || 'Centering Plate',
         quantity: ret.returnedQuantity,
-        label: isMarathi ? 'यार्डमध्ये जमा (परत)' : 'Returned to Yard',
+        label: isMarathi ? 'यार्डमध्ये जमा' : 'Returned to Yard',
         details: isMarathi ? `${ret.partyName} कडून परत` : `Received back from ${ret.partyName}`,
       });
     });
@@ -284,7 +284,7 @@ export const StockTab: React.FC<StockTabProps> = ({
         <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200/60 shadow-xs flex items-center justify-between hover:border-orange-200 transition-all">
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              {isMarathi ? 'ग्राहकांकडे (पार्टींकडे)' : 'With Parties'}
+              {isMarathi ? 'ग्राहकांकडे भाड्याने' : 'With Parties'}
             </span>
             <h3 className="text-2xl sm:text-3xl font-black text-primary">
               {totalWithParties.toLocaleString()}

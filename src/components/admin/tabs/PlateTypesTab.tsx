@@ -13,6 +13,7 @@ import {
   Layers,
 } from 'lucide-react';
 import type { PlateStock } from '../../../data/adminMockData';
+import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
 
 interface PlateTypesTabProps {
   plates: PlateStock[];
@@ -20,6 +21,7 @@ interface PlateTypesTabProps {
   onUpdateStatus: (plateType: string, newStatus: 'available' | 'low_stock' | 'out_of_stock') => void;
   onAddPlateType?: (data: { plateType: string; dailyRate: number; initialStock?: number }) => Promise<void>;
   onDeletePlateType?: (plateType: string) => Promise<void>;
+  appLanguage?: AppLanguage;
 }
 
 const STANDARD_SIZES = ['24×3', '21×3', '18×3', '15×3', '12×3', '9×3', '6×3'];
@@ -30,7 +32,9 @@ export const PlateTypesTab: React.FC<PlateTypesTabProps> = ({
   onUpdateStatus,
   onAddPlateType,
   onDeletePlateType,
+  appLanguage,
 }) => {
+  const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
   const [editingType, setEditingType] = useState<string | null>(null);
   const [tempRate, setTempRate] = useState<string>('');
 
@@ -148,10 +152,10 @@ export const PlateTypesTab: React.FC<PlateTypesTabProps> = ({
             </span>
             <div>
               <h3 className="text-base sm:text-xl font-extrabold text-charcoal tracking-tight">
-                Plate Type Settings (प्लेट प्रकार)
+                {isMarathi ? 'प्लेट प्रकार सेटिंग्ज' : 'Plate Type Settings'}
               </h3>
               <p className="text-xs text-slate-500 font-light mt-0.5">
-                Manage shuttering plate dimensions, custom sizes & daily rental rates
+                {isMarathi ? 'सेंट्रिंग प्लेट्स मापे, कस्टम साईझ आणि प्रतिदिन भाडे दर व्यवस्थापन' : 'Manage shuttering plate dimensions, custom sizes & daily rental rates'}
               </p>
             </div>
           </div>
@@ -163,7 +167,7 @@ export const PlateTypesTab: React.FC<PlateTypesTabProps> = ({
           className="bg-primary hover:bg-primary-dark text-white font-bold px-4 py-2.5 sm:py-3 rounded-xl shadow-md hover:shadow-orange-500/20 text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer w-full sm:w-auto min-h-[44px]"
         >
           <Plus className="w-4 h-4" />
-          <span>+ Add Plate Size (नवीन साईझ जोडा)</span>
+          <span>{isMarathi ? '+ नवीन साईझ जोडा' : '+ Add Plate Size'}</span>
         </button>
       </div>
 
@@ -445,12 +449,12 @@ export const PlateTypesTab: React.FC<PlateTypesTabProps> = ({
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Saving...</span>
+                      <span>{isMarathi ? 'जतन करत आहे...' : 'Saving...'}</span>
                     </>
                   ) : (
                     <>
                       <Plus className="w-4 h-4" />
-                      <span>Add Plate Size (साईझ जोडा)</span>
+                      <span>{isMarathi ? 'नवीन प्लेट साईझ जोडा' : 'Add Plate Size'}</span>
                     </>
                   )}
                 </button>

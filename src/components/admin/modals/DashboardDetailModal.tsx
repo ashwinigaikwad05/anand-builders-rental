@@ -1147,10 +1147,10 @@ const CycleAlertsDetailView: React.FC<{
                   <span className="font-black text-amber-600">
                     {item.elapsedDays} / {item.targetDays} {curT.cycleAlerts.days}
                     {item.daysLeft < 0
-                      ? ` (+${item.extraDays}d)`
+                      ? (isMr ? ` (+${item.extraDays} दिवस जादा)` : ` (+${item.extraDays} days extra)`)
                       : item.daysLeft === 0
-                      ? ' (आज समाप्त)'
-                      : ` (${item.daysLeft}d left)`}
+                      ? (isMr ? ' (आज समाप्त)' : ' (Ends today)')
+                      : (isMr ? ` (${item.daysLeft} दिवस बाकी)` : ` (${item.daysLeft} days left)`)}
                   </span>
                 </div>
                 <div>

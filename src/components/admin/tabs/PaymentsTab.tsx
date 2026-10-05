@@ -3,7 +3,7 @@ import { Plus, Search, Wallet, X, Check, Info } from 'lucide-react';
 import type { Party, Payment, Rental, RentalCycle } from '../../../data/adminMockData';
 
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
-import { formatMarathiDate } from '../../../utils/marathiUtils';
+import { formatMarathiDate, getMarathiPaymentMode } from '../../../utils/marathiUtils';
 
 interface PaymentsTabProps {
   payments: Payment[];
@@ -134,7 +134,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by party, voucher, mode..."
+              placeholder={isMarathi ? 'ग्राहक, पावती, पेमेंट खात्यानुसार शोधा...' : 'Search by party, voucher, mode...'}
               className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none pl-10 pr-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium"
             />
           </div>
@@ -145,10 +145,10 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
             onChange={(e) => setModeFilter(e.target.value as any)}
             className="bg-white border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700"
           >
-            <option value="All">All Payment Accounts</option>
-            <option value="Account 1">Account 1 (Bank)</option>
-            <option value="Account 2">Account 2 (Digital)</option>
-            <option value="Cash">Cash</option>
+            <option value="All">{isMarathi ? 'सर्व पेमेंट खाती' : 'All Payment Accounts'}</option>
+            <option value="Account 1">{isMarathi ? 'खाते १ (मुख्य बँक)' : 'Account 1 (Main Bank)'}</option>
+            <option value="Account 2">{isMarathi ? 'खाते २ (UPI / डिजिटल)' : 'Account 2 (UPI / Digital)'}</option>
+            <option value="Cash">{isMarathi ? 'रोख' : 'Cash'}</option>
           </select>
 
           {/* Party Filter */}
@@ -157,7 +157,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
             onChange={(e) => setPartyFilter(e.target.value)}
             className="bg-white border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 max-w-[200px]"
           >
-            <option value="All">All Parties</option>
+            <option value="All">{isMarathi ? 'सर्व ग्राहक/पार्टी' : 'All Parties'}</option>
             {parties.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -172,7 +172,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
           className="bg-primary hover:bg-primary-dark text-white font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-orange-500/10 flex items-center justify-center gap-2 text-sm transition-all flex-shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>Record Payment</span>
+          <span>{isMarathi ? 'पेमेंट नोंदवा' : 'Record Payment'}</span>
         </button>
       </div>
 
@@ -196,14 +196,17 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
               {filteredPayments.map((pay) => (
                 <tr key={pay.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4 text-slate-500 font-mono text-xs">{formatMarathiDate(pay.date)}</td>
-                  <td className="px-6 py-4 font-bold text-slate-800">{pay.partyName}</td>
+                  <td className="px-6 py-4">
+                    <div className="font-bold text-slate-800">{pay.partyName}</div>
+                    {pay.rentalId && <div className="text-[11px] text-slate-400 font-mono">ID: {pay.rentalId}</div>}
+                  </td>
                   <td className="px-6 py-4">
                     {pay.cycleNumber ? (
                       <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold px-2 py-0.5 rounded-lg">
-                        Cycle {pay.cycleNumber}
+                        {isMarathi ? 'सायकल' : 'Cycle'} {pay.cycleNumber}
                       </span>
                     ) : (
-                      <span className="text-xs text-slate-400 font-medium">General Party Allocation</span>
+                      <span className="text-xs text-slate-400 font-medium">{isMarathi ? 'सामान्य खाते जमा' : 'General Party Allocation'}</span>
                     )}
                   </td>
                   <td className="px-6 py-4">
@@ -226,7 +229,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                           : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                       }`}
                     >
-                      {pay.paymentMode}
+                      {getMarathiPaymentMode(pay.paymentMode, isMarathi ? 'marathi' : 'english')}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-slate-400 font-mono text-xs">{pay.reference || '—'}</td>
@@ -237,7 +240,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                           ? 'text-amber-800 bg-amber-50 border-amber-200'
                           : 'text-emerald-700 bg-emerald-50 border-emerald-100'
                       }`}>
-                        {pay.type === 'refund' ? (isMarathi ? 'परतावा' : 'Refund') : pay.status}
+                        {pay.type === 'refund' ? (isMarathi ? 'परतावा' : 'Refund') : (isMarathi ? (pay.status === 'verified' ? 'सत्यापित' : 'नोंदणीकृत') : pay.status)}
                       </span>
                     </div>
                   </td>
@@ -246,13 +249,13 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
               {payments.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-10 text-center text-slate-400 font-light italic">
-                    No payments recorded yet.
+                    {isMarathi ? 'अद्याप कोणतेही पेमेंट नोंदवलेले नाही.' : 'No payments recorded yet.'}
                   </td>
                 </tr>
               ) : filteredPayments.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-10 text-center text-slate-400 font-light italic">
-                    No payment logs found matching filter.
+                    {isMarathi ? 'फिल्टरशी जुळणारे कोणतेही पेमेंट आढळले नाही.' : 'No payment logs found matching filter.'}
                   </td>
                 </tr>
               ) : null}
@@ -302,7 +305,11 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                     : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                 }`}
               >
-                {pay.paymentMode === 'Account 1' ? '🏦 Account 1' : pay.paymentMode === 'Account 2' ? '📱 Account 2' : '💵 Cash'}
+                {pay.paymentMode === 'Account 1'
+                  ? (isMarathi ? '🏦 खाते १' : '🏦 Account 1')
+                  : pay.paymentMode === 'Account 2'
+                  ? (isMarathi ? '📱 खाते २' : '📱 Account 2')
+                  : (isMarathi ? '💵 रोख' : '💵 Cash')}
               </span>
             </div>
 
@@ -311,7 +318,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
               <div className="text-slate-500">
                 {pay.cycleNumber ? (
                   <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px] font-bold px-2 py-0.5 rounded-md">
-                    Cycle #{pay.cycleNumber}
+                    {isMarathi ? 'सायकल' : 'Cycle'} #{pay.cycleNumber}
                   </span>
                 ) : (
                   <span className="text-[11px] text-slate-400">
@@ -322,7 +329,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
 
               {pay.reference && (
                 <span className="text-[11px] text-slate-400 font-mono truncate max-w-[150px]">
-                  Ref: {pay.reference}
+                  {isMarathi ? 'संदर्भ: ' : 'Ref: '}{pay.reference}
                 </span>
               )}
             </div>
@@ -367,17 +374,19 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
 
               {/* Party selection */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase">Customer Party *</label>
+                <label className="text-xs font-bold text-slate-500 uppercase">{isMarathi ? 'ग्राहक / पार्टी *' : 'Customer Party *'}</label>
                 <select
                   value={selectedPartyId}
                   onChange={(e) => handlePartyChange(e.target.value)}
                   required
                   className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-3 rounded-xl text-sm font-medium"
                 >
-                  <option value="">-- Choose Party --</option>
+                  <option value="">{isMarathi ? '-- पार्टी निवडा --' : '-- Choose Party --'}</option>
                   {parties.map((p, idx) => (
                     <option key={p.id} value={p.id}>
-                      Customer #{p.customerNumber || idx + 1} — {p.name} (Outstanding: ₹{p.pending.toLocaleString('en-IN')})
+                      {isMarathi
+                        ? `ग्राहक #${p.customerNumber || idx + 1} — ${p.name} (बाकी: ₹${p.pending.toLocaleString('en-IN')})`
+                        : `Customer #${p.customerNumber || idx + 1} — ${p.name} (Outstanding: ₹${p.pending.toLocaleString('en-IN')})`}
                     </option>
                   ))}
                 </select>
@@ -387,7 +396,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
               {partyPendingCycles.length > 0 && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase">
-                    Allocate to Specific Cycle (Optional)
+                    {isMarathi ? 'विशिष्ट सायकलसाठी जमा (पर्यायी)' : 'Allocate to Specific Cycle (Optional)'}
                   </label>
                   <select
                     value={selectedCycleId}
@@ -400,12 +409,12 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                     }}
                     className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-800"
                   >
-                    <option value="">General Balance (Auto-clears oldest pending cycle)</option>
+                    <option value="">{isMarathi ? 'सामान्य खाते (सर्वात जुनी बाकी सायकल आपोआप जमा होईल)' : 'General Balance (Auto-clears oldest pending cycle)'}</option>
                     {partyPendingCycles.map((c) => {
                       const rent = rentals.find((r) => r.id === c.rentalId);
                       return (
                         <option key={c.id} value={c.id}>
-                          {rent ? `${rent.plateType} Width • ` : ''}Cycle {c.cycleNumber} ({formatMarathiDate(c.startDate)} to {formatMarathiDate(c.expectedEndDate)}) — Pending: ₹{c.pendingAmount.toLocaleString('en-IN')}
+                          {rent ? `${rent.plateType} Width • ` : ''}{isMarathi ? 'सायकल' : 'Cycle'} {c.cycleNumber} ({formatMarathiDate(c.startDate)} - {formatMarathiDate(c.expectedEndDate)}) — {isMarathi ? 'बाकी:' : 'Pending:'} ₹${c.pendingAmount.toLocaleString('en-IN')}
                         </option>
                       );
                     })}
@@ -416,7 +425,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
               {/* Amount and Date */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Amount Received (₹) *</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase">{isMarathi ? 'जमा रक्कम (₹) *' : 'Amount Received (₹) *'}</label>
                   <input
                     type="number"
                     min="0.01"
@@ -429,7 +438,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Payment Date *</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase">{isMarathi ? 'पेमेंट दिनांक *' : 'Payment Date *'}</label>
                   <input
                     type="date"
                     required
@@ -443,7 +452,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
               {/* Payment Destination: Account 1 / Account 2 / Cash */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500 uppercase block">
-                  Received In (Payment Destination) *
+                  {isMarathi ? 'जमा खाते निवडा *' : 'Received In (Payment Destination) *'}
                 </label>
                 <div className="grid grid-cols-3 gap-2.5">
                   <button
@@ -456,8 +465,8 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                     }`}
                   >
                     <span className="text-sm">🏦</span>
-                    <span>Account 1</span>
-                    <span className="text-[10px] text-slate-400 font-normal">Bank Direct</span>
+                    <span>{isMarathi ? 'खाते १' : 'Account 1'}</span>
+                    <span className="text-[10px] text-slate-400 font-normal">{isMarathi ? 'मुख्य बँक' : 'Bank Direct'}</span>
                   </button>
 
                   <button
@@ -470,8 +479,8 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                     }`}
                   >
                     <span className="text-sm">📱</span>
-                    <span>Account 2</span>
-                    <span className="text-[10px] text-slate-400 font-normal">UPI / Digital</span>
+                    <span>{isMarathi ? 'खाते २' : 'Account 2'}</span>
+                    <span className="text-[10px] text-slate-400 font-normal">{isMarathi ? 'UPI / डिजिटल' : 'UPI / Digital'}</span>
                   </button>
 
                   <button
@@ -484,8 +493,8 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                     }`}
                   >
                     <span className="text-sm">💵</span>
-                    <span>Cash</span>
-                    <span className="text-[10px] text-slate-400 font-normal">In-Hand Cash</span>
+                    <span>{isMarathi ? 'रोख' : 'Cash'}</span>
+                    <span className="text-[10px] text-slate-400 font-normal">{isMarathi ? 'कॅश' : 'In-Hand Cash'}</span>
                   </button>
                 </div>
               </div>
@@ -493,25 +502,25 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
               {/* Reference ID input */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500 uppercase block">
-                  Transaction Reference ID (Optional)
+                  {isMarathi ? 'व्यवहार संदर्भ क्रमांक (पर्यायी)' : 'Transaction Reference ID (Optional)'}
                 </label>
                 <input
                   type="text"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
-                  placeholder="e.g. UPI Ref / Cheque No / Voucher ID"
+                  placeholder={isMarathi ? 'उदा. UPI Ref / चेक क्र. / पावती क्रमांक' : 'e.g. UPI Ref / Cheque No / Voucher ID'}
                   className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-2.5 rounded-xl text-sm font-medium font-mono"
                 />
               </div>
 
               {/* Notes */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase">Notes (Optional)</label>
+                <label className="text-xs font-bold text-slate-500 uppercase">{isMarathi ? 'नोंद (पर्यायी)' : 'Notes (Optional)'}</label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={2}
-                  placeholder="e.g. Advance payment for site shuttering..."
+                  placeholder={isMarathi ? 'उदा. साईट शटरिंग कामासाठी आगाऊ जमा...' : 'e.g. Advance payment for site shuttering...'}
                   className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-2.5 rounded-xl text-sm font-medium resize-none"
                 />
               </div>

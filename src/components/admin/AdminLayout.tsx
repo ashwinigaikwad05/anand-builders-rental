@@ -2515,6 +2515,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             onUpdateStatus={handleUpdatePlateStatus}
             onAddPlateType={handleAddPlateType}
             onDeletePlateType={handleDeletePlateType}
+            appLanguage={appLanguage}
           />
         );
       case 'Plate Stock':
@@ -2583,6 +2584,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             onMarkRead={handleMarkRead}
             onClearNotification={handleClearNotification}
             onMarkAllRead={handleMarkAllRead}
+            appLanguage={appLanguage}
           />
         );
       case 'Reports':
@@ -2643,8 +2645,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         <div className="flex items-center gap-2">
           <img src="/logo.png" alt="ANAND Logo" className="h-9 w-auto object-contain" />
           <div className="text-left leading-none">
-            <span className="text-xs font-bold block">ANAND PLATES</span>
-            <span className="text-[9px] text-primary font-bold">आनंद मटेरियल</span>
+            <span className="text-xs font-bold block">{appLanguage === 'marathi' ? 'आनंद प्लेट्स' : 'ANAND PLATES'}</span>
+            <span className="text-[9px] text-primary font-bold">{appLanguage === 'marathi' ? 'आनंद मटेरियल' : 'Anand Rental'}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -2683,8 +2685,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           <div className="p-6 border-b border-slate-850 flex items-center gap-3">
             <img src="/logo.png" alt="ANAND Logo" className="h-10 w-auto object-contain" />
             <div className="text-left">
-              <h1 className="text-white font-extrabold text-sm tracking-wide">ANAND PLATES</h1>
-              <p className="text-[10px] text-primary font-bold">आनंद बिल्डिंग मटेरियल</p>
+              <h1 className="text-white font-extrabold text-sm tracking-wide">{appLanguage === 'marathi' ? 'आनंद प्लेट्स' : 'ANAND PLATES'}</h1>
+              <p className="text-[10px] text-primary font-bold">{appLanguage === 'marathi' ? 'आनंद बिल्डिंग मटेरियल' : 'Anand Building Materials'}</p>
             </div>
           </div>
 
@@ -2785,7 +2787,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
                 aria-label="Select System Language"
                 title="Select Language / भाषा निवडा"
               >
-                <option value="marathi" className="font-bold text-slate-800 bg-white">मराठी (Marathi)</option>
+                <option value="marathi" className="font-bold text-slate-800 bg-white">मराठी</option>
                 <option value="english" className="font-bold text-slate-800 bg-white">English</option>
               </select>
             </div>

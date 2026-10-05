@@ -26,6 +26,19 @@ export const getStoredAppLanguage = (): AppLanguage => {
 export const setStoredAppLanguage = (lang: AppLanguage) => {
   if (typeof window !== 'undefined') {
     localStorage.setItem(APP_LANG_KEY, lang);
+    // Also synchronize bill template language so bills match dashboard language selection
+    try {
+      const billCfgRaw = localStorage.getItem('anand_bill_template_config');
+      if (billCfgRaw) {
+        const parsed = JSON.parse(billCfgRaw);
+        parsed.billLanguage = lang;
+        parsed.billTitle = lang === 'marathi' ? 'भाडे पावती व साहित्य चालान' : 'RENTAL BILL & DELIVERY CHALLAN';
+        parsed.signatoryTitle = lang === 'marathi' ? 'अधिकृत स्वाक्षरी / शिक्का' : 'Authorized Signatory / Stamp';
+        localStorage.setItem('anand_bill_template_config', JSON.stringify(parsed));
+      }
+    } catch {
+      // ignore
+    }
     window.dispatchEvent(new CustomEvent('anand_language_change', { detail: lang }));
   }
 };
@@ -77,11 +90,11 @@ export const t = {
     },
     // Account Balances
     accounts: {
-      acc1Title: 'खाते १ (बँक डायरेक्ट)',
+      acc1Title: 'खाते १ (मुख्य बँक)',
       acc1Sub: 'मुख्य बँक खाते जमा',
       acc2Title: 'खाते २ (UPI / डिजिटल)',
       acc2Sub: 'दुय्यम डिजिटल खाते जमा',
-      cashTitle: 'कॅश (रोख रक्कम)',
+      cashTitle: 'रोख रक्कम',
       cashSub: 'हातशिल्लक रोख रक्कम',
     },
     // Daily flows
@@ -90,7 +103,7 @@ export const t = {
       todayRentalsSub: 'आज दिलेल्या नवीन भाडे नोंदी',
       todayReturns: 'आजचे साहित्य जमा',
       todayReturnsSub: 'आज परत आलेले साहित्य',
-      overdueRentals: 'मुदत संपलेले (थकबाकी)',
+      overdueRentals: 'मुदत संपलेले साहित्य',
       overdueRentalsSub: 'मुदत संपलेल्या सर्व नोंदी',
     },
     // भाडे मुदत समाप्ती इशारे (Rental cycle expiration alerts across all durations)

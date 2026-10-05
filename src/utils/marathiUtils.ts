@@ -143,31 +143,42 @@ export function formatMarathiCycle(cycleNum: number, useDevanagari = false): str
 }
 
 /**
- * Translate payment mode to Marathi standard
+ * Translate payment mode to pure Marathi or pure English
  */
-export function getMarathiPaymentMode(mode?: string): string {
-  if (!mode) return 'बाकी (Outstanding)';
+export function getMarathiPaymentMode(mode?: string, lang: 'marathi' | 'english' = 'marathi'): string {
+  if (!mode) return lang === 'marathi' ? 'बाकी' : 'Outstanding';
   const lower = mode.toLowerCase();
-  if (lower === 'account 1' || lower.includes('bank')) return 'खाते १ (बँक)';
-  if (lower === 'account 2' || lower.includes('upi') || lower.includes('digital')) return 'खाते २ (UPI / डिजिटल)';
-  if (lower === 'cash' || lower.includes('रोख')) return 'रोख (Cash)';
-  if (lower === 'outstanding' || lower === 'udhari' || lower.includes('बाकी')) return 'बाकी (Outstanding)';
+  if (lower === 'account 1' || lower.includes('bank') || lower.includes('बँक')) {
+    return lang === 'marathi' ? 'खाते १ (मुख्य बँक)' : 'Account 1 (Main Bank)';
+  }
+  if (lower === 'account 2' || lower.includes('upi') || lower.includes('digital') || lower.includes('डिजिटल')) {
+    return lang === 'marathi' ? 'खाते २ (UPI / डिजिटल)' : 'Account 2 (UPI / Digital)';
+  }
+  if (lower === 'cash' || lower.includes('रोख')) {
+    return lang === 'marathi' ? 'रोख' : 'Cash';
+  }
+  if (lower === 'cheque' || lower.includes('चेक')) {
+    return lang === 'marathi' ? 'चेक' : 'Cheque';
+  }
+  if (lower === 'outstanding' || lower === 'udhari' || lower.includes('बाकी')) {
+    return lang === 'marathi' ? 'बाकी' : 'Outstanding';
+  }
   return mode;
 }
 
 /**
- * Translate rental / return status to Marathi
+ * Translate rental / return status to pure Marathi or pure English
  */
-export function getMarathiStatus(status?: string): { label: string; textClass: string; bgClass: string } {
-  if (!status) return { label: 'सक्रिय', textClass: 'text-emerald-700', bgClass: 'bg-emerald-50 border-emerald-200' };
+export function getMarathiStatus(status?: string, lang: 'marathi' | 'english' = 'marathi'): { label: string; textClass: string; bgClass: string } {
+  if (!status) return { label: lang === 'marathi' ? 'सक्रिय' : 'Active', textClass: 'text-emerald-700', bgClass: 'bg-emerald-50 border-emerald-200' };
   const s = status.toLowerCase();
   if (s === 'overdue' || s.includes('थकबाकी') || s.includes('मुदत')) {
-    return { label: 'मुदत संपली (Overdue)', textClass: 'text-rose-700', bgClass: 'bg-rose-100 border-rose-300' };
+    return { label: lang === 'marathi' ? 'मुदत संपली' : 'Overdue', textClass: 'text-rose-700', bgClass: 'bg-rose-100 border-rose-300' };
   }
   if (s === 'returned' || s === 'completed' || s.includes('जमा')) {
-    return { label: 'साहित्य जमा (Returned)', textClass: 'text-slate-600', bgClass: 'bg-slate-100 border-slate-200' };
+    return { label: lang === 'marathi' ? 'साहित्य जमा' : 'Returned', textClass: 'text-slate-600', bgClass: 'bg-slate-100 border-slate-200' };
   }
-  return { label: 'सक्रिय (Active)', textClass: 'text-emerald-700', bgClass: 'bg-emerald-50 border-emerald-200' };
+  return { label: lang === 'marathi' ? 'सक्रिय' : 'Active', textClass: 'text-emerald-700', bgClass: 'bg-emerald-50 border-emerald-200' };
 }
 
 export interface RentalSearchTarget {

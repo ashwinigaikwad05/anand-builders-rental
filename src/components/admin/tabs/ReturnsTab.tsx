@@ -8,7 +8,7 @@ import {
   type PartialReturnsBreakdownResult,
 } from '../../../lib/supabase';
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
-import { formatMarathiDate, formatDateRange } from '../../../utils/marathiUtils';
+import { formatMarathiDate, formatDateRange, getMarathiPaymentMode } from '../../../utils/marathiUtils';
 
 export interface ReturnInputPayload extends Omit<ReturnLog, 'id' | 'partyName' | 'plateType' | 'issuedQuantity'> {
   collectedAmount?: number;
@@ -449,8 +449,8 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                         <div className="flex flex-col items-end gap-0.5">
                           <span className="inline-flex items-center gap-1 font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-lg text-xs">
                             <ArrowDownLeft className="w-3 h-3 text-blue-600" />
-                            <span>Refund ₹{ret.refundAmount.toLocaleString('en-IN')}</span>
-                            <span className="text-[10px] text-blue-600 font-normal">({ret.paymentMode || 'Refund'})</span>
+                            <span>{isMarathi ? 'परतावा ₹' : 'Refund ₹'}{ret.refundAmount.toLocaleString('en-IN')}</span>
+                            <span className="text-[10px] text-blue-600 font-normal">({ret.paymentMode ? getMarathiPaymentMode(ret.paymentMode, isMarathi ? 'marathi' : 'english') : (isMarathi ? 'परतावा' : 'Refund')})</span>
                           </span>
                           <span className="text-[10px] font-bold text-blue-600">
                             {isMarathi ? 'ग्राहकाला रक्कम परत केली' : 'Refunded to Customer'}
@@ -461,20 +461,20 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                           <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-lg text-xs">
                             <ArrowUpRight className="w-3 h-3 text-emerald-600" />
                             <span>₹{ret.collectedAmount.toLocaleString('en-IN')}</span>
-                            <span className="text-[10px] text-emerald-600 font-normal">({ret.paymentMode || 'Paid'})</span>
+                            <span className="text-[10px] text-emerald-600 font-normal">({ret.paymentMode ? getMarathiPaymentMode(ret.paymentMode, isMarathi ? 'marathi' : 'english') : (isMarathi ? 'जमा' : 'Paid')})</span>
                           </span>
                           {ret.penaltyAmount && ret.penaltyAmount > 0 ? (
                             <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                              Incl. Penalty ₹{ret.penaltyAmount.toLocaleString('en-IN')}
+                              {isMarathi ? 'दंड समावेश ₹' : 'Incl. Penalty ₹'}{ret.penaltyAmount.toLocaleString('en-IN')}
                             </span>
                           ) : null}
                         </div>
                       ) : (
                         <div className="flex flex-col items-end gap-0.5">
-                          <span className="text-slate-400 text-xs italic">Credit (₹0)</span>
+                          <span className="text-slate-400 text-xs italic">{isMarathi ? 'क्रेडिट (₹०)' : 'Credit (₹0)'}</span>
                           {ret.penaltyAmount && ret.penaltyAmount > 0 ? (
                             <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                              Penalty ₹{ret.penaltyAmount.toLocaleString('en-IN')}
+                              {isMarathi ? 'दंड ₹' : 'Penalty ₹'}{ret.penaltyAmount.toLocaleString('en-IN')}
                             </span>
                           ) : null}
                         </div>
@@ -485,13 +485,13 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                 {returns.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-10 text-center text-slate-400 font-light italic">
-                      No returns logged yet.
+                      {isMarathi ? 'अद्याप कोणतीही वापसी नोंद झालेली नाही.' : 'No returns logged yet.'}
                     </td>
                   </tr>
                 ) : filteredReturns.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-10 text-center text-slate-400 font-light italic">
-                      No return logs found matching query.
+                      {isMarathi ? 'शोध निकालाशी जुळणारी कोणतीही वापसी नोंद सापडली नाही.' : 'No return logs found matching query.'}
                     </td>
                   </tr>
                 ) : null}
@@ -503,12 +503,12 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
         {/* Right: Active Dispatches Pending Return (5 Columns) */}
         <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-            <h4 className="text-sm font-bold text-charcoal">Pending Return Allocations</h4>
+            <h4 className="text-sm font-bold text-charcoal">{isMarathi ? 'वापसी प्रलंबित असलेले करार' : 'Pending Return Allocations'}</h4>
           </div>
           <div className="divide-y divide-slate-100">
             {rentals.filter((r) => r.status === 'active' || r.status === 'overdue').length === 0 ? (
               <div className="p-6 text-center text-slate-400 font-light italic text-xs sm:text-sm">
-                No active dispatches pending return.
+                {isMarathi ? 'कोणतेही साहित्य वापसी प्रलंबित नाही.' : 'No active dispatches pending return.'}
               </div>
             ) : (
               rentals
@@ -525,15 +525,15 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                           <p className="font-bold text-slate-800">{rent.partyName}</p>
                           {cyc && (
                             <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.2 rounded font-bold">
-                              Cyc {cyc.cycleNumber}
+                              {isMarathi ? 'सायकल' : 'Cyc'} {cyc.cycleNumber}
                             </span>
                           )}
                         </div>
                         <p className="text-slate-500 text-xs font-mono">
-                          {rent.plateType} • {remaining} plates on site
+                          {rent.plateType} • {remaining} {isMarathi ? 'प्लेट्स साईटवर शिल्लक' : 'plates on site'}
                         </p>
                         <p className="text-[11px] font-bold text-rose-600">
-                          Due: ₹{due.toLocaleString('en-IN')}
+                          {isMarathi ? 'बाकी:' : 'Due:'} ₹{due.toLocaleString('en-IN')}
                         </p>
                       </div>
                       <button
@@ -549,7 +549,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                         }}
                         className="text-xs bg-orange-50 hover:bg-orange-100 text-primary border border-orange-200 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer"
                       >
-                        Receive & Settle
+                        {isMarathi ? 'साहित्य जमा घ्या' : 'Receive & Settle'}
                       </button>
                     </div>
                   );
@@ -566,7 +566,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
             <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h4 className="text-base font-bold text-charcoal flex items-center gap-2">
                 <RefreshCw className="w-5 h-5 text-primary" />
-                <span>Receive Plates & Settle Amount</span>
+                <span>{isMarathi ? 'साहित्य जमा व हिशोब पूर्ण करा' : 'Receive Plates & Settle Amount'}</span>
               </h4>
               <button onClick={() => setIsAddOpen(false)} className="p-1 text-slate-400 hover:text-slate-800 rounded-lg cursor-pointer">
                 <X className="w-5 h-5" />
@@ -582,14 +582,14 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
 
               {/* Step 1: Customer Party */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase">Customer Party *</label>
+                <label className="text-xs font-bold text-slate-500 uppercase">{isMarathi ? 'ग्राहक / पार्टी *' : 'Customer Party *'}</label>
                 <select
                   value={selectedPartyId}
                   onChange={(e) => handlePartyChange(e.target.value)}
                   required
                   className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-3 rounded-xl text-sm font-medium"
                 >
-                  <option value="">-- Choose Party --</option>
+                  <option value="">{isMarathi ? '-- पार्टी निवडा --' : '-- Choose Party --'}</option>
                   {parties.map((p) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
@@ -598,20 +598,20 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
 
               {/* Step 2: Choose active rental */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase">Active Rental Agreement *</label>
+                <label className="text-xs font-bold text-slate-500 uppercase">{isMarathi ? 'सक्रिय भाडे करार *' : 'Active Rental Agreement *'}</label>
                 <select
                   value={selectedRentalId}
                   onChange={(e) => handleRentalChange(e.target.value)}
                   required
                   className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-3 rounded-xl text-sm font-medium"
                 >
-                  <option value="">-- Choose Dispatch Record --</option>
+                  <option value="">{isMarathi ? '-- भाडे नोंद निवडा --' : '-- Choose Dispatch Record --'}</option>
                   {partyActiveRentals.map((r) => {
                     const remaining = getRemainingToReturn(r);
                     const cyc = getActiveCycle(r);
                     return (
                       <option key={r.id} value={r.id}>
-                        {r.plateType} Width {cyc ? `[Cycle ${cyc.cycleNumber}]` : ''} (Issued {r.quantity} • Remaining: {remaining} plates)
+                        {r.plateType} Width {cyc ? `[${isMarathi ? 'सायकल' : 'Cycle'} ${cyc.cycleNumber}]` : ''} ({isMarathi ? 'दिलेले:' : 'Issued'} {r.quantity} • {isMarathi ? 'शिल्लक:' : 'Remaining:'} {remaining} {isMarathi ? 'नग' : 'plates'})
                       </option>
                     );
                   })}
@@ -621,17 +621,17 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
               {selectedRental && (
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Issued Quantity:</span>
-                    <span className="font-bold text-slate-800">{selectedRental.quantity} plates</span>
+                    <span className="text-slate-500 font-medium">{isMarathi ? 'दिलेले एकूण साहित्य:' : 'Issued Quantity:'}</span>
+                    <span className="font-bold text-slate-800">{selectedRental.quantity} {isMarathi ? 'प्लेट्स' : 'plates'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Already Returned:</span>
-                    <span className="font-semibold text-slate-600">{getAlreadyReturned(selectedRental)} plates</span>
+                    <span className="text-slate-500 font-medium">{isMarathi ? 'यापूर्वी जमा केलेले:' : 'Already Returned:'}</span>
+                    <span className="font-semibold text-slate-600">{getAlreadyReturned(selectedRental)} {isMarathi ? 'प्लेट्स' : 'plates'}</span>
                   </div>
                   <div className="flex justify-between pt-1 border-t border-slate-200">
-                    <span className="text-slate-700 font-bold">Remaining on Site:</span>
+                    <span className="text-slate-700 font-bold">{isMarathi ? 'साईटवर शिल्लक:' : 'Remaining on Site:'}</span>
                     <span className="font-black text-orange-600 text-sm">
-                      {getRemainingToReturn(selectedRental)} plates
+                      {getRemainingToReturn(selectedRental)} {isMarathi ? 'प्लेट्स' : 'plates'}
                     </span>
                   </div>
 
@@ -639,17 +639,17 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                   {selectedActiveCycle && cycleFinances && (
                     <div className="pt-2 border-t border-slate-200 space-y-1 bg-white/70 p-2.5 rounded-xl">
                       <div className="flex justify-between text-slate-700">
-                        <span className="font-semibold">Active Cycle #{selectedActiveCycle.cycleNumber}:</span>
+                        <span className="font-semibold">{isMarathi ? 'चालू सायकल' : 'Active Cycle'} #{selectedActiveCycle.cycleNumber}:</span>
                         <span className="font-mono text-[11px]">{formatDateRange(selectedActiveCycle.startDate, selectedActiveCycle.expectedEndDate)}</span>
                       </div>
                       <div className="flex justify-between text-slate-600">
-                        <span>Elapsed on Return:</span>
-                        <span className="font-bold text-slate-800">{cycleElapsed} Days ({cycleFinances.standardDays} Std + {cycleFinances.extraDays} Extra)</span>
+                        <span>{isMarathi ? 'वापरलेले दिवस:' : 'Elapsed on Return:'}</span>
+                        <span className="font-bold text-slate-800">{cycleElapsed} {isMarathi ? 'दिवस' : 'Days'} ({cycleFinances.standardDays} {isMarathi ? 'नियमित' : 'Std'} + {cycleFinances.extraDays} {isMarathi ? 'अतिरिक्त' : 'Extra'})</span>
                       </div>
                       {cycleFinances.extraDays > 0 && (
                         <div className="flex justify-between text-amber-800 font-bold">
-                          <span>Extra Charges for Return:</span>
-                          <span>+₹{cycleFinances.extraAmount.toLocaleString('en-IN')} ({cycleFinances.extraDays} days past 40d)</span>
+                          <span>{isMarathi ? 'वापसी अतिरिक्त आकार:' : 'Extra Charges for Return:'}</span>
+                          <span>+₹{cycleFinances.extraAmount.toLocaleString('en-IN')} ({cycleFinances.extraDays} {isMarathi ? 'दिवस जादा' : 'days past 40d'})</span>
                         </div>
                       )}
                     </div>
@@ -662,7 +662,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <label className="text-xs font-bold text-slate-500 uppercase">
-                      Return Qty (Plates) *
+                      {isMarathi ? 'वापसी संख्या (नग) *' : 'Return Qty (Plates) *'}
                     </label>
                     {selectedRental && (
                       <button
@@ -670,7 +670,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                         onClick={handleReturnAll}
                         className="text-[11px] text-primary font-bold hover:text-primary-dark cursor-pointer"
                       >
-                        All ({getRemainingToReturn(selectedRental)})
+                        {isMarathi ? 'सर्व (' : 'All ('}{getRemainingToReturn(selectedRental)})
                       </button>
                     )}
                   </div>
@@ -686,7 +686,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Return Date *</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase">{isMarathi ? 'वापसी दिनांक *' : 'Return Date *'}</label>
                   <input
                     type="date"
                     required
@@ -720,7 +720,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                   <div className="flex justify-between items-center text-slate-700">
                     <span>
                       {isMarathi ? 'ह्या वेळी जमा नग भाडे आकार:' : 'This Return Batch Rent:'}{' '}
-                      <span className="font-semibold text-slate-900 font-mono">({returnedQty} plates × {batchDays} days @ ₹{selectedRental.dailyRate}/d)</span>
+                      <span className="font-semibold text-slate-900 font-mono">({returnedQty} {isMarathi ? 'प्लेट्स' : 'plates'} × {batchDays} {isMarathi ? 'दिवस' : 'days'} @ ₹{selectedRental.dailyRate}/{isMarathi ? 'दिवस' : 'd'})</span>
                     </span>
                     <span className="font-bold font-mono text-blue-900 text-sm">
                       ₹{batchRent.toLocaleString('en-IN')}
@@ -731,7 +731,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                   <div className="flex justify-between items-center text-slate-700">
                     <span>
                       {isMarathi ? 'उर्वरित चालू साहित्य भाडे (४० दिवस):' : 'Remaining Plates Ongoing (40-day cycle):'}{' '}
-                      <span className="font-semibold text-slate-900 font-mono">({remainingQtyAfterThis} plates)</span>
+                      <span className="font-semibold text-slate-900 font-mono">({remainingQtyAfterThis} {isMarathi ? 'प्लेट्स' : 'plates'})</span>
                     </span>
                     <span className="font-bold font-mono text-slate-800 text-sm">
                       ₹{remainingPlatesRent.toLocaleString('en-IN')}
@@ -773,7 +773,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                           </div>
                           <div>
                             <span className="text-xs font-bold text-blue-950 uppercase tracking-wider block">
-                              {isMarathi ? 'ग्राहकाला ॲडव्हान्स मधून रक्कम परत करा (Advance Refund)' : 'Refund Excess Advance to Customer'}
+                              {isMarathi ? 'ग्राहकाला ॲडव्हान्स मधून रक्कम परत करा' : 'Refund Excess Advance to Customer'}
                             </span>
                             <span className="text-[10px] text-blue-700 font-medium">
                               {isMarathi
@@ -783,7 +783,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                           </div>
                         </div>
                         <span className="text-xs font-black text-blue-900 bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-300 font-mono self-start sm:self-center">
-                          Refund Due: ₹{refundDueFromAdmin.toLocaleString('en-IN')}
+                          {isMarathi ? 'परतावा देय:' : 'Refund Due:'} ₹{refundDueFromAdmin.toLocaleString('en-IN')}
                         </span>
                       </div>
 
@@ -842,16 +842,16 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
                           <div className="space-y-1">
                             <label className="font-bold text-slate-600 uppercase text-[10px]">
-                              {isMarathi ? 'परत देण्याची पद्धत (Refund Mode)' : 'Refund Payment Mode'}
+                              {isMarathi ? 'परत देण्याची पद्धत' : 'Refund Payment Mode'}
                             </label>
                             <select
                               value={paymentMode}
                               onChange={(e) => setPaymentMode(e.target.value as any)}
                               className="w-full bg-white border border-slate-200 px-3 py-2 rounded-xl font-semibold text-slate-800"
                             >
-                              <option value="Cash">Cash (रोख)</option>
-                              <option value="Account 1">Account 1 (Bank Direct)</option>
-                              <option value="Account 2">Account 2 (UPI / Digital)</option>
+                              <option value="Cash">{isMarathi ? 'रोख' : 'Cash'}</option>
+                              <option value="Account 1">{isMarathi ? 'खाते १ (मुख्य बँक)' : 'Account 1 (Main Bank)'}</option>
+                              <option value="Account 2">{isMarathi ? 'खाते २ (UPI / डिजिटल)' : 'Account 2 (UPI / Digital)'}</option>
                             </select>
                           </div>
                           <div className="space-y-1">
@@ -862,7 +862,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                               type="text"
                               value={paymentReference}
                               onChange={(e) => setPaymentReference(e.target.value)}
-                              placeholder="e.g. Advance refund on return"
+                              placeholder={isMarathi ? 'उदा. साहित्य जमा झाल्यावर आगाऊ परतावा' : 'e.g. Advance refund on return'}
                               className="w-full bg-white border border-slate-200 px-3 py-2 rounded-xl text-xs"
                             />
                           </div>
@@ -887,15 +887,17 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                           </div>
                           <div>
                             <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider block">
-                              {isMarathi ? 'हिशोब व बाकी रक्कम जमा करा' : 'Collect Dues on Return / हिशोब व रक्कम जमा करा'}
+                              {isMarathi ? 'हिशोब व बाकी रक्कम जमा करा' : 'Collect Dues on Return'}
                             </span>
                             <span className="text-[10px] text-emerald-700 font-medium">
-                              (Optional: Settle rental dues, add penalty fee, or collect payment)
+                              {isMarathi
+                                ? '(ऐच्छिक: भाडे बाकी जमा करा, दंड आकारणी जोडा किंवा पेमेंट नोंदवा)'
+                                : '(Optional: Settle rental dues, add penalty fee, or collect payment)'}
                             </span>
                           </div>
                         </div>
                         <span className="text-xs font-black text-emerald-900 bg-emerald-100/80 px-2.5 py-1 rounded-lg border border-emerald-300 font-mono self-start sm:self-center">
-                          Total Payable: ₹{pendingDueFromCustomer.toLocaleString('en-IN')}
+                          {isMarathi ? 'एकूण देय:' : 'Total Payable:'} ₹{pendingDueFromCustomer.toLocaleString('en-IN')}
                         </span>
                       </div>
 
@@ -904,9 +906,9 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                         <div className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs flex flex-col justify-between">
                           <div>
                             <span className="text-[10px] text-slate-500 font-bold uppercase block truncate">
-                              Total Rent
+                              {isMarathi ? 'एकूण भाडे' : 'Total Rent'}
                             </span>
-                            <span className="text-[9px] text-slate-400 block truncate">Calculated</span>
+                            <span className="text-[9px] text-slate-400 block truncate">{isMarathi ? 'हिशोबानुसार' : 'Calculated'}</span>
                           </div>
                           <span className="font-mono text-sm sm:text-base font-black text-slate-800 mt-1">
                             ₹{totalAgreementRent.toLocaleString('en-IN')}
@@ -916,10 +918,10 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                         <div className="bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs flex flex-col justify-between">
                           <div>
                             <span className="text-[10px] text-slate-500 font-bold uppercase block truncate">
-                              Pending Rent
+                              {isMarathi ? 'शिल्लक भाडे' : 'Pending Rent'}
                             </span>
                             <span className="text-[9px] text-emerald-600 font-medium block truncate">
-                              Paid: ₹{totalPaidAmount.toLocaleString('en-IN')}
+                              {isMarathi ? 'जमा:' : 'Paid:'} ₹{totalPaidAmount.toLocaleString('en-IN')}
                             </span>
                           </div>
                           <span className="font-mono text-sm sm:text-base font-black text-rose-600 mt-1">
@@ -931,7 +933,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                         <div className="bg-amber-50/90 p-2.5 rounded-xl border border-amber-200/90 shadow-2xs flex flex-col justify-between ring-1 ring-amber-300/60">
                           <div className="flex justify-between items-center">
                             <span className="text-[10px] text-amber-900 font-extrabold uppercase block">
-                              Penalty / दंड (₹)
+                              {isMarathi ? 'दंड आकारणी (₹)' : 'Damage / Penalty (₹)'}
                             </span>
                             {penaltyAmount > 0 && (
                               <button
@@ -939,7 +941,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                                 onClick={() => setPenaltyAmount(0)}
                                 className="text-[9px] text-amber-700 hover:text-amber-950 font-bold underline cursor-pointer"
                               >
-                                Clear
+                                {isMarathi ? 'हटवा' : 'Clear'}
                               </button>
                             )}
                           </div>
@@ -963,9 +965,9 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                         <div className="bg-white p-2.5 rounded-xl border border-slate-300 shadow-2xs flex flex-col justify-between bg-gradient-to-br from-white to-slate-50">
                           <div>
                             <span className="text-[10px] text-slate-700 font-black uppercase block truncate">
-                              Total Payable
+                              {isMarathi ? 'एकूण देय' : 'Total Payable'}
                             </span>
-                            <span className="text-[9px] text-slate-400 block truncate">Rent + Penalty</span>
+                            <span className="text-[9px] text-slate-400 block truncate">{isMarathi ? 'भाडे + दंड' : 'Rent + Penalty'}</span>
                           </div>
                           <span className="font-mono text-sm sm:text-base font-black text-slate-950 mt-1">
                             ₹{pendingDueFromCustomer.toLocaleString('en-IN')}
@@ -977,7 +979,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                       <div className="space-y-1.5 text-xs">
                         <div className="flex justify-between items-center">
                           <label className="font-bold text-slate-700 uppercase text-[11px]">
-                            Payment Amount Collected Now (₹)
+                            {isMarathi ? 'आता जमा होणारी रक्कम (₹)' : 'Payment Amount Collected Now (₹)'}
                           </label>
                           <div className="flex flex-wrap gap-1.5">
                             <button
@@ -988,7 +990,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                               }}
                               className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-0.5 rounded cursor-pointer transition-all shadow-2xs"
                             >
-                              Pay Full (₹{pendingDueFromCustomer.toLocaleString('en-IN')})
+                              {isMarathi ? `पूर्ण जमा (₹${pendingDueFromCustomer.toLocaleString('en-IN')})` : `Pay Full (₹${pendingDueFromCustomer.toLocaleString('en-IN')})`}
                             </button>
                             <button
                               type="button"
@@ -998,7 +1000,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                               }}
                               className="text-[10px] bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-2 py-0.5 rounded cursor-pointer transition-all"
                             >
-                              ₹0 (Outstanding)
+                              {isMarathi ? '₹० (उधारी ठेवा)' : '₹0 (Outstanding)'}
                             </button>
                           </div>
                         </div>
@@ -1027,24 +1029,24 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                       {collectedAmount > 0 && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
                           <div className="space-y-1">
-                            <label className="font-bold text-slate-600 uppercase text-[10px]">Payment Mode</label>
+                            <label className="font-bold text-slate-600 uppercase text-[10px]">{isMarathi ? 'जमा खाते' : 'Payment Mode'}</label>
                             <select
                               value={paymentMode}
                               onChange={(e) => setPaymentMode(e.target.value as any)}
                               className="w-full bg-white border border-slate-200 px-3 py-2 rounded-xl font-semibold text-slate-800"
                             >
-                              <option value="Cash">Cash</option>
-                              <option value="Account 1">Account 1 (Bank Direct)</option>
-                              <option value="Account 2">Account 2 (UPI / Digital)</option>
+                              <option value="Cash">{isMarathi ? 'रोख' : 'Cash'}</option>
+                              <option value="Account 1">{isMarathi ? 'खाते १ (मुख्य बँक)' : 'Account 1 (Main Bank)'}</option>
+                              <option value="Account 2">{isMarathi ? 'खाते २ (UPI / डिजिटल)' : 'Account 2 (UPI / Digital)'}</option>
                             </select>
                           </div>
                           <div className="space-y-1">
-                            <label className="font-bold text-slate-600 uppercase text-[10px]">Reference / Receipt Note</label>
+                            <label className="font-bold text-slate-600 uppercase text-[10px]">{isMarathi ? 'संदर्भ / पावती नोंद' : 'Reference / Receipt Note'}</label>
                             <input
                               type="text"
                               value={paymentReference}
                               onChange={(e) => setPaymentReference(e.target.value)}
-                              placeholder="e.g. Return settlement / UPI ref"
+                              placeholder={isMarathi ? 'उदा. काउंटरवर साहित्य वापसी वेळी जमा' : 'e.g. Return settlement / UPI ref'}
                               className="w-full bg-white border border-slate-200 px-3 py-2 rounded-xl text-xs"
                             />
                           </div>
@@ -1052,10 +1054,10 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                       )}
 
                       <div className="flex justify-between items-center text-xs font-bold pt-2 border-t border-emerald-200 text-slate-700">
-                        <span>Balance After This Return:</span>
+                        <span>{isMarathi ? 'या जमा नोंदीनंतर शिल्लक:' : 'Balance After This Return:'}</span>
                         <span className={balanceAfterReturn > 0 ? 'text-rose-600 font-black' : 'text-emerald-700 font-black'}>
                           ₹{balanceAfterReturn.toLocaleString('en-IN')}{' '}
-                          {balanceAfterReturn === 0 ? '(Fully Settled ✓)' : '(Pending as Outstanding)'}
+                          {balanceAfterReturn === 0 ? (isMarathi ? '(पूर्ण हिशोब नील ✓)' : '(Fully Settled ✓)') : (isMarathi ? '(थकबाकी येणे बाकी)' : '(Pending as Outstanding)')}
                         </span>
                       </div>
                     </div>
@@ -1087,7 +1089,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                   onClick={() => setIsAddOpen(false)}
                   className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition-all cursor-pointer"
                 >
-                  Cancel
+                  {isMarathi ? 'रद्द करा' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
@@ -1096,10 +1098,10 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                   <Check className="w-4 h-4" />
                   <span>
                     {settlementAction === 'refund' && refundAmount > 0
-                      ? `Confirm Return & Refund ₹${refundAmount.toLocaleString('en-IN')}`
+                      ? (isMarathi ? `वापसी नोंदवून ₹${refundAmount.toLocaleString('en-IN')} परतावा करा` : `Confirm Return & Refund ₹${refundAmount.toLocaleString('en-IN')}`)
                       : settlementAction === 'collect' && collectedAmount > 0
-                      ? `Confirm Return & Collect ₹${collectedAmount.toLocaleString('en-IN')}`
-                      : 'Confirm Return Only'}
+                      ? (isMarathi ? `वापसी नोंदवून ₹${collectedAmount.toLocaleString('en-IN')} जमा घ्या` : `Confirm Return & Collect ₹${collectedAmount.toLocaleString('en-IN')}`)
+                      : (isMarathi ? 'केवळ वापसी नोंदवा' : 'Confirm Return Only')}
                   </span>
                 </button>
               </div>
@@ -1118,8 +1120,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                   <RefreshCw className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-slate-900">Confirm Plate Return</h4>
-                  <p className="text-[11px] font-semibold text-primary">साहित्य वापसी पुष्टी करा</p>
+                  <h4 className="text-base font-bold text-slate-900">{isMarathi ? 'साहित्य वापसी पुष्टी करा' : 'Confirm Plate Return'}</h4>
                 </div>
               </div>
               <button
@@ -1132,72 +1133,78 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
 
             <div className="p-6 space-y-4">
               <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                Please review the return details for <strong className="text-slate-900 font-bold font-mono">"{selectedParty.name}"</strong> before saving:
+                {isMarathi ? (
+                  <>नोंद जतन करण्यापूर्वी <strong className="text-slate-900 font-bold font-mono">"{selectedParty.name}"</strong> यांचे वापसी तपशील तपासा:</>
+                ) : (
+                  <>Please review the return details for <strong className="text-slate-900 font-bold font-mono">"{selectedParty.name}"</strong> before saving:</>
+                )}
               </p>
 
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5 text-xs">
                 <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Customer:</span>
+                  <span className="text-slate-500 font-medium">{isMarathi ? 'ग्राहक / पार्टी:' : 'Customer:'}</span>
                   <span className="font-bold text-slate-900">{selectedParty.name}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Plate Size:</span>
+                  <span className="text-slate-500 font-medium">{isMarathi ? 'प्लेट साईझ:' : 'Plate Size:'}</span>
                   <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
                     {selectedRental.plateType}
                   </span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Plates Returning Now:</span>
+                  <span className="text-slate-500 font-medium">{isMarathi ? 'आता जमा होत असलेल्या प्लेट्स:' : 'Plates Returning Now:'}</span>
                   <span className="font-bold text-primary bg-orange-50 px-2.5 py-0.5 rounded-lg border border-orange-200 font-mono">
-                    {returnedQty} Plates
+                    {returnedQty} {isMarathi ? 'प्लेट्स' : 'Plates'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Days Kept / Duration:</span>
+                  <span className="text-slate-500 font-medium">{isMarathi ? 'वापरलेले दिवस:' : 'Days Kept / Duration:'}</span>
                   <span className="font-mono font-bold text-slate-800">
-                    {batchDays} Days (Batch Rent: ₹{batchRent.toLocaleString('en-IN')})
+                    {batchDays} {isMarathi ? 'दिवस' : 'Days'} ({isMarathi ? 'बॅच भाडे:' : 'Batch Rent:'} ₹{batchRent.toLocaleString('en-IN')})
                   </span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Remaining on Site:</span>
+                  <span className="text-slate-500 font-medium">{isMarathi ? 'साईटवर शिल्लक साहित्य:' : 'Remaining on Site:'}</span>
                   <span className={`font-bold px-2 py-0.5 rounded text-[11px] font-mono ${
                     remainingQtyAfterThis === 0
                       ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
                       : 'text-amber-800 bg-amber-50 border border-amber-200'
                   }`}>
-                    {remainingQtyAfterThis} Plates{' '}
-                    {remainingQtyAfterThis === 0 ? '(Full Return ✓)' : `(Continuing: ₹${remainingPlatesRent.toLocaleString('en-IN')})`}
+                    {remainingQtyAfterThis} {isMarathi ? 'प्लेट्स' : 'Plates'}{' '}
+                    {remainingQtyAfterThis === 0
+                      ? (isMarathi ? '(सर्व साहित्य जमा ✓)' : '(Full Return ✓)')
+                      : (isMarathi ? `(चालू भाडे: ₹${remainingPlatesRent.toLocaleString('en-IN')})` : `(Continuing: ₹${remainingPlatesRent.toLocaleString('en-IN')})`)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Total Agreement Rent:</span>
+                  <span className="text-slate-500 font-medium">{isMarathi ? 'एकूण करार भाडे:' : 'Total Agreement Rent:'}</span>
                   <span className="font-bold text-slate-900 font-mono">
                     ₹{totalAgreementRent.toLocaleString('en-IN')}
                   </span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Paid Advance / Total Paid:</span>
+                  <span className="text-slate-500 font-medium">{isMarathi ? 'आगाऊ जमा / एकूण प्राप्त:' : 'Paid Advance / Total Paid:'}</span>
                   <span className="font-bold text-emerald-800 font-mono">
                     ₹{totalPaidAmount.toLocaleString('en-IN')}
                   </span>
                 </div>
                 {settlementAction === 'refund' && refundAmount > 0 ? (
                   <div className="flex justify-between items-center pb-2 border-b border-slate-200/60 text-blue-900">
-                    <span className="text-blue-800 font-bold">Refund to Customer:</span>
+                    <span className="text-blue-800 font-bold">{isMarathi ? 'ग्राहकाला परतावा:' : 'Refund to Customer:'}</span>
                     <span className="font-bold bg-blue-100 text-blue-900 px-2.5 py-0.5 rounded-lg border border-blue-300 font-mono">
-                      ₹{refundAmount.toLocaleString('en-IN')} ({paymentMode})
+                      ₹{refundAmount.toLocaleString('en-IN')} ({getMarathiPaymentMode(paymentMode, isMarathi ? 'marathi' : 'english')})
                     </span>
                   </div>
                 ) : settlementAction === 'collect' && collectedAmount > 0 ? (
                   <div className="flex justify-between items-center pb-2 border-b border-slate-200/60 text-emerald-900">
-                    <span className="text-emerald-800 font-bold">Payment Collected Now:</span>
+                    <span className="text-emerald-800 font-bold">{isMarathi ? 'आता जमा घेतलेली रक्कम:' : 'Payment Collected Now:'}</span>
                     <span className="font-bold bg-emerald-100 text-emerald-900 px-2.5 py-0.5 rounded-lg border border-emerald-300 font-mono">
-                      ₹{collectedAmount.toLocaleString('en-IN')} ({paymentMode})
+                      ₹{collectedAmount.toLocaleString('en-IN')} ({getMarathiPaymentMode(paymentMode, isMarathi ? 'marathi' : 'english')})
                     </span>
                   </div>
                 ) : null}
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-medium">Balance After Return:</span>
+                  <span className="text-slate-500 font-medium">{isMarathi ? 'वापसीनंतर उर्वरित शिल्लक:' : 'Balance After Return:'}</span>
                   <span className={`font-bold px-2 py-0.5 rounded text-[11px] font-mono ${
                     balanceAfterReturn === 0
                       ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
@@ -1206,13 +1213,19 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                       : 'text-rose-700 bg-rose-50 border border-rose-200'
                   }`}>
                     ₹{balanceAfterReturn.toLocaleString('en-IN')}{' '}
-                    {balanceAfterReturn === 0 ? '(Fully Settled ✓)' : settlementAction === 'refund' ? '(Credit Kept)' : '(Pending)'}
+                    {balanceAfterReturn === 0
+                      ? (isMarathi ? '(पूर्ण हिशोब नील ✓)' : '(Fully Settled ✓)')
+                      : settlementAction === 'refund'
+                      ? (isMarathi ? '(क्रेडिट शिल्लक)' : '(Credit Kept)')
+                      : (isMarathi ? '(थकबाकी)' : '(Pending)')}
                   </span>
                 </div>
               </div>
 
               <p className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                Are you sure you want to record this return? Inventory stock will be replenished and payment accounts will be updated.
+                {isMarathi
+                  ? 'आपण ही साहित्य वापसी नोंदवू इच्छिता? यार्ड इन्व्हेंटरी साठा वाढेल आणि हिशोब खाती अद्यतनित होतील.'
+                  : 'Are you sure you want to record this return? Inventory stock will be replenished and payment accounts will be updated.'}
               </p>
 
               <div className="flex items-center justify-end gap-3 pt-2">
@@ -1221,7 +1234,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                   onClick={() => setIsConfirmReturnOpen(false)}
                   className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
                 >
-                  Review / मागे जा
+                  {isMarathi ? 'मागे जा' : 'Back / Review'}
                 </button>
                 <button
                   type="button"
@@ -1229,7 +1242,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                   className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-md shadow-orange-500/20 transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Yes, Confirm Return</span>
+                  <span>{isMarathi ? 'होय, वापसी निश्चित करा' : 'Yes, Confirm Return'}</span>
                 </button>
               </div>
             </div>

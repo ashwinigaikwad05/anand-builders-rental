@@ -122,15 +122,15 @@ runTest('Upper Stat Widgets have Marathi metrics and subtitles', () => {
 });
 
 runTest('Account Balances reflect Marathi accounting labels', () => {
-  assert.strictEqual(t.marathi.accounts.acc1Title, 'खाते १ (बँक डायरेक्ट)');
+  assert.strictEqual(t.marathi.accounts.acc1Title, 'खाते १ (मुख्य बँक)');
   assert.strictEqual(t.marathi.accounts.acc2Title, 'खाते २ (UPI / डिजिटल)');
-  assert.strictEqual(t.marathi.accounts.cashTitle, 'कॅश (रोख रक्कम)');
+  assert.strictEqual(t.marathi.accounts.cashTitle, 'रोख रक्कम');
 });
 
 runTest('Daily flows metrics have proper Marathi terms', () => {
   assert.strictEqual(t.marathi.daily.todayRentals, 'आजचे भाडे वाटप');
   assert.strictEqual(t.marathi.daily.todayReturns, 'आजचे साहित्य जमा');
-  assert.strictEqual(t.marathi.daily.overdueRentals, 'मुदत संपलेले (थकबाकी)');
+  assert.strictEqual(t.marathi.daily.overdueRentals, 'मुदत संपलेले साहित्य');
 });
 
 runTest('Rental cycle alert actions are in Marathi', () => {
@@ -350,22 +350,25 @@ runTest('Format duration, quantity, customer, bill, and cycle in Marathi', () =>
 console.log('\n💳 SUITE 7: Marathi Payment Modes & Status Badges');
 
 runTest('Payment modes translated accurately into Marathi', () => {
-  assert.strictEqual(getMarathiPaymentMode('Account 1'), 'खाते १ (बँक)');
+  assert.strictEqual(getMarathiPaymentMode('Account 1'), 'खाते १ (मुख्य बँक)');
   assert.strictEqual(getMarathiPaymentMode('Account 2'), 'खाते २ (UPI / डिजिटल)');
-  assert.strictEqual(getMarathiPaymentMode('Cash'), 'रोख (Cash)');
-  assert.strictEqual(getMarathiPaymentMode('Outstanding'), 'बाकी (Outstanding)');
-  assert.strictEqual(getMarathiPaymentMode('Udhari'), 'बाकी (Outstanding)');
+  assert.strictEqual(getMarathiPaymentMode('Cash'), 'रोख');
+  assert.strictEqual(getMarathiPaymentMode('Outstanding'), 'बाकी');
+  assert.strictEqual(getMarathiPaymentMode('Udhari'), 'बाकी');
+  // Also verify English mode
+  assert.strictEqual(getMarathiPaymentMode('Cash', 'english'), 'Cash');
+  assert.strictEqual(getMarathiPaymentMode('Outstanding', 'english'), 'Outstanding');
 });
 
 runTest('Rental and return lifecycle statuses translated into Marathi', () => {
   const active = getMarathiStatus('active');
-  assert.ok(active.label.includes('सक्रिय'));
+  assert.strictEqual(active.label, 'सक्रिय');
 
   const overdue = getMarathiStatus('overdue');
-  assert.ok(overdue.label.includes('मुदत संपली'));
+  assert.strictEqual(overdue.label, 'मुदत संपली');
 
   const returned = getMarathiStatus('returned');
-  assert.ok(returned.label.includes('जमा'));
+  assert.strictEqual(returned.label, 'साहित्य जमा');
 });
 
 // =============================================================================
