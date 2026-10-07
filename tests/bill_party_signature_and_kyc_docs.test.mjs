@@ -214,6 +214,46 @@ runTest('Custom pure signatory titles are preserved intact', () => {
   assert.strictEqual(cfg.signatoryTitle, 'व्यवस्थापक स्वाक्षरी');
 });
 
+console.log('\n📜 SUITE 5: Terms & Conditions Persistence & Preservation');
+
+runTest('Custom added terms and conditions are preserved unconditionally without wipeout', () => {
+  localStorage.clear();
+  const customTerms = [
+    '१. भाडे दररोज आकारले जाईल.',
+    '2. Lost materials will be charged as per market rate ₹500/plate.',
+    '३. सामान परत करताना पावती आवश्यक आहे.',
+  ];
+
+  saveBillTemplateConfig({
+    ...DEFAULT_BILL_TEMPLATE_CONFIG,
+    termsAndConditions: customTerms,
+    billLanguage: 'marathi',
+  });
+
+  const loaded = getBillTemplateConfig();
+  assert.strictEqual(loaded.termsAndConditions.length, 3);
+  assert.strictEqual(loaded.termsAndConditions[0], customTerms[0]);
+  assert.strictEqual(loaded.termsAndConditions[1], customTerms[1]);
+  assert.strictEqual(loaded.termsAndConditions[2], customTerms[2]);
+});
+
+runTest('Terms and conditions preserve mixed Marathi and English alphanumeric text', () => {
+  localStorage.clear();
+  const mixedTerms = [
+    'सर्व प्लेट्स 24x3 साईझच्या तपासल्या आहेत.',
+    'Payment via Google Pay / PhonePe / Cash accepted.',
+  ];
+
+  saveBillTemplateConfig({
+    ...DEFAULT_BILL_TEMPLATE_CONFIG,
+    termsAndConditions: mixedTerms,
+    billLanguage: 'marathi',
+  });
+
+  const loaded = getBillTemplateConfig();
+  assert.deepStrictEqual(loaded.termsAndConditions, mixedTerms);
+});
+
 console.log('\n===========================================================================');
 console.log(`  🎉 SUMMARY: ALL ${passedTests} / ${totalTests} BILL SIGNATURE & KYC TESTS PASSED`);
 console.log('===========================================================================\n');

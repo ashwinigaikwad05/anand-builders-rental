@@ -17,6 +17,7 @@ import {
   Share2,
   Loader2,
   Copy,
+  Save,
 } from 'lucide-react';
 import type { Rental, RentalCycle, Party, Payment, ReturnLog } from '../../../data/adminMockData';
 import { calculatePartialReturnsBreakdown } from '../../../lib/supabase';
@@ -76,7 +77,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   onUpdateBillNumber,
   onClose,
 }) => {
-  const config = templateConfig || getBillTemplateConfig();
+  const [billConfig, setBillConfig] = useState<BillTemplateConfig>(
+    () => templateConfig || getBillTemplateConfig()
+  );
+  const config = billConfig;
   // Auto-select Simple Bill ('simple') by default whenever opening the bill modal
   const [selectedStyle, setSelectedStyle] = useState<BillTemplateStyle>(
     templateConfig?.templateStyle || 'simple'
@@ -87,6 +91,22 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   );
   const [showCycles, setShowCycles] = useState<boolean>(true);
   const [showPayments, setShowPayments] = useState<boolean>(true);
+  const [showBankDetails, setShowBankDetails] = useState<boolean>(() => {
+    if (templateConfig?.showBankDetails !== undefined) {
+      return Boolean(templateConfig.showBankDetails);
+    }
+    return billConfig.showBankDetails !== false;
+  });
+  const [isEditingBankModalOpen, setIsEditingBankModalOpen] = useState<boolean>(false);
+  const [bankEditForm, setBankEditForm] = useState({
+    bankName: billConfig.bankName || '',
+    accountNumber: billConfig.accountNumber || '',
+    ifscCode: billConfig.ifscCode || '',
+    upiId: billConfig.upiId || '',
+    showBankDetails: billConfig.showBankDetails !== false,
+  });
+  const [bankSaveSuccess, setBankSaveSuccess] = useState<string | null>(null);
+
   const [showKycDocs, setShowKycDocs] = useState<boolean>(() => {
     const stored = localStorage.getItem('anand_bill_show_kyc_docs');
     if (stored !== null) return stored === 'true';
@@ -103,6 +123,26 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   const [shareToast, setShareToast] = useState<{ type: 'success' | 'info' | 'error'; message: string } | null>(null);
 
   // Sync when templateConfig prop updates (e.g. previewing from settings)
+  useEffect(() => {
+    if (templateConfig) {
+      setBillConfig(templateConfig);
+      if (templateConfig.showBankDetails !== undefined) {
+        setShowBankDetails(Boolean(templateConfig.showBankDetails));
+      }
+    }
+  }, [templateConfig]);
+
+  useEffect(() => {
+    setBankEditForm((prev) => ({
+      ...prev,
+      bankName: billConfig.bankName || '',
+      accountNumber: billConfig.accountNumber || '',
+      ifscCode: billConfig.ifscCode || '',
+      upiId: billConfig.upiId || '',
+      showBankDetails: showBankDetails,
+    }));
+  }, [billConfig, showBankDetails]);
+
   useEffect(() => {
     if (templateConfig?.templateStyle) {
       setSelectedStyle(templateConfig.templateStyle);
@@ -171,6 +211,59 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       ...latestConfig,
       showKycDocuments: checked,
     });
+  };
+
+  const handleToggleShowBankDetails = (checked: boolean) => {
+    setShowBankDetails(checked);
+    const updated = {
+      ...billConfig,
+      showBankDetails: checked,
+    };
+    setBillConfig(updated);
+    saveBillTemplateConfig(updated);
+  };
+
+  const handleOpenBankEdit = () => {
+    setBankEditForm({
+      bankName: billConfig.bankName || '',
+      accountNumber: billConfig.accountNumber || '',
+      ifscCode: billConfig.ifscCode || '',
+      upiId: billConfig.upiId || '',
+      showBankDetails: showBankDetails,
+    });
+    setBankSaveSuccess(null);
+    setIsEditingBankModalOpen(true);
+  };
+
+  const handleSaveBankEdit = (saveAsDefault = true) => {
+    const updated: BillTemplateConfig = {
+      ...billConfig,
+      bankName: bankEditForm.bankName.trim(),
+      accountNumber: bankEditForm.accountNumber.trim(),
+      ifscCode: bankEditForm.ifscCode.trim().toUpperCase(),
+      upiId: bankEditForm.upiId.trim(),
+      showBankDetails: bankEditForm.showBankDetails,
+    };
+    setBillConfig(updated);
+    setShowBankDetails(bankEditForm.showBankDetails);
+    if (saveAsDefault) {
+      saveBillTemplateConfig(updated);
+      setBankSaveSuccess(
+        selectedLanguage === 'marathi'
+          ? 'बँक माहिती सर्व बिलांसाठी सेव्ह झाली!'
+          : 'Bank details saved for all bills!'
+      );
+    } else {
+      setBankSaveSuccess(
+        selectedLanguage === 'marathi'
+          ? 'बँक माहिती या बिलासाठी लागू झाली!'
+          : 'Bank details applied to this bill!'
+      );
+    }
+    setTimeout(() => {
+      setIsEditingBankModalOpen(false);
+      setBankSaveSuccess(null);
+    }, 800);
   };
 
   // Add body class to hide background app during printing
@@ -601,16 +694,12 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
   const currentT = t[selectedLanguage] || t.marathi;
 
-  // Active terms based on selected language
+  // Active terms: use user's configured terms if present, otherwise default to language terms
   const activeTerms = (() => {
-    if (selectedLanguage === 'marathi') {
-      return (config.termsAndConditions && config.termsAndConditions.length > 0 && config.billLanguage === 'marathi')
-        ? config.termsAndConditions
-        : MARATHI_TERMS;
+    if (config.termsAndConditions && Array.isArray(config.termsAndConditions) && config.termsAndConditions.length > 0) {
+      return config.termsAndConditions;
     }
-    return (config.termsAndConditions && config.termsAndConditions.length > 0 && config.billLanguage === 'english')
-      ? config.termsAndConditions
-      : ENGLISH_TERMS;
+    return selectedLanguage === 'marathi' ? MARATHI_TERMS : ENGLISH_TERMS;
   })();
 
   const handlePrint = () => {
@@ -779,33 +868,31 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
     }
 
     // Adaptive grid and height based on the number of uploaded documents
-    let gridColsClass = 'grid-cols-1 sm:grid-cols-2 print:grid-cols-2';
-    let imgHeightClass = 'h-44 sm:h-52 print:h-44';
+    let gridColsClass = 'grid-cols-2 sm:grid-cols-4 print:grid-cols-4';
+    let imgHeightClass = 'h-32 sm:h-36 print:h-28';
     let containerMaxWidthClass = 'w-full';
 
     if (uploadedDocs.length === 1) {
       gridColsClass = 'grid-cols-1';
-      imgHeightClass = 'h-52 sm:h-64 print:h-56';
-      containerMaxWidthClass = 'max-w-md mx-auto';
+      imgHeightClass = 'h-48 sm:h-56 print:h-44';
+      containerMaxWidthClass = 'max-w-xs mx-auto';
     } else if (uploadedDocs.length === 2) {
-      gridColsClass = 'grid-cols-1 sm:grid-cols-2 print:grid-cols-2';
-      imgHeightClass = 'h-44 sm:h-52 print:h-44';
-      containerMaxWidthClass = 'w-full';
+      gridColsClass = 'grid-cols-2 print:grid-cols-2';
+      imgHeightClass = 'h-36 sm:h-44 print:h-32';
+      containerMaxWidthClass = 'max-w-lg mx-auto';
     } else if (uploadedDocs.length === 3) {
-      gridColsClass = 'grid-cols-1 sm:grid-cols-3 print:grid-cols-3';
-      imgHeightClass = 'h-36 sm:h-44 print:h-36';
-      containerMaxWidthClass = 'w-full';
-    } else if (uploadedDocs.length >= 4) {
-      gridColsClass = 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 print:grid-cols-2 md:print:grid-cols-4';
-      imgHeightClass = 'h-32 sm:h-40 print:h-32';
+      gridColsClass = 'grid-cols-3 print:grid-cols-3';
+      imgHeightClass = 'h-32 sm:h-36 print:h-28';
+      containerMaxWidthClass = 'max-w-2xl mx-auto';
+    } else {
+      gridColsClass = 'grid-cols-2 sm:grid-cols-4 print:grid-cols-4';
+      imgHeightClass = 'h-32 sm:h-36 print:h-28';
       containerMaxWidthClass = 'w-full';
     }
 
-    const marathiNumbers = ['१', '२', '३', '४'];
-
     return (
-      <div className={`mt-5 pt-4 ${isSimpleBill ? 'border-t-2 border-slate-900' : 'border-t-2 border-slate-800'} print:break-inside-avoid print:mt-4 print:pt-3`}>
-        <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-200">
+      <div className={`mt-5 pt-3.5 ${isSimpleBill ? 'border-t-2 border-slate-900' : 'border-t-2 border-slate-800'} print:break-inside-avoid print:mt-3 print:pt-2`}>
+        <div className="flex items-center justify-between pb-1.5 mb-2.5 border-b border-slate-200">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
             <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
@@ -819,61 +906,36 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               {selectedLanguage === 'marathi' ? 'ग्राहक:' : 'Customer:'} {partyDisplayName}
             </span>
             <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono text-[9px] font-black">
-              {uploadedDocs.length} {selectedLanguage === 'marathi' ? 'दस्तऐवज जोडले' : 'Document(s)'}
+              {uploadedDocs.length} {selectedLanguage === 'marathi' ? 'दस्तऐवज' : 'Document(s)'}
             </span>
           </div>
         </div>
 
         <div className={containerMaxWidthClass}>
-          <div className={`grid ${gridColsClass} gap-3 sm:gap-4 print:gap-3`}>
-            {uploadedDocs.map((doc, idx) => {
-              const Icon = doc.icon;
-              const numLabel = selectedLanguage === 'marathi' ? `${marathiNumbers[idx] || idx + 1}. ` : `${idx + 1}. `;
-              const fullTitle = `${numLabel}${doc.title}`;
-
-              return (
-                <div
-                  key={doc.id}
-                  className="border border-slate-300 rounded-xl p-2.5 sm:p-3 bg-white print:bg-white text-center flex flex-col justify-between shadow-2xs print:shadow-none hover:border-primary/40 transition-all"
-                >
-                  <div className="mb-2 flex items-center justify-between gap-1.5 border-b border-slate-100 pb-1.5">
-                    <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-slate-800 text-left">
-                      <Icon className={`w-3.5 h-3.5 ${doc.iconColor} shrink-0`} />
-                      <span className="font-extrabold leading-tight break-words">{fullTitle}</span>
-                    </div>
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                      {selectedLanguage === 'marathi' ? '✓ जोडले' : '✓ Attached'}
-                    </span>
-                  </div>
-
-                  <div
-                    className={`${imgHeightClass} w-full flex items-center justify-center bg-slate-50/70 rounded-lg border border-slate-200 overflow-hidden cursor-pointer hover:opacity-95 transition-all group relative p-1`}
-                    onClick={() => {
-                      if (doc.url) setEnlargedImage({ url: doc.url, title: fullTitle });
-                    }}
-                    title={selectedLanguage === 'marathi' ? 'मोठे करून पाहण्यासाठी क्लिक करा' : 'Click to enlarge'}
-                  >
-                    <img
-                      src={doc.url!}
-                      alt={fullTitle}
-                      className="w-full h-full object-contain rounded"
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center pointer-events-none print:hidden">
-                      <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 text-white text-[10px] px-2.5 py-1 rounded-full font-bold shadow-md">
-                        {selectedLanguage === 'marathi' ? 'पहा 🔍' : 'View 🔍'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-2 flex items-center justify-between text-[9px] text-slate-500 font-medium">
-                    <span>{selectedLanguage === 'marathi' ? 'दस्तऐवज पुरावा' : 'Identity Proof'}</span>
-                    <span className="text-emerald-700 font-bold uppercase tracking-wider">
-                      {selectedLanguage === 'marathi' ? 'सत्यापित प्रत' : 'Verified'}
-                    </span>
-                  </div>
+          <div className={`grid ${gridColsClass} gap-2.5 sm:gap-3 print:gap-2.5`}>
+            {uploadedDocs.map((doc) => (
+              <div
+                key={doc.id}
+                className="group relative border border-slate-300 rounded-xl overflow-hidden bg-white shadow-2xs hover:shadow-md transition-all cursor-pointer p-1.5"
+                onClick={() => {
+                  if (doc.url) setEnlargedImage({ url: doc.url, title: doc.title });
+                }}
+                title={selectedLanguage === 'marathi' ? 'मोठे करून पाहण्यासाठी क्लिक करा' : 'Click to enlarge'}
+              >
+                <div className={`${imgHeightClass} w-full flex items-center justify-center bg-slate-50/80 rounded-lg overflow-hidden`}>
+                  <img
+                    src={doc.url!}
+                    alt={doc.title}
+                    className="w-full h-full object-contain"
+                  />
                 </div>
-              );
-            })}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors flex items-center justify-center pointer-events-none print:hidden">
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 text-white text-[10px] px-2.5 py-1 rounded-full font-bold shadow-md">
+                    🔍 {selectedLanguage === 'marathi' ? 'पहा' : 'View'}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -1145,6 +1207,43 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               />
               <span>{selectedLanguage === 'marathi' ? 'जमा पेमेंट्स' : 'Payments'}</span>
             </label>
+
+            {/* Bank Details Checkbox */}
+            <label
+              className="flex items-center gap-1.5 bg-slate-200/90 hover:bg-slate-300/80 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-800 cursor-pointer transition-all select-none border border-slate-300/50 shadow-xs"
+              title={
+                selectedLanguage === 'marathi'
+                  ? 'बिलावर बँक खाते व युपीआय तपशील दाखवण्यासाठी टिक करा'
+                  : 'Tick to display Bank & UPI details on bill'
+              }
+            >
+              <input
+                type="checkbox"
+                id="toggle-bank-details-modal"
+                checked={showBankDetails}
+                onChange={(e) => handleToggleShowBankDetails(e.target.checked)}
+                className="w-3.5 h-3.5 accent-primary rounded cursor-pointer text-primary focus:ring-primary"
+              />
+              <span className="flex items-center gap-1">
+                <Landmark className="w-3.5 h-3.5 text-primary" />
+                <span>{selectedLanguage === 'marathi' ? 'बँक तपशील' : 'Bank Details'}</span>
+              </span>
+            </label>
+
+            {/* Edit Bank Details Button */}
+            <button
+              type="button"
+              onClick={handleOpenBankEdit}
+              className="flex items-center gap-1 bg-slate-200/90 hover:bg-white text-slate-800 hover:text-primary px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border border-slate-300/50 shadow-xs cursor-pointer"
+              title={
+                selectedLanguage === 'marathi'
+                  ? 'बँकेचे नाव, खाते क्र., आयएफएससी आणि युपीआय बदला'
+                  : 'Edit Bank Name, A/C No, IFSC and UPI'
+              }
+            >
+              <Edit2 className="w-3 h-3" />
+              <span>{selectedLanguage === 'marathi' ? 'बँक बदला' : 'Edit Bank'}</span>
+            </button>
 
             {/* Terms and Conditions Checkbox (Tick to select to print on all bills) */}
             <label
@@ -1752,13 +1851,24 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 </div>
 
                 {/* Bank Details & Terms */}
-                {(config.showBankDetails || (printTerms && activeTerms && activeTerms.length > 0)) && (
+                {(showBankDetails || (printTerms && activeTerms && activeTerms.length > 0)) && (
                   <div className="mt-6 pt-3 border-t border-slate-100 text-[10px] text-slate-500 space-y-1">
-                    {config.showBankDetails && (
-                      <p className="font-mono">
-                        {selectedLanguage === 'marathi' ? 'बँक:' : 'Bank:'} {config.bankName || 'SBI'} • {selectedLanguage === 'marathi' ? 'खाते क्र.:' : 'A/C:'} {config.accountNumber || '39482910482'} • IFSC: {config.ifscCode || 'SBIN0001234'}
-                        {config.upiId && ` • UPI: ${config.upiId}`}
-                      </p>
+                    {showBankDetails && (
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <p className="font-mono">
+                          {selectedLanguage === 'marathi' ? 'बँक:' : 'Bank:'} {config.bankName || 'SBI'} • {selectedLanguage === 'marathi' ? 'खाते क्र.:' : 'A/C:'} {config.accountNumber || '39482910482'} • IFSC: {config.ifscCode || 'SBIN0001234'}
+                          {config.upiId && ` • UPI: ${config.upiId}`}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleOpenBankEdit}
+                          className="no-print text-primary hover:text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200/80 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer flex-shrink-0"
+                          title={selectedLanguage === 'marathi' ? 'बँक तपशील बदला' : 'Edit Bank Details'}
+                        >
+                          <Edit2 className="w-2.5 h-2.5" />
+                          <span>{selectedLanguage === 'marathi' ? 'बदला' : 'Edit'}</span>
+                        </button>
+                      </div>
                     )}
                     {printTerms && activeTerms && activeTerms.length > 0 && (
                       <div className="space-y-0.5 pt-1">
@@ -2153,15 +2263,26 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     </p>
                   </div>
 
-                  {config.showBankDetails && (
-                    <div className="bg-blue-50/70 border border-blue-200/80 rounded-xl p-3 text-xs">
-                      <span className="text-[10px] font-black uppercase text-blue-800 tracking-wider flex items-center gap-1 mb-1.5">
-                        <Landmark className="w-3.5 h-3.5 text-blue-600" /> {currentT.bankTitle}
-                      </span>
+                  {showBankDetails && (
+                    <div className="bg-blue-50/70 border border-blue-200/80 rounded-xl p-3 text-xs relative group">
+                      <div className="flex items-center justify-between gap-1 mb-1.5">
+                        <span className="text-[10px] font-black uppercase text-blue-800 tracking-wider flex items-center gap-1">
+                          <Landmark className="w-3.5 h-3.5 text-blue-600" /> {currentT.bankTitle}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleOpenBankEdit}
+                          className="no-print text-blue-700 hover:text-blue-900 bg-white hover:bg-blue-100/80 border border-blue-200 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                          title={selectedLanguage === 'marathi' ? 'बँक तपशील बदला' : 'Edit Bank Details'}
+                        >
+                          <Edit2 className="w-2.5 h-2.5" />
+                          <span>{selectedLanguage === 'marathi' ? 'बदला' : 'Edit'}</span>
+                        </button>
+                      </div>
                       <div className="space-y-0.5 text-slate-700 font-medium text-[11px]">
-                        <p><span className="text-slate-500">{currentT.bankLabel}</span> <strong className="text-slate-800">{config.bankName}</strong></p>
-                        <p><span className="text-slate-500">{currentT.acNoLabel}</span> <strong className="font-mono text-slate-900">{config.accountNumber}</strong></p>
-                        <p><span className="text-slate-500">{currentT.ifscLabel}</span> <strong className="font-mono text-slate-900">{config.ifscCode}</strong></p>
+                        <p><span className="text-slate-500">{currentT.bankLabel}</span> <strong className="text-slate-800">{config.bankName || 'SBI'}</strong></p>
+                        <p><span className="text-slate-500">{currentT.acNoLabel}</span> <strong className="font-mono text-slate-900">{config.accountNumber || '39482910482'}</strong></p>
+                        <p><span className="text-slate-500">{currentT.ifscLabel}</span> <strong className="font-mono text-slate-900">{config.ifscCode || 'SBIN0001234'}</strong></p>
                         {config.upiId && <p className="font-semibold text-blue-900">{currentT.upiLabel} {config.upiId}</p>}
                       </div>
                     </div>
@@ -2316,6 +2437,180 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
           </div>
         </div>
       )}
+      {/* Edit Bank & UPI Details Modal */}
+      {isEditingBankModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setIsEditingBankModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-4 animate-scaleUp text-left"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-orange-100 text-primary rounded-xl">
+                  <Landmark className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-base font-extrabold text-slate-900">
+                    {selectedLanguage === 'marathi' ? 'बँक व युपीआय तपशील संपादन' : 'Edit Bank & UPI Details'}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    {selectedLanguage === 'marathi'
+                      ? 'बिलावर प्रिंट होणारे बँक नाव, खाते क्र., आयएफएससी आणि युपीआय बदला'
+                      : 'Change Bank Name, Account No, IFSC Code & UPI printed on bill'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditingBankModalOpen(false)}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {bankSaveSuccess && (
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span>{bankSaveSuccess}</span>
+              </div>
+            )}
+
+            <div className="space-y-3.5">
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 hover:bg-slate-100 transition-all">
+                <input
+                  type="checkbox"
+                  checked={bankEditForm.showBankDetails}
+                  onChange={(e) =>
+                    setBankEditForm((prev) => ({ ...prev, showBankDetails: e.target.checked }))
+                  }
+                  className="w-4 h-4 rounded text-primary focus:ring-primary accent-primary cursor-pointer"
+                />
+                <span>
+                  {selectedLanguage === 'marathi'
+                    ? 'या बिलावर बँक माहिती दाखवा (Print Bank Details on Bill)'
+                    : 'Print Bank Details on this Bill'}
+                </span>
+              </label>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-600 uppercase">
+                  {selectedLanguage === 'marathi' ? 'बँकेचे नाव (Bank Name)' : 'Bank Name'}
+                </label>
+                <input
+                  type="text"
+                  value={bankEditForm.bankName}
+                  onChange={(e) =>
+                    setBankEditForm((prev) => ({ ...prev, bankName: e.target.value }))
+                  }
+                  placeholder="State Bank of India"
+                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-900"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-600 uppercase">
+                  {selectedLanguage === 'marathi' ? 'खाते क्रमांक (Account Number)' : 'Account Number'}
+                </label>
+                <input
+                  type="text"
+                  value={bankEditForm.accountNumber}
+                  onChange={(e) =>
+                    setBankEditForm((prev) => ({ ...prev, accountNumber: e.target.value }))
+                  }
+                  placeholder="39482910482"
+                  className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold text-slate-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-600 uppercase">
+                    {selectedLanguage === 'marathi' ? 'आयएफएससी कोड (IFSC Code)' : 'IFSC Code'}
+                  </label>
+                  <input
+                    type="text"
+                    value={bankEditForm.ifscCode}
+                    onChange={(e) =>
+                      setBankEditForm((prev) => ({ ...prev, ifscCode: e.target.value.toUpperCase() }))
+                    }
+                    placeholder="SBIN0001234"
+                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold uppercase text-slate-900"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-600 uppercase">
+                    {selectedLanguage === 'marathi' ? 'युपीआय आयडी (UPI ID)' : 'UPI ID'}
+                  </label>
+                  <input
+                    type="text"
+                    value={bankEditForm.upiId}
+                    onChange={(e) =>
+                      setBankEditForm((prev) => ({ ...prev, upiId: e.target.value }))
+                    }
+                    placeholder="anandbuilders@upi"
+                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-900"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Helper Presets */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">
+                  {selectedLanguage === 'marathi' ? 'त्वरित पर्याय:' : 'Presets:'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setBankEditForm({
+                      bankName: 'State Bank of India',
+                      accountNumber: '39482910482',
+                      ifscCode: 'SBIN0001234',
+                      upiId: 'anandbuilders@upi',
+                      showBankDetails: true,
+                    })
+                  }
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                >
+                  SBI Default
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsEditingBankModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold text-xs transition cursor-pointer"
+              >
+                {selectedLanguage === 'marathi' ? 'रद्द करा' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveBankEdit(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition cursor-pointer"
+                title="Only change for this bill without updating global settings"
+              >
+                {selectedLanguage === 'marathi' ? 'फक्त या बिलासाठी लागू करा' : 'Apply to This Bill'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveBankEdit(true)}
+                className="px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-dark text-white font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-orange-500/20 cursor-pointer"
+                title="Save for this bill and make default for future bills"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>{selectedLanguage === 'marathi' ? 'सर्व बिलांसाठी सेव्ह करा' : 'Save for All Bills'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* WhatsApp Sharing Notification Toast */}
       {shareToast && (
         <div

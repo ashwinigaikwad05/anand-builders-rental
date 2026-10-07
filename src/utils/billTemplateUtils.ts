@@ -83,19 +83,39 @@ export function getBillTemplateConfig(): BillTemplateConfig {
       rawSignatory === 'अधिकृत स्वाक्षरी / शिक्का';
     const signatoryTitle = (!isBilingualSignatory && rawSignatory.trim()) ? rawSignatory : defaultSignatory;
 
-    const rawTerms = Array.isArray(parsed.termsAndConditions) ? parsed.termsAndConditions : [];
-    const hasWrongLangTerms = billLang === 'english'
-      ? rawTerms.some((t: string) => /[\u0900-\u097F]/.test(t))
-      : rawTerms.some((t: string) => /[a-zA-Z]/.test(t) && !/[\u0900-\u097F]/.test(t));
-    const termsAndConditions = (rawTerms.length > 0 && !hasWrongLangTerms)
+    const rawTerms = Array.isArray(parsed.termsAndConditions)
+      ? parsed.termsAndConditions.filter((t: any) => typeof t === 'string' && t.trim().length > 0)
+      : [];
+    const termsAndConditions = rawTerms.length > 0
       ? rawTerms
       : (billLang === 'english' ? ENGLISH_TERMS : MARATHI_TERMS);
+
+    const showBankDetails = parsed.showBankDetails !== undefined
+      ? Boolean(parsed.showBankDetails)
+      : true;
+    const bankName = parsed.bankName !== undefined && typeof parsed.bankName === 'string'
+      ? parsed.bankName
+      : DEFAULT_BILL_TEMPLATE_CONFIG.bankName;
+    const accountNumber = parsed.accountNumber !== undefined && typeof parsed.accountNumber === 'string'
+      ? parsed.accountNumber
+      : DEFAULT_BILL_TEMPLATE_CONFIG.accountNumber;
+    const ifscCode = parsed.ifscCode !== undefined && typeof parsed.ifscCode === 'string'
+      ? parsed.ifscCode
+      : DEFAULT_BILL_TEMPLATE_CONFIG.ifscCode;
+    const upiId = parsed.upiId !== undefined && typeof parsed.upiId === 'string'
+      ? parsed.upiId
+      : DEFAULT_BILL_TEMPLATE_CONFIG.upiId;
 
     return {
       ...DEFAULT_BILL_TEMPLATE_CONFIG,
       ...parsed,
       printTermsAndConditions,
       showKycDocuments,
+      showBankDetails,
+      bankName,
+      accountNumber,
+      ifscCode,
+      upiId,
       billTitle,
       signatoryTitle,
       billLanguage: billLang,
@@ -112,4 +132,16 @@ export function saveBillTemplateConfig(config: BillTemplateConfig): void {
   } catch (err) {
     console.error('Failed to save bill template config:', err);
   }
+}
+
+export function updateBankDetailsConfig(
+  updates: Partial<Pick<BillTemplateConfig, 'bankName' | 'accountNumber' | 'ifscCode' | 'upiId' | 'showBankDetails'>>
+): BillTemplateConfig {
+  const current = getBillTemplateConfig();
+  const updated: BillTemplateConfig = {
+    ...current,
+    ...updates,
+  };
+  saveBillTemplateConfig(updated);
+  return updated;
 }

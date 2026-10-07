@@ -104,6 +104,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [showTemplateSettings, setShowTemplateSettings] = useState(true);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [isBankSaved, setIsBankSaved] = useState(false);
+  const [isTermsSaved, setIsTermsSaved] = useState(false);
 
   // Data deletion & maintenance states
   const isMarathi = appLanguage ? appLanguage === 'marathi' : getStoredAppLanguage() === 'marathi';
@@ -249,29 +251,132 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   const handleAddTerm = () => {
     if (!newTermText.trim()) return;
-    setBillConfig((prev) => ({
-      ...prev,
-      termsAndConditions: [...prev.termsAndConditions, newTermText.trim()],
-    }));
+    const termToAdd = newTermText.trim();
+    setBillConfig((prev) => {
+      const updatedTerms = [...prev.termsAndConditions, termToAdd];
+      const updated = {
+        ...prev,
+        termsAndConditions: updatedTerms,
+        printTermsAndConditions: true,
+      };
+      saveBillTemplateConfig(updated);
+      return updated;
+    });
     setNewTermText('');
+    setIsTermsSaved(true);
+    setTimeout(() => setIsTermsSaved(false), 3000);
   };
 
   const handleRemoveTerm = (index: number) => {
-    setBillConfig((prev) => ({
-      ...prev,
-      termsAndConditions: prev.termsAndConditions.filter((_, i) => i !== index),
-    }));
+    setBillConfig((prev) => {
+      const updatedTerms = prev.termsAndConditions.filter((_, i) => i !== index);
+      const updated = {
+        ...prev,
+        termsAndConditions: updatedTerms,
+      };
+      saveBillTemplateConfig(updated);
+      return updated;
+    });
+    setIsTermsSaved(true);
+    setTimeout(() => setIsTermsSaved(false), 3000);
   };
 
   const handleUpdateTerm = (index: number, text: string) => {
     setBillConfig((prev) => {
       const updated = [...prev.termsAndConditions];
       updated[index] = text;
-      return {
+      const updatedCfg = {
         ...prev,
         termsAndConditions: updated,
       };
+      saveBillTemplateConfig(updatedCfg);
+      return updatedCfg;
     });
+  };
+
+  const handleSaveTerms = () => {
+    saveBillTemplateConfig(billConfig);
+    setIsTermsSaved(true);
+    setTimeout(() => setIsTermsSaved(false), 3000);
+  };
+
+  const handleTogglePrintTerms = (checked: boolean) => {
+    const updated = {
+      ...billConfig,
+      printTermsAndConditions: checked,
+    };
+    setBillConfig(updated);
+    saveBillTemplateConfig(updated);
+    setIsTermsSaved(true);
+    setTimeout(() => setIsTermsSaved(false), 2500);
+  };
+
+  const handleResetDefaultTerms = (lang: 'marathi' | 'english') => {
+    const defaultTerms = lang === 'marathi' ? MARATHI_TERMS : ENGLISH_TERMS;
+    const updated = {
+      ...billConfig,
+      termsAndConditions: defaultTerms,
+      printTermsAndConditions: true,
+    };
+    setBillConfig(updated);
+    saveBillTemplateConfig(updated);
+    setIsTermsSaved(true);
+    setTimeout(() => setIsTermsSaved(false), 3000);
+  };
+
+  const handleSaveBankDetails = (updatedConfig?: BillTemplateConfig) => {
+    const cfg = updatedConfig || billConfig;
+    saveBillTemplateConfig(cfg);
+    setIsBankSaved(true);
+    setTimeout(() => {
+      setIsBankSaved(false);
+    }, 3000);
+  };
+
+  const handleBankFieldChange = (
+    field: 'bankName' | 'accountNumber' | 'ifscCode' | 'upiId' | 'showBankDetails',
+    value: any
+  ) => {
+    const updated = {
+      ...billConfig,
+      [field]: value,
+    };
+    setBillConfig(updated);
+    saveBillTemplateConfig(updated);
+  };
+
+  const handleResetSbiDefaults = () => {
+    const updated: BillTemplateConfig = {
+      ...billConfig,
+      bankName: 'State Bank of India',
+      accountNumber: '39482910482',
+      ifscCode: 'SBIN0001234',
+      upiId: 'anandbuilders@upi',
+      showBankDetails: true,
+    };
+    setBillConfig(updated);
+    handleSaveBankDetails(updated);
+  };
+
+  const handleCopyAccount1ToBank = () => {
+    const updated: BillTemplateConfig = {
+      ...billConfig,
+      bankName: account1Name || 'Main Bank',
+    };
+    setBillConfig(updated);
+    handleSaveBankDetails(updated);
+  };
+
+  const handleClearBankDetails = () => {
+    const updated: BillTemplateConfig = {
+      ...billConfig,
+      bankName: '',
+      accountNumber: '',
+      ifscCode: '',
+      upiId: '',
+    };
+    setBillConfig(updated);
+    handleSaveBankDetails(updated);
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -941,117 +1046,306 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
               {/* Sub-Card: Bank & UPI Payment Details for Bills */}
               <div id="bank-account-settings" className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 sm:p-5 space-y-4 scroll-mt-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Landmark className="w-4 h-4 text-primary" />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-orange-100 text-primary rounded-xl">
+                      <Landmark className="w-5 h-5" />
+                    </div>
                     <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-800 block">
-                        {isMarathi ? 'बँक खाते व डिजिटल पेमेंट माहिती' : 'Bank Account & UPI Details'}
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-900">
+                          {isMarathi ? 'बँक खाते व डिजिटल पेमेंट माहिती' : 'Bank Account & UPI Details'}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            billConfig.showBankDetails
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {billConfig.showBankDetails
+                            ? isMarathi
+                              ? 'बिलावर सक्रिय'
+                              : 'Active on Bills'
+                            : isMarathi
+                            ? 'बिलावर बंद'
+                            : 'Hidden on Bills'}
+                        </span>
+                      </div>
                       <span className="text-[11px] text-slate-500 font-normal">
                         {isMarathi
-                          ? 'बँकेचे नाव, खाते क्र., आयएफएससी कोड आणि युपीआय आयडी बिलावर प्रिंट करण्यासाठी'
-                          : 'Add / update Bank Name, Account No, IFSC & UPI printed on all bills'}
+                          ? 'बँकेचे नाव, खाते क्र., आयएफएससी कोड आणि युपीआय आयडी येथे बदला — सर्व बिलांवर आपोआप अपडेट होईल'
+                          : 'Edit Bank Name, Account No, IFSC & UPI printed on all bills'}
                       </span>
                     </div>
                   </div>
-                  <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={billConfig.showBankDetails}
-                      onChange={(e) => setBillConfig({ ...billConfig, showBankDetails: e.target.checked })}
-                      className="w-4 h-4 rounded text-primary focus:ring-primary accent-primary"
-                    />
-                    <span>{isMarathi ? 'बिलावर दाखवा' : 'Print on Bill'}</span>
-                  </label>
+
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs hover:bg-slate-50 transition-all">
+                      <input
+                        type="checkbox"
+                        checked={billConfig.showBankDetails}
+                        onChange={(e) => handleBankFieldChange('showBankDetails', e.target.checked)}
+                        className="w-4 h-4 rounded text-primary focus:ring-primary accent-primary cursor-pointer"
+                      />
+                      <span>{isMarathi ? 'बिलावर दाखवा' : 'Print on Bill'}</span>
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSaveBankDetails()}
+                      className="bg-primary hover:bg-primary-dark text-white font-bold px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      title={isMarathi ? 'बँक माहिती त्वरित सेव्ह करा' : 'Save Bank Details now'}
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{isMarathi ? 'माहिती सेव्ह करा' : 'Save Bank Details'}</span>
+                    </button>
+                  </div>
                 </div>
 
+                {isBankSaved && (
+                  <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn shadow-2xs">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <span>
+                      {isMarathi
+                        ? 'बँक माहिती यशस्वीरित्या सेव्ह झाली! सर्व बिलांवर त्वरित लागू झाली आहे.'
+                        : 'Bank details saved successfully! Applied to all bills immediately.'}
+                    </span>
+                  </div>
+                )}
+
                 {billConfig.showBankDetails && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Bank Name</label>
-                      <input
-                        type="text"
-                        value={billConfig.bankName}
-                        onChange={(e) => setBillConfig({ ...billConfig, bankName: e.target.value })}
-                        className="w-full bg-white border border-slate-200 px-3 py-2 rounded-xl text-xs font-semibold"
-                      />
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
+                          <span>{isMarathi ? 'बँकेचे नाव (Bank Name)' : 'Bank Name'}</span>
+                          <span className="text-[9px] text-slate-400 font-normal">
+                            {isMarathi ? 'उदा. SBI, BOM' : 'e.g. SBI, HDFC'}
+                          </span>
+                        </label>
+                        <input
+                          type="text"
+                          value={billConfig.bankName}
+                          onChange={(e) => handleBankFieldChange('bankName', e.target.value)}
+                          onBlur={() => handleSaveBankDetails()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSaveBankDetails();
+                            }
+                          }}
+                          placeholder="State Bank of India"
+                          className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none px-3 py-2 rounded-xl text-xs font-semibold text-slate-900 shadow-2xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
+                          <span>{isMarathi ? 'खाते क्रमांक (Account Number)' : 'Account Number'}</span>
+                          <span className="text-[9px] text-slate-400 font-normal">
+                            {isMarathi ? 'अंक' : 'Digits only'}
+                          </span>
+                        </label>
+                        <input
+                          type="text"
+                          value={billConfig.accountNumber}
+                          onChange={(e) => handleBankFieldChange('accountNumber', e.target.value)}
+                          onBlur={() => handleSaveBankDetails()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSaveBankDetails();
+                            }
+                          }}
+                          placeholder="39482910482"
+                          className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none px-3 py-2 rounded-xl text-xs font-mono font-bold text-slate-900 shadow-2xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
+                          <span>{isMarathi ? 'आयएफएससी कोड (IFSC Code)' : 'IFSC Code'}</span>
+                          <span className="text-[9px] text-slate-400 font-normal">११ अक्षरे</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={billConfig.ifscCode}
+                          onChange={(e) => handleBankFieldChange('ifscCode', e.target.value.toUpperCase())}
+                          onBlur={() => handleSaveBankDetails()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSaveBankDetails();
+                            }
+                          }}
+                          placeholder="SBIN0001234"
+                          className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none px-3 py-2 rounded-xl text-xs font-mono font-bold uppercase text-slate-900 shadow-2xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
+                          <span>{isMarathi ? 'युपीआय आयडी (UPI ID)' : 'UPI ID'}</span>
+                          <span className="text-[9px] text-slate-400 font-normal">GPay / PhonePe</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={billConfig.upiId}
+                          onChange={(e) => handleBankFieldChange('upiId', e.target.value)}
+                          onBlur={() => handleSaveBankDetails()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSaveBankDetails();
+                            }
+                          }}
+                          placeholder="e.g. anandbuilders@upi or 9881985058@ybl"
+                          className="w-full bg-white border border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none px-3 py-2 rounded-xl text-xs font-semibold text-slate-900 shadow-2xs"
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Account Number</label>
-                      <input
-                        type="text"
-                        value={billConfig.accountNumber}
-                        onChange={(e) => setBillConfig({ ...billConfig, accountNumber: e.target.value })}
-                        className="w-full bg-white border border-slate-200 px-3 py-2 rounded-xl text-xs font-mono font-bold"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">IFSC Code</label>
-                      <input
-                        type="text"
-                        value={billConfig.ifscCode}
-                        onChange={(e) => setBillConfig({ ...billConfig, ifscCode: e.target.value })}
-                        className="w-full bg-white border border-slate-200 px-3 py-2 rounded-xl text-xs font-mono font-bold uppercase"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">UPI ID</label>
-                      <input
-                        type="text"
-                        value={billConfig.upiId}
-                        onChange={(e) => setBillConfig({ ...billConfig, upiId: e.target.value })}
-                        placeholder="e.g. anandbuilders@upi"
-                        className="w-full bg-white border border-slate-200 px-3 py-2 rounded-xl text-xs font-semibold"
-                      />
+
+                    {/* Quick Helper Actions */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/70 text-xs">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase mr-1">
+                          {isMarathi ? 'त्वरित पर्याय:' : 'Quick Fill:'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleResetSbiDefaults}
+                          className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer shadow-2xs"
+                        >
+                          {isMarathi ? 'SBI डीफॉल्ट भरा' : 'Load SBI Default'}
+                        </button>
+                        {account1Name && account1Name !== billConfig.bankName && (
+                          <button
+                            type="button"
+                            onClick={handleCopyAccount1ToBank}
+                            className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer shadow-2xs"
+                          >
+                            {isMarathi ? `खाते १ नाव वापरा (${account1Name})` : `Use ${account1Name}`}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleClearBankDetails}
+                          className="text-slate-400 hover:text-rose-600 px-2 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer"
+                        >
+                          {isMarathi ? 'माहिती रिकामी करा' : 'Clear All'}
+                        </button>
+                      </div>
+
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        {isMarathi
+                          ? 'बदल टाइप करताच किंवा सेव्ह करताच आपोआप सुरक्षित होतात'
+                          : 'Auto-saves as you type & on Save'}
+                      </span>
                     </div>
                   </div>
                 )}
               </div>
 
               {/* Sub-Card: Custom Terms and Conditions */}
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    Terms & Conditions Printed on Bill
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 cursor-pointer">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 sm:p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-orange-100 text-primary rounded-xl">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-900">
+                          {isMarathi ? 'नियम व अटी (Terms & Conditions)' : 'Terms & Conditions Printed on Bill'}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            billConfig.printTermsAndConditions
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {billConfig.printTermsAndConditions
+                            ? isMarathi
+                              ? 'बिलावर सक्रिय'
+                              : 'Active on Bills'
+                            : isMarathi
+                            ? 'बिलावर बंद'
+                            : 'Hidden on Bills'}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 font-normal">
+                        {isMarathi
+                          ? 'येथे जोडलेले सर्व नियम बिलाच्या शेवटी प्रिंट होतात — नवीन नियम टाइप करून जोडा'
+                          : 'Conditions configured here print at the bottom of customer bills'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs hover:bg-slate-50 transition-all">
                       <input
                         type="checkbox"
                         id="toggle-print-terms-settings"
                         checked={billConfig.printTermsAndConditions}
-                        onChange={(e) => setBillConfig({ ...billConfig, printTermsAndConditions: e.target.checked })}
+                        onChange={(e) => handleTogglePrintTerms(e.target.checked)}
                         className="w-4 h-4 rounded text-primary focus:ring-primary accent-primary cursor-pointer"
                       />
-                      <span>Print on Bill</span>
+                      <span>{isMarathi ? 'बिलावर दाखवा' : 'Print on Bill'}</span>
                     </label>
-                    <span className="text-[11px] text-slate-400 hidden sm:inline">
-                      {billConfig.termsAndConditions.length} conditions configured
-                    </span>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveTerms}
+                      className="bg-primary hover:bg-primary-dark text-white font-bold px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      title={isMarathi ? 'नियम व अटी त्वरित सेव्ह करा' : 'Save Terms & Conditions'}
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{isMarathi ? 'नियम सेव्ह करा' : 'Save Terms'}</span>
+                    </button>
                   </div>
                 </div>
+
+                {isTermsSaved && (
+                  <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn shadow-2xs">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <span>
+                      {isMarathi
+                        ? 'नियम व अटी यशस्वीरित्या सेव्ह झाल्या! सर्व बिलांवर त्वरित लागू झाल्या आहेत.'
+                        : 'Terms & conditions saved successfully! Active on all bills immediately.'}
+                    </span>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   {billConfig.termsAndConditions.map((term, index) => (
                     <div key={index} className="flex items-center gap-2">
-                      <span className="w-5 text-center text-xs font-bold text-slate-400">{index + 1}.</span>
+                      <span className="w-6 text-center text-xs font-black text-slate-400 shrink-0">
+                        {index + 1}.
+                      </span>
                       <input
                         type="text"
                         value={term}
                         onChange={(e) => handleUpdateTerm(index, e.target.value)}
-                        className="flex-1 bg-slate-50 border border-slate-200 focus:border-primary focus:outline-none px-3 py-2 rounded-xl text-xs text-slate-800"
+                        onBlur={handleSaveTerms}
+                        className="flex-1 bg-white border border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none px-3.5 py-2 rounded-xl text-xs text-slate-800 font-medium shadow-2xs"
                       />
                       <button
                         type="button"
                         onClick={() => handleRemoveTerm(index)}
-                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                        title="Remove Term"
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer shrink-0"
+                        title="Remove Condition"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   ))}
+
+                  {billConfig.termsAndConditions.length === 0 && (
+                    <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-center text-xs text-amber-800 font-semibold">
+                      {isMarathi
+                        ? 'सध्या कोणतेही नियम जोडलेले नाहीत. खालील इनपुटमधून नवीन नियम जोडा किंवा डीफॉल्ट नियम लोड करा.'
+                        : 'No custom terms configured. Add a new term below or load defaults.'}
+                    </div>
+                  )}
                 </div>
 
                 {/* Add new term input */}
@@ -1066,17 +1360,64 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         handleAddTerm();
                       }
                     }}
-                    placeholder="Type a new condition / policy note..."
-                    className="flex-1 bg-white border border-slate-200 focus:border-primary focus:outline-none px-3.5 py-2 rounded-xl text-xs"
+                    placeholder={
+                      isMarathi
+                        ? 'नवीन नियम किंवा अट टाईप करा आणि Enter दाबा...'
+                        : 'Type a new condition / policy note and press Enter...'
+                    }
+                    className="flex-1 bg-white border border-slate-200 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-900 shadow-2xs"
                   />
                   <button
                     type="button"
                     onClick={handleAddTerm}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1 transition-all"
+                    className="bg-primary hover:bg-primary-dark text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer shrink-0"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add</span>
+                    <Plus className="w-4 h-4" />
+                    <span>{isMarathi ? 'नियम जोडा' : 'Add Term'}</span>
                   </button>
+                </div>
+
+                {/* Quick Helper Presets */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/70 text-xs">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase mr-1">
+                      {isMarathi ? 'त्वरित पर्याय:' : 'Presets:'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleResetDefaultTerms('marathi')}
+                      className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer shadow-2xs"
+                    >
+                      {isMarathi ? 'मराठी डीफॉल्ट नियम' : 'Default Marathi Terms'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleResetDefaultTerms('english')}
+                      className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer shadow-2xs"
+                    >
+                      {isMarathi ? 'इंग्रजी डीफॉल्ट नियम' : 'Default English Terms'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = {
+                          ...billConfig,
+                          termsAndConditions: [],
+                        };
+                        setBillConfig(updated);
+                        saveBillTemplateConfig(updated);
+                        setIsTermsSaved(true);
+                        setTimeout(() => setIsTermsSaved(false), 2500);
+                      }}
+                      className="text-slate-400 hover:text-rose-600 px-2 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer"
+                    >
+                      {isMarathi ? 'सर्व हटवा' : 'Clear All'}
+                    </button>
+                  </div>
+
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    {billConfig.termsAndConditions.length} {isMarathi ? 'नियम सक्रिय' : 'Conditions Active'}
+                  </span>
                 </div>
               </div>
             </div>
