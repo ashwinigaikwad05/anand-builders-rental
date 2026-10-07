@@ -35,6 +35,7 @@ import {
 import {
   buildBillWhatsAppUrl,
 } from '../../../utils/billPdfShareUtils.ts';
+import { useAccountNames } from '../../../utils/paymentAccountUtils';
 
 interface PlateRowItem {
   id: string;
@@ -102,6 +103,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   const [historyTarget, setHistoryTarget] = useState<Rental | null>(null);
   const [billTarget, setBillTarget] = useState<Rental | null>(null);
   const [autoShareBillId, setAutoShareBillId] = useState<string | null>(null);
+  const accountNames = useAccountNames();
 
   // Form states for Add Rental
   const [selectedPartyId, setSelectedPartyId] = useState('');
@@ -1403,9 +1405,9 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
                     >
                       <option value="Outstanding">{isMarathi ? 'बाकी' : 'Outstanding'}</option>
-                      <option value="Account 1">{isMarathi ? 'खाते १ (मुख्य बँक)' : 'Account 1 (Bank)'}</option>
-                      <option value="Account 2">{isMarathi ? 'खाते २ (डिजिटल)' : 'Account 2 (Digital)'}</option>
-                      <option value="Cash">{isMarathi ? 'रोख' : 'Cash'}</option>
+                      <option value="Account 1">{accountNames.cleanAccount1}</option>
+                      <option value="Account 2">{accountNames.cleanAccount2}</option>
+                      <option value="Cash">{accountNames.cleanCash}</option>
                     </select>
                   </div>
                 </div>

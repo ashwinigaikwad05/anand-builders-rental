@@ -4,6 +4,7 @@ import type { Party, Payment, Rental, RentalCycle } from '../../../data/adminMoc
 
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
 import { formatMarathiDate, getMarathiPaymentMode, formatPartyName } from '../../../utils/marathiUtils';
+import { useAccountNames } from '../../../utils/paymentAccountUtils';
 
 interface PaymentsTabProps {
   payments: Payment[];
@@ -33,6 +34,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
   appLanguage,
 }) => {
   const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
+  const accountNames = useAccountNames();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
 
@@ -96,7 +98,9 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
     }
 
     if (!paymentMode) {
-      setValidationError('Payment destination (Account 1 / Account 2 / Cash) is required.');
+      setValidationError(
+        isMarathi ? 'पेमेंट जमा खाते निवडणे आवश्यक आहे.' : 'Payment destination account is required.'
+      );
       return;
     }
 
@@ -148,9 +152,9 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
             className="bg-white border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700"
           >
             <option value="All">{isMarathi ? 'सर्व पेमेंट खाती' : 'All Payment Accounts'}</option>
-            <option value="Account 1">{isMarathi ? 'खाते १ (मुख्य बँक)' : 'Account 1 (Main Bank)'}</option>
-            <option value="Account 2">{isMarathi ? 'खाते २ (डिजिटल)' : 'Account 2 (UPI / Digital)'}</option>
-            <option value="Cash">{isMarathi ? 'रोख' : 'Cash'}</option>
+            <option value="Account 1">{accountNames.cleanAccount1}</option>
+            <option value="Account 2">{accountNames.cleanAccount2}</option>
+            <option value="Cash">{accountNames.cleanCash}</option>
           </select>
 
           {/* Party Filter */}
@@ -308,10 +312,10 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                 }`}
               >
                 {pay.paymentMode === 'Account 1'
-                  ? (isMarathi ? '🏦 खाते १' : '🏦 Account 1')
+                  ? `🏦 ${accountNames.cleanAccount1}`
                   : pay.paymentMode === 'Account 2'
-                  ? (isMarathi ? '📱 खाते २' : '📱 Account 2')
-                  : (isMarathi ? '💵 रोख' : '💵 Cash')}
+                  ? `📱 ${accountNames.cleanAccount2}`
+                  : `💵 ${accountNames.cleanCash}`}
               </span>
             </div>
 
@@ -460,43 +464,43 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   <button
                     type="button"
                     onClick={() => setPaymentMode('Account 1')}
-                    className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${
+                    className={`py-3 px-2 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${
                       paymentMode === 'Account 1'
                         ? 'bg-blue-50 border-blue-500 text-blue-700 ring-2 ring-blue-500/20 shadow-xs'
                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     <span className="text-sm">🏦</span>
-                    <span>{isMarathi ? 'खाते १' : 'Account 1'}</span>
+                    <span className="truncate max-w-full font-bold">{accountNames.cleanAccount1}</span>
                     <span className="text-[10px] text-slate-400 font-normal">{isMarathi ? 'मुख्य बँक' : 'Bank Direct'}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setPaymentMode('Account 2')}
-                    className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${
+                    className={`py-3 px-2 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${
                       paymentMode === 'Account 2'
                         ? 'bg-purple-50 border-purple-500 text-purple-700 ring-2 ring-purple-500/20 shadow-xs'
                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     <span className="text-sm">📱</span>
-                    <span>{isMarathi ? 'खाते २' : 'Account 2'}</span>
+                    <span className="truncate max-w-full font-bold">{accountNames.cleanAccount2}</span>
                     <span className="text-[10px] text-slate-400 font-normal">{isMarathi ? 'डिजिटल पेमेंट' : 'UPI / Digital'}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setPaymentMode('Cash')}
-                    className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${
+                    className={`py-3 px-2 rounded-xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${
                       paymentMode === 'Cash'
                         ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-500/20 shadow-xs'
                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     <span className="text-sm">💵</span>
-                    <span>{isMarathi ? 'रोख' : 'Cash'}</span>
-                    <span className="text-[10px] text-slate-400 font-normal">{isMarathi ? 'कॅश' : 'In-Hand Cash'}</span>
+                    <span className="truncate max-w-full font-bold">{accountNames.cleanCash}</span>
+                    <span className="text-[10px] text-slate-400 font-normal">{isMarathi ? 'रोख' : 'Cash'}</span>
                   </button>
                 </div>
               </div>

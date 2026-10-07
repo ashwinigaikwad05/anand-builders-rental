@@ -129,6 +129,13 @@ export function getBillTemplateConfig(): BillTemplateConfig {
 export function saveBillTemplateConfig(config: BillTemplateConfig): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    if (typeof window !== 'undefined') {
+      if (config.bankName && config.bankName.trim()) {
+        localStorage.setItem('anand_acc1_name', config.bankName.trim());
+        window.dispatchEvent(new Event('anand_accounts_updated'));
+      }
+      window.dispatchEvent(new Event('anand_bill_config_updated'));
+    }
   } catch (err) {
     console.error('Failed to save bill template config:', err);
   }
@@ -145,3 +152,4 @@ export function updateBankDetailsConfig(
   saveBillTemplateConfig(updated);
   return updated;
 }
+

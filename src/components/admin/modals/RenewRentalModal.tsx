@@ -19,6 +19,7 @@ import {
   type PlateSizeType,
 } from '../../../lib/supabase';
 import { formatMarathiDate, formatDateRange } from '../../../utils/marathiUtils';
+import { useAccountNames } from '../../../utils/paymentAccountUtils';
 
 export interface RenewPaymentPayload {
   amount: number;
@@ -57,6 +58,7 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
   onConfirm,
 }) => {
   const todayStr = new Date().toISOString().split('T')[0];
+  const accountNames = useAccountNames();
   const initialDays = activeCycle.days && activeCycle.days > 0 ? activeCycle.days : 40;
 
   const [renewDate, setRenewDate] = useState<string>(todayStr);
@@ -1130,7 +1132,11 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
                               : 'bg-white text-slate-700 border-slate-200 hover:bg-emerald-50/50'
                           }`}
                         >
-                          {mode}
+                          {mode === 'Account 1'
+                            ? accountNames.cleanAccount1
+                            : mode === 'Account 2'
+                            ? accountNames.cleanAccount2
+                            : accountNames.cleanCash}
                         </button>
                       ))}
                     </div>

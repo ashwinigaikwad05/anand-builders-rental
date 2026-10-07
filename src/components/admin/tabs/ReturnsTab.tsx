@@ -9,6 +9,7 @@ import {
 } from '../../../lib/supabase';
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
 import { formatMarathiDate, formatDateRange, getMarathiPaymentMode, formatPartyName, formatPlateType } from '../../../utils/marathiUtils';
+import { useAccountNames } from '../../../utils/paymentAccountUtils';
 
 export interface ReturnInputPayload extends Omit<ReturnLog, 'id' | 'partyName' | 'plateType' | 'issuedQuantity'> {
   collectedAmount?: number;
@@ -43,6 +44,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
   appLanguage,
 }) => {
   const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
+  const accountNames = useAccountNames();
   const todayStr = new Date().toISOString().split('T')[0];
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -851,9 +853,9 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                               onChange={(e) => setPaymentMode(e.target.value as any)}
                               className="w-full bg-white border border-slate-200 px-3 py-2 rounded-xl font-semibold text-slate-800"
                             >
-                              <option value="Cash">{isMarathi ? 'रोख' : 'Cash'}</option>
-                              <option value="Account 1">{isMarathi ? 'खाते १ (मुख्य बँक)' : 'Account 1 (Main Bank)'}</option>
-                              <option value="Account 2">{isMarathi ? 'खाते २ (डिजिटल)' : 'Account 2 (UPI / Digital)'}</option>
+                              <option value="Cash">{accountNames.cleanCash}</option>
+                              <option value="Account 1">{accountNames.cleanAccount1}</option>
+                              <option value="Account 2">{accountNames.cleanAccount2}</option>
                             </select>
                           </div>
                           <div className="space-y-1">
@@ -1037,9 +1039,9 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                               onChange={(e) => setPaymentMode(e.target.value as any)}
                               className="w-full bg-white border border-slate-200 px-3 py-2 rounded-xl font-semibold text-slate-800"
                             >
-                              <option value="Cash">{isMarathi ? 'रोख' : 'Cash'}</option>
-                              <option value="Account 1">{isMarathi ? 'खाते १ (मुख्य बँक)' : 'Account 1 (Main Bank)'}</option>
-                              <option value="Account 2">{isMarathi ? 'खाते २ (डिजिटल)' : 'Account 2 (UPI / Digital)'}</option>
+                              <option value="Cash">{accountNames.cleanCash}</option>
+                              <option value="Account 1">{accountNames.cleanAccount1}</option>
+                              <option value="Account 2">{accountNames.cleanAccount2}</option>
                             </select>
                           </div>
                           <div className="space-y-1">

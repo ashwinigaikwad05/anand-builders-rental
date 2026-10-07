@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Save,
   Award,
@@ -34,6 +34,7 @@ import { RentalBillModal } from '../modals/RentalBillModal';
 import { DeleteDataConfirmModal, type DeleteDataCategory } from '../modals/DeleteDataConfirmModal';
 import { GoogleDriveBackupSection } from '../GoogleDriveBackupSection';
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
+import { cleanAccountName } from '../../../utils/paymentAccountUtils';
 import type { Rental, Party, RentalCycle, Payment, ReturnLog } from '../../../data/adminMockData';
 
 interface SettingsTabProps {
@@ -75,8 +76,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [address, setAddress] = useState(() => localStorage.getItem('anand_business_address') || 'Near Old Bus Stand, Solapur Road');
   const [phones, setPhones] = useState(() => localStorage.getItem('anand_business_phones') || '7020914957, 9881985058, 9021519582');
 
-  const [account1Name, setAccount1Name] = useState(() => localStorage.getItem('anand_acc1_name') || 'Account 1 (Main Bank)');
-  const [account2Name, setAccount2Name] = useState(() => localStorage.getItem('anand_acc2_name') || 'Account 2 (UPI / Digital)');
+  const [account1Name, setAccount1Name] = useState(() => {
+    const raw = localStorage.getItem('anand_acc1_name');
+    if (!raw) return 'State Bank of India';
+    return cleanAccountName(raw, 'State Bank of India');
+  });
+  const [account2Name, setAccount2Name] = useState(() => {
+    const raw = localStorage.getItem('anand_acc2_name');
+    if (!raw) return 'PhonePe / UPI';
+    return cleanAccountName(raw, 'PhonePe / UPI');
+  });
   const [cashAccountName, setCashAccountName] = useState(() => {
     const saved = localStorage.getItem('anand_cash_name');
     if (!saved || saved === 'Cash (Yard Drawer)' || saved === 'Yard Drawer Cash') {
@@ -93,6 +102,26 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [isSaved, setIsSaved] = useState(false);
   const [isBankSaved, setIsBankSaved] = useState(false);
   const [isTermsSaved, setIsTermsSaved] = useState(false);
+
+  useEffect(() => {
+    // Sanitize any legacy prefixes in localStorage on mount
+    const raw1 = localStorage.getItem('anand_acc1_name');
+    const raw2 = localStorage.getItem('anand_acc2_name');
+    if (raw1) {
+      const clean1 = cleanAccountName(raw1, raw1);
+      if (clean1 !== raw1) {
+        localStorage.setItem('anand_acc1_name', clean1);
+        setAccount1Name(clean1);
+      }
+    }
+    if (raw2) {
+      const clean2 = cleanAccountName(raw2, raw2);
+      if (clean2 !== raw2) {
+        localStorage.setItem('anand_acc2_name', clean2);
+        setAccount2Name(clean2);
+      }
+    }
+  }, []);
 
   // Data deletion & maintenance states
   const isMarathi = appLanguage ? appLanguage === 'marathi' : getStoredAppLanguage() === 'marathi';
@@ -296,6 +325,31 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     }, 3000);
   };
 
+  const handleAccount1Change = (val: string) => {
+    setAccount1Name(val);
+    localStorage.setItem('anand_acc1_name', val);
+    // Auto-sync bankName in bill template so bills always have this bank name:
+    const updated = {
+      ...billConfig,
+      bankName: val,
+    };
+    setBillConfig(updated);
+    saveBillTemplateConfig(updated);
+    window.dispatchEvent(new Event('anand_accounts_updated'));
+  };
+
+  const handleAccount2Change = (val: string) => {
+    setAccount2Name(val);
+    localStorage.setItem('anand_acc2_name', val);
+    window.dispatchEvent(new Event('anand_accounts_updated'));
+  };
+
+  const handleCashAccountChange = (val: string) => {
+    setCashAccountName(val);
+    localStorage.setItem('anand_cash_name', val);
+    window.dispatchEvent(new Event('anand_accounts_updated'));
+  };
+
   const handleBankFieldChange = (
     field: 'bankName' | 'accountNumber' | 'ifscCode' | 'upiId' | 'showBankDetails',
     value: any
@@ -306,6 +360,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     };
     setBillConfig(updated);
     saveBillTemplateConfig(updated);
+    if (field === 'bankName') {
+      setAccount1Name(value);
+      localStorage.setItem('anand_acc1_name', value);
+      window.dispatchEvent(new Event('anand_accounts_updated'));
+    }
   };
 
   const handleCopyAccount1ToBank = () => {
@@ -519,52 +578,79 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
         {/* SECTION 2: PAYMENT LEDGER ACCOUNTS */}
         <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm space-y-4">
-          <h4 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-1.5">
-            <User className="w-4 h-4 text-primary" />
-            <span>{isMarathi ? 'पेमेंट लेजर खाती' : 'Payment Ledger Accounts'}</span>
-          </h4>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+              <User className="w-4 h-4 text-primary" />
+              <span>{isMarathi ? 'पेमेंट लेजर व बँक खाती' : 'Payment Ledger & Bank Accounts'}</span>
+            </h4>
+            <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>{isMarathi ? 'बँकेचे नाव बिलावर व सर्व ठिकाणी आपोआप लागू होते' : 'Bank name syncs with bills & all fields'}</span>
+            </span>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">
-                {isMarathi ? 'खाते १ नाव' : 'Account 1 Name'}
+              <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center justify-between">
+                <span>{isMarathi ? 'बँक खाते नाव (बँक १)' : 'Bank Account Name (Bank 1)'}</span>
+                <span className="text-[9px] text-emerald-600 font-bold lowercase">{isMarathi ? 'बिलावर दिसेल' : 'on bills'}</span>
               </label>
               <input
                 type="text"
                 value={account1Name}
-                onChange={(e) => setAccount1Name(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-800"
+                onChange={(e) => handleAccount1Change(e.target.value)}
+                onBlur={() => {
+                  const cleaned = cleanAccountName(account1Name, account1Name);
+                  if (cleaned !== account1Name) handleAccount1Change(cleaned);
+                }}
+                placeholder={isMarathi ? 'उदा. Ravi किंवा SBI बँक' : 'e.g. Ravi or SBI Bank'}
+                className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:bg-white focus:outline-none px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 transition-all"
               />
+              <p className="text-[10px] text-slate-400">
+                {isMarathi ? 'येथे नाव टाकल्यास सर्व ठिकाणी व बिलावर हेच नाव दिसेल' : 'Adding name here updates all fields & bill bank name'}
+              </p>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">
-                {isMarathi ? 'खाते २ नाव' : 'Account 2 Name'}
+              <label className="text-[10px] font-bold text-slate-600 uppercase">
+                {isMarathi ? 'दुसरे खाते नाव (UPI / डिजिटल)' : 'Secondary Account Name (UPI / Digital)'}
               </label>
               <input
                 type="text"
                 value={account2Name}
-                onChange={(e) => setAccount2Name(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-800"
+                onChange={(e) => handleAccount2Change(e.target.value)}
+                onBlur={() => {
+                  const cleaned = cleanAccountName(account2Name, account2Name);
+                  if (cleaned !== account2Name) handleAccount2Change(cleaned);
+                }}
+                placeholder={isMarathi ? 'उदा. Nilesh किंवा PhonePe' : 'e.g. Nilesh or PhonePe'}
+                className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:bg-white focus:outline-none px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 transition-all"
               />
+              <p className="text-[10px] text-slate-400">
+                {isMarathi ? 'दुसऱ्या खात्याचे नाव (सर्व ठिकाणी हेच नाव दिसेल)' : 'Secondary bank/UPI name shown everywhere'}
+              </p>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">
-                {isMarathi ? 'कॅश लेजर नाव' : 'Cash Ledger Name'}
+              <label className="text-[10px] font-bold text-slate-600 uppercase">
+                {isMarathi ? 'रोख / कॅश लेजर नाव' : 'Cash Ledger Name'}
               </label>
               <input
                 type="text"
                 value={cashAccountName}
-                onChange={(e) => setCashAccountName(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-800"
+                onChange={(e) => handleCashAccountChange(e.target.value)}
+                placeholder="Cash"
+                className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:bg-white focus:outline-none px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 transition-all"
               />
+              <p className="text-[10px] text-slate-400">
+                {isMarathi ? 'हातशिल्लक रोख रकमेचे लेजर नाव' : 'Physical cash on hand ledger title'}
+              </p>
             </div>
           </div>
 
           <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
             <span>
               {isMarathi
-                ? 'बिलावर बँकेचे नाव, खाते क्र. व IFSC दाखवण्यासाठी खालील बँक खाते तपशील पहा ↓'
-                : 'Looking to add/change Bank Name, Account Number & IFSC printed on customer bills?'}
+                ? 'खाते क्र., IFSC व UPI ID बदलण्यासाठी खालील बँक खाते तपशील पहा ↓'
+                : 'Looking to add/change Account Number, IFSC & UPI printed on customer bills?'}
             </span>
             <a href="#bank-account-settings" className="text-primary font-bold hover:underline flex items-center gap-1">
               <Landmark className="w-3.5 h-3.5" />
@@ -1007,7 +1093,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     onClick={handleCopyAccount1ToBank}
                     className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer"
                   >
-                    {isMarathi ? `खाते १ नाव वापरा (${account1Name})` : `Use ${account1Name}`}
+                    {isMarathi ? `बँक नाव वापरा (${account1Name})` : `Use ${account1Name}`}
                   </button>
                 )}
                 <button

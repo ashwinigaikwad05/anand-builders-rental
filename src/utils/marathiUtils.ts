@@ -3,6 +3,8 @@
  * Specifically designed for Anand Builders & Developers Centering Plates System.
  */
 
+import { getDisplayAccountName } from './paymentAccountUtils.ts';
+
 // Devanagari numerals mapping (0-9 -> ०-९)
 export const DEVANAGARI_DIGITS = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
 
@@ -148,14 +150,14 @@ export function formatMarathiCycle(cycleNum: number, useDevanagari = false): str
 export function getMarathiPaymentMode(mode?: string, lang: 'marathi' | 'english' = 'marathi'): string {
   if (!mode) return lang === 'marathi' ? 'बाकी' : 'Outstanding';
   const lower = mode.toLowerCase();
-  if (lower === 'account 1' || lower.includes('bank') || lower.includes('बँक')) {
-    return lang === 'marathi' ? 'खाते १ (मुख्य बँक)' : 'Account 1 (Main Bank)';
+  if (lower === 'account 1' || lower === 'acc 1' || lower.includes('account 1')) {
+    return getDisplayAccountName('Account 1', lang);
   }
-  if (lower === 'account 2' || lower.includes('upi') || lower.includes('digital') || lower.includes('डिजिटल')) {
-    return lang === 'marathi' ? 'खाते २ (डिजिटल)' : 'Account 2 (UPI / Digital)';
+  if (lower === 'account 2' || lower === 'acc 2' || lower.includes('account 2')) {
+    return getDisplayAccountName('Account 2', lang);
   }
   if (lower === 'cash' || lower.includes('रोख')) {
-    return lang === 'marathi' ? 'रोख' : 'Cash';
+    return getDisplayAccountName('Cash', lang);
   }
   if (lower === 'cheque' || lower.includes('चेक')) {
     return lang === 'marathi' ? 'चेक' : 'Cheque';

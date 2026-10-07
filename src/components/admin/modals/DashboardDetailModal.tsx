@@ -31,6 +31,7 @@ import {
 } from '../../../utils/alertMessaging';
 import { t, type AppLanguage } from '../../../utils/appTranslations';
 import { formatMarathiDate, formatPartyName } from '../../../utils/marathiUtils';
+import { useAccountNames } from '../../../utils/paymentAccountUtils';
 
 export type DashboardDetailField =
   | 'total_stock'
@@ -85,6 +86,7 @@ export const DashboardDetailModal: React.FC<DashboardDetailModalProps> = ({
   const todayStr = new Date().toISOString().split('T')[0];
   const curT = t[appLanguage] || t.marathi;
   const isMr = appLanguage === 'marathi';
+  const accountNames = useAccountNames();
 
   // Clear search on field change or open
   useEffect(() => {
@@ -295,30 +297,30 @@ export const DashboardDetailModal: React.FC<DashboardDetailModalProps> = ({
       tabButtonText: isMr ? 'सर्व भाडे नोंदी' : 'View All Rentals',
     },
     account_1: {
-      title: isMr ? 'खाते १ (बँक डायरेक्ट) जमा व्यवहार' : 'Account 1 (Bank Direct) Collections',
+      title: isMr ? `${accountNames.cleanAccount1} जमा व्यवहार` : `${accountNames.cleanAccount1} Collections`,
       subtitle: isMr
-        ? 'मुख्य बँक खात्यात थेट जमा झालेली सर्व पेमेंट्स'
-        : 'Primary bank account direct transfers and deposits',
+        ? `${accountNames.cleanAccount1} खात्यात थेट जमा झालेली सर्व पेमेंट्स`
+        : `${accountNames.cleanAccount1} direct transfers and deposits`,
       icon: Landmark,
       badgeText: `₹${account1Balance.toLocaleString('en-IN')}`,
       targetTab: 'Payments',
       tabButtonText: isMr ? '+ पेमेंट नोंदवा' : '+ Record Payment',
     },
     account_2: {
-      title: isMr ? 'खाते २ (डिजिटल) जमा व्यवहार' : 'Account 2 (UPI / Digital) Collections',
+      title: isMr ? `${accountNames.cleanAccount2} जमा व्यवहार` : `${accountNames.cleanAccount2} Collections`,
       subtitle: isMr
-        ? 'फोनपे, गुगलपे व डिजिटल माध्यमातून जमा झालेली पेमेंट्स'
-        : 'UPI, QR and secondary digital payment collections',
+        ? `${accountNames.cleanAccount2} माध्यमातून जमा झालेली पेमेंट्स`
+        : `${accountNames.cleanAccount2} payment collections`,
       icon: Smartphone,
       badgeText: `₹${account2Balance.toLocaleString('en-IN')}`,
       targetTab: 'Payments',
       tabButtonText: isMr ? '+ पेमेंट नोंदवा' : '+ Record Payment',
     },
     cash: {
-      title: isMr ? 'रोख रक्कम जमा व्यवहार' : 'Cash on Hand Collections Log',
+      title: isMr ? `${accountNames.cleanCash} जमा व्यवहार` : `${accountNames.cleanCash} Collections Log`,
       subtitle: isMr
-        ? 'गोदामात रोख स्वरूपात जमा झालेली सर्व पेमेंट्स'
-        : 'Physical cash received and currently in cash register',
+        ? 'रोख स्वरूपात जमा झालेली सर्व पेमेंट्स'
+        : `${accountNames.cleanCash} on hand collections log`,
       icon: Banknote,
       badgeText: `₹${cashBalance.toLocaleString('en-IN')}`,
       targetTab: 'Payments',
@@ -493,8 +495,8 @@ export const DashboardDetailModal: React.FC<DashboardDetailModalProps> = ({
           {/* VIEW: ACCOUNT 1 (BANK DIRECT) */}
           {field === 'account_1' && (
             <AccountPaymentsDetailView
-              accountName="Account 1"
-              accountTitle={isMr ? 'खाते १ (बँक डायरेक्ट)' : 'Account 1 (Bank Direct)'}
+              accountName={accountNames.cleanAccount1}
+              accountTitle={accountNames.cleanAccount1}
               payments={payments.filter((p) => p.paymentMode === 'Account 1')}
               searchTerm={searchTerm}
               isMr={isMr}
@@ -506,8 +508,8 @@ export const DashboardDetailModal: React.FC<DashboardDetailModalProps> = ({
           {/* VIEW: ACCOUNT 2 (UPI / DIGITAL) */}
           {field === 'account_2' && (
             <AccountPaymentsDetailView
-              accountName="Account 2"
-              accountTitle={isMr ? 'खाते २ (डिजिटल)' : 'Account 2 (UPI / Digital)'}
+              accountName={accountNames.cleanAccount2}
+              accountTitle={accountNames.cleanAccount2}
               payments={payments.filter((p) => p.paymentMode === 'Account 2')}
               searchTerm={searchTerm}
               isMr={isMr}
@@ -519,8 +521,8 @@ export const DashboardDetailModal: React.FC<DashboardDetailModalProps> = ({
           {/* VIEW: CASH */}
           {field === 'cash' && (
             <AccountPaymentsDetailView
-              accountName="Cash"
-              accountTitle={isMr ? 'रोख रक्कम' : 'Cash Collections'}
+              accountName={accountNames.cleanCash}
+              accountTitle={accountNames.cleanCash}
               payments={payments.filter((p) => p.paymentMode === 'Cash')}
               searchTerm={searchTerm}
               isMr={isMr}

@@ -43,6 +43,7 @@ import {
   type AppLanguage,
 } from '../../../utils/appTranslations';
 import { formatMarathiDate, formatDateRange, getMarathiPaymentMode, formatPartyName } from '../../../utils/marathiUtils';
+import { useAccountNames } from '../../../utils/paymentAccountUtils';
 
 interface DashboardTabProps {
   parties: Party[];
@@ -86,6 +87,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 }) => {
   const todayStr = new Date().toISOString().split('T')[0];
   const [isSeeding, setIsSeeding] = useState(false);
+  const accountNames = useAccountNames();
 
   // Selected Language State
   const [currentLang, setCurrentLang] = useState<AppLanguage>(() => appLanguage || getStoredAppLanguage());
@@ -845,7 +847,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </div>
       </div>
 
-      {/* Account Balances Strip: Account 1, Account 2, Cash */}
+      {/* Account Balances Strip: Custom Bank 1, Custom Bank 2, Cash */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {/* Account 1 */}
         <div
@@ -856,11 +858,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') setSelectedDetailField('account_1');
           }}
-          title={currentLang === 'marathi' ? 'खाते १ चे व्यवहार पाहण्यासाठी क्लिक करा' : 'Click to view Account 1 transactions'}
+          title={currentLang === 'marathi' ? `${accountNames.cleanAccount1} चे व्यवहार पाहण्यासाठी क्लिक करा` : `Click to view ${accountNames.cleanAccount1} transactions`}
         >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-              {curT.accounts.acc1Title}
+              {accountNames.cleanAccount1}
             </span>
             <h3 className="text-2xl sm:text-3xl font-black text-blue-600">
               ₹{account1Balance.toLocaleString('en-IN')}
@@ -885,11 +887,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') setSelectedDetailField('account_2');
           }}
-          title={currentLang === 'marathi' ? 'खाते २ चे व्यवहार पाहण्यासाठी क्लिक करा' : 'Click to view Account 2 transactions'}
+          title={currentLang === 'marathi' ? `${accountNames.cleanAccount2} चे व्यवहार पाहण्यासाठी क्लिक करा` : `Click to view ${accountNames.cleanAccount2} transactions`}
         >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-              {curT.accounts.acc2Title}
+              {accountNames.cleanAccount2}
             </span>
             <h3 className="text-2xl sm:text-3xl font-black text-purple-600">
               ₹{account2Balance.toLocaleString('en-IN')}
@@ -914,11 +916,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') setSelectedDetailField('cash');
           }}
-          title={currentLang === 'marathi' ? 'रोख व्यवहार पाहण्यासाठी क्लिक करा' : 'Click to view cash transactions'}
+          title={currentLang === 'marathi' ? `${accountNames.cleanCash} व्यवहार पाहण्यासाठी क्लिक करा` : 'Click to view cash transactions'}
         >
           <div className="space-y-1">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-              {curT.accounts.cashTitle}
+              {accountNames.cleanCash}
             </span>
             <h3 className="text-2xl sm:text-3xl font-black text-emerald-600">
               ₹{cashBalance.toLocaleString('en-IN')}
