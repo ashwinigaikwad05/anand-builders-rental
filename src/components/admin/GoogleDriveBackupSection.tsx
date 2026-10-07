@@ -98,11 +98,14 @@ export const GoogleDriveBackupSection: React.FC<GoogleDriveBackupSectionProps> =
       }
     } catch (err: any) {
       console.error('Google Drive Connect Error:', err);
-      showToast(
-        'error',
-        err?.message ||
-          (isMarathi ? 'Google Drive जोडण्यात त्रुटी आली.' : 'Failed to connect Google Drive.')
-      );
+      let rawMsg = String(err?.message || '');
+      let userFriendlyMsg = rawMsg || (isMarathi ? 'Google Drive जोडण्यात त्रुटी आली.' : 'Failed to connect Google Drive.');
+      if (rawMsg.includes('Google Drive API has not been used') || rawMsg.includes('SERVICE_DISABLED') || rawMsg.includes('drive.googleapis.com')) {
+        userFriendlyMsg = isMarathi
+          ? 'Google Cloud मध्ये "Google Drive API" सेवा सुरू (Enable) केलेली नाही. कृपया console.developers.google.com वर जाऊन निळ्या ENABLE बटणावर क्लिक करा.'
+          : 'Google Drive API is disabled in your Google Cloud Project. Please visit console.developers.google.com and click the blue ENABLE button.';
+      }
+      showToast('error', userFriendlyMsg);
     } finally {
       setLoading(false);
       setBusyAction(null);
