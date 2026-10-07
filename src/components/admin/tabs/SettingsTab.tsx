@@ -3,7 +3,6 @@ import {
   Save,
   Award,
   User,
-  Settings,
   FileText,
   Eye,
   Plus,
@@ -75,9 +74,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [businessNameMr, setBusinessNameMr] = useState(() => localStorage.getItem('anand_business_name_mr') || 'आनंद बिल्डिंग मटेरियल सप्लायर');
   const [address, setAddress] = useState(() => localStorage.getItem('anand_business_address') || 'Near Old Bus Stand, Solapur Road');
   const [phones, setPhones] = useState(() => localStorage.getItem('anand_business_phones') || '7020914957, 9881985058, 9021519582');
-
-  const [defaultRate, setDefaultRate] = useState<number>(() => parseFloat(localStorage.getItem('anand_default_rate') || '1.50'));
-  const [rentalCycle, setRentalCycle] = useState<number>(() => parseInt(localStorage.getItem('anand_rental_cycle') || '40'));
 
   const [account1Name, setAccount1Name] = useState(() => localStorage.getItem('anand_acc1_name') || 'Account 1 (Main Bank)');
   const [account2Name, setAccount2Name] = useState(() => localStorage.getItem('anand_acc2_name') || 'Account 2 (UPI / Digital)');
@@ -341,8 +337,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     localStorage.setItem('anand_business_name_mr', businessNameMr);
     localStorage.setItem('anand_business_address', address);
     localStorage.setItem('anand_business_phones', phones);
-    localStorage.setItem('anand_default_rate', defaultRate.toString());
-    localStorage.setItem('anand_rental_cycle', rentalCycle.toString());
     localStorage.setItem('anand_acc1_name', account1Name);
     localStorage.setItem('anand_acc2_name', account2Name);
     localStorage.setItem('anand_cash_name', cashAccountName);
@@ -364,12 +358,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     partyName: 'patil constructions',
     plateType: '24×3',
     quantity: 100,
-    dailyRate: defaultRate || 1.5,
+    dailyRate: 1.5,
     issueDate: todayStr,
-    days: rentalCycle || 40,
-    totalRent: 100 * (defaultRate || 1.5) * (rentalCycle || 40),
+    days: 40,
+    totalRent: 6000,
     paid: 1100,
-    pending: 100 * (defaultRate || 1.5) * (rentalCycle || 40) - 1100,
+    pending: 4900,
     paymentMode: 'Account 1',
     status: 'active',
     currentCycleNumber: 1,
@@ -395,10 +389,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     partyId: 'party-preview',
     cycleNumber: 1,
     startDate: todayStr,
-    expectedEndDate: new Date(Date.now() + (rentalCycle || 40) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    days: rentalCycle || 40,
+    expectedEndDate: new Date(Date.now() + 40 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    days: 40,
     extraDays: 0,
-    dailyRate: defaultRate || 1.5,
+    dailyRate: 1.5,
     quantity: 100,
     baseRent: 6000,
     extraAmount: 0,
@@ -523,46 +517,18 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
         </div>
 
-        {/* SECTION 2: RENTAL PARAMETERS */}
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm space-y-4">
-          <h4 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-1.5">
-            <Settings className="w-4 h-4 text-primary" />
-            <span>Rental Parameters</span>
-          </h4>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5 text-left">
-              <label className="text-xs font-bold text-slate-500 uppercase">Default Daily Rate (₹ / Day)</label>
-              <input
-                type="number"
-                step="any"
-                value={defaultRate}
-                onChange={(e) => setDefaultRate(parseFloat(e.target.value) || 0)}
-                className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:outline-none px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
-              />
-            </div>
-            <div className="space-y-1.5 text-left">
-              <label className="text-xs font-bold text-slate-500 uppercase">Normal Rental Cycle (Days)</label>
-              <input
-                type="number"
-                value={rentalCycle}
-                onChange={(e) => setRentalCycle(parseInt(e.target.value) || 0)}
-                className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:outline-none px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 3: PAYMENT LEDGER ACCOUNTS */}
+        {/* SECTION 2: PAYMENT LEDGER ACCOUNTS */}
         <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm space-y-4">
           <h4 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-1.5">
             <User className="w-4 h-4 text-primary" />
-            <span>Payment Ledger Accounts</span>
+            <span>{isMarathi ? 'पेमेंट लेजर खाती' : 'Payment Ledger Accounts'}</span>
           </h4>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Account 1 Name</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">
+                {isMarathi ? 'खाते १ नाव' : 'Account 1 Name'}
+              </label>
               <input
                 type="text"
                 value={account1Name}
@@ -571,7 +537,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Account 2 Name</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">
+                {isMarathi ? 'खाते २ नाव' : 'Account 2 Name'}
+              </label>
               <input
                 type="text"
                 value={account2Name}
@@ -580,7 +548,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Cash Ledger Name</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">
+                {isMarathi ? 'कॅश लेजर नाव' : 'Cash Ledger Name'}
+              </label>
               <input
                 type="text"
                 value={cashAccountName}
@@ -591,15 +561,19 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
 
           <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-            <span>Looking to add/change Bank Name, Account Number & IFSC printed on customer bills?</span>
+            <span>
+              {isMarathi
+                ? 'बिलावर बँकेचे नाव, खाते क्र. व IFSC दाखवण्यासाठी खालील बँक खाते तपशील पहा ↓'
+                : 'Looking to add/change Bank Name, Account Number & IFSC printed on customer bills?'}
+            </span>
             <a href="#bank-account-settings" className="text-primary font-bold hover:underline flex items-center gap-1">
               <Landmark className="w-3.5 h-3.5" />
-              <span>Go to Bank Account Details ↓</span>
+              <span>{isMarathi ? 'बँक खाते तपशील येथे पहा ↓' : 'Go to Bank Account Details ↓'}</span>
             </a>
           </div>
         </div>
 
-        {/* SECTION 4: BILL & CHALLAN TEMPLATES */}
+        {/* SECTION 3: BILL & CHALLAN TEMPLATES */}
         <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-3">
@@ -867,7 +841,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
         </div>
 
-        {/* SECTION 5: BANK ACCOUNT & UPI PAYMENT DETAILS */}
+        {/* SECTION 4: BANK ACCOUNT & UPI PAYMENT DETAILS */}
         <div id="bank-account-settings" className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm space-y-5 scroll-mt-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-3">
@@ -1054,7 +1028,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
         </div>
 
-        {/* SECTION 6: TERMS AND CONDITIONS */}
+        {/* SECTION 5: TERMS AND CONDITIONS */}
         <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-sm space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-3">
