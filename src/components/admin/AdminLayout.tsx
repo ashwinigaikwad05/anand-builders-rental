@@ -2709,9 +2709,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
                       : 'hover:bg-slate-850 hover:text-white'
                   }`}
                 >
-                  <span className="flex items-center gap-3">
+                  <span className="flex items-center gap-3 min-w-0">
                     <Icon className="w-5 h-5 flex-shrink-0" />
-                    <span>{item.label || item.name}</span>
+                    <span className="truncate whitespace-nowrap">{item.label || item.name}</span>
                   </span>
 
                   {/* Badges indicators */}

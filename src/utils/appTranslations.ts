@@ -223,7 +223,7 @@ export const t = {
     // Navigation items
     nav: {
       Dashboard: 'Dashboard',
-      Parties: 'Customers (Parties)',
+      Parties: 'Customers',
       'Plate Types': 'Plate Types',
       'Plate Stock': 'Plate Stock',
       Rentals: 'Rental Dispatches',
