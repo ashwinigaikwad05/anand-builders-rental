@@ -14,7 +14,6 @@ import {
   Check,
   FileBadge,
   MessageSquare,
-  Share2,
   Loader2,
   Copy,
   Save,
@@ -34,8 +33,6 @@ import { formatPartyName, formatPlateType } from '../../../utils/marathiUtils';
 import {
   autoShareBillPdfViaWhatsApp,
   copyBillImageToClipboard,
-  getAutoWhatsAppShareSetting,
-  setAutoWhatsAppShareSetting,
 } from '../../../utils/billPdfShareUtils';
 
 interface RentalBillModalProps {
@@ -114,11 +111,6 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   });
   const [enlargedImage, setEnlargedImage] = useState<{ url: string; title: string } | null>(null);
 
-  // Auto WhatsApp share state & persistent preference
-  const [autoWhatsApp, setAutoWhatsApp] = useState<boolean>(() => {
-    if (autoShareWhatsApp) return true;
-    return getAutoWhatsAppShareSetting();
-  });
   const [isSharingWhatsApp, setIsSharingWhatsApp] = useState<boolean>(false);
   const [shareToast, setShareToast] = useState<{ type: 'success' | 'info' | 'error'; message: string } | null>(null);
 
@@ -706,10 +698,6 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
     window.print();
   };
 
-  const handleToggleAutoWhatsApp = (checked: boolean) => {
-    setAutoWhatsApp(checked);
-    setAutoWhatsAppShareSetting(checked);
-  };
 
   const handleShareWhatsApp = async () => {
     const sheetEl = document.getElementById('rental-bill-sheet');
@@ -801,17 +789,17 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
     }
   };
 
-  // Trigger automatic WhatsApp sharing if enabled or explicitly requested
+  // Trigger automatic WhatsApp sharing if explicitly requested via prop
   const hasAutoSharedRef = React.useRef(false);
   useEffect(() => {
-    if ((autoShareWhatsApp || autoWhatsApp) && !hasAutoSharedRef.current) {
+    if (autoShareWhatsApp && !hasAutoSharedRef.current) {
       hasAutoSharedRef.current = true;
       const timer = setTimeout(() => {
         handleShareWhatsApp();
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [autoShareWhatsApp, autoWhatsApp]);
+  }, [autoShareWhatsApp]);
 
   const renderKycDocumentsSection = (isSimpleBill: boolean) => {
     if (!showKycDocs) return null;
@@ -1287,31 +1275,6 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               </span>
             </label>
 
-            {/* Auto WhatsApp Share Checkbox */}
-            <label
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all select-none border shadow-xs ${
-                autoWhatsApp
-                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                  : 'bg-slate-200/90 hover:bg-slate-300/80 text-slate-800 border-slate-300/50'
-              }`}
-              title={
-                selectedLanguage === 'marathi'
-                  ? 'बिल उघडल्यावर किंवा तयार झाल्यावर आपोआप व्हॉट्सॲपवर PDF शेअर करण्यासाठी टिक करा'
-                  : 'Tick to automatically prompt WhatsApp PDF share when opening bill'
-              }
-            >
-              <input
-                type="checkbox"
-                id="toggle-auto-whatsapp-modal"
-                checked={autoWhatsApp}
-                onChange={(e) => handleToggleAutoWhatsApp(e.target.checked)}
-                className="w-3.5 h-3.5 accent-emerald-600 rounded cursor-pointer text-emerald-600 focus:ring-emerald-500"
-              />
-              <span className="flex items-center gap-1">
-                <Share2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>{selectedLanguage === 'marathi' ? 'ऑटो व्हॉट्सॲप' : 'Auto WhatsApp'}</span>
-              </span>
-            </label>
 
             {/* WhatsApp PDF Share Button */}
             <button
