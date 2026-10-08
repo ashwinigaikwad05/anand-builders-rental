@@ -212,15 +212,19 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
 const STORAGE_PREFIX = 'anand_';
 const getLocal = <T>(key: string): T[] => {
   try {
-    const raw = localStorage.getItem(STORAGE_PREFIX + key);
-    return raw ? JSON.parse(raw) : [];
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_PREFIX + key) : null;
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
   } catch {
     return [];
   }
 };
 const setLocal = <T>(key: string, data: T[]) => {
   try {
-    localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(data));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(data));
+    }
   } catch {}
 };
 
@@ -691,9 +695,18 @@ export async function deleteStockItem(id: string): Promise<boolean> {
  * Add calendar days to a YYYY-MM-DD date string safely.
  */
 export function addDaysToDate(dateStr: string, days: number): string {
-  const [y, m, d] = dateStr.split('-').map(Number);
+  if (!dateStr || typeof dateStr !== 'string' || !dateStr.includes('-')) {
+    dateStr = new Date().toISOString().split('T')[0];
+  }
+  const parts = dateStr.split('-').map(Number);
+  const y = parts[0] || 2026;
+  const m = parts[1] || 1;
+  const d = parts[2] || 1;
   const date = new Date(Date.UTC(y, m - 1, d));
-  date.setUTCDate(date.getUTCDate() + days);
+  if (isNaN(date.getTime())) {
+    return new Date().toISOString().split('T')[0];
+  }
+  date.setUTCDate(date.getUTCDate() + (days || 0));
   return date.toISOString().split('T')[0];
 }
 
@@ -703,11 +716,15 @@ export function addDaysToDate(dateStr: string, days: number): string {
  * 2026-08-01 to 2026-09-09 = 40 days.
  */
 export function calculateCalendarDays(startDateStr: string, endDateStr: string): number {
-  if (!startDateStr || !endDateStr) return 0;
-  const [sy, sm, sd] = startDateStr.split('-').map(Number);
-  const [ey, em, ed] = endDateStr.split('-').map(Number);
+  if (!startDateStr || !endDateStr || typeof startDateStr !== 'string' || typeof endDateStr !== 'string') return 1;
+  const sParts = startDateStr.split('-').map(Number);
+  const eParts = endDateStr.split('-').map(Number);
+  const sy = sParts[0], sm = sParts[1], sd = sParts[2];
+  const ey = eParts[0], em = eParts[1], ed = eParts[2];
+  if (isNaN(sy) || isNaN(sm) || isNaN(sd) || isNaN(ey) || isNaN(em) || isNaN(ed)) return 1;
   const startUtc = Date.UTC(sy, sm - 1, sd);
   const endUtc = Date.UTC(ey, em - 1, ed);
+  if (isNaN(startUtc) || isNaN(endUtc)) return 1;
   const diffMs = endUtc - startUtc;
   if (diffMs < 0) return 0;
   return Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
@@ -719,7 +736,8 @@ export function calculateCalendarDays(startDateStr: string, endDateStr: string):
  * Example: Start = 2026-08-01 -> 40th day = 2026-09-09.
  */
 export function calculateExpectedCycleEndDate(startDateStr: string, cycleDays = 40): string {
-  return addDaysToDate(startDateStr, cycleDays - 1);
+  const safeDays = typeof cycleDays === 'number' && !isNaN(cycleDays) && cycleDays > 0 ? cycleDays : 40;
+  return addDaysToDate(startDateStr, safeDays - 1);
 }
 
 /**
@@ -929,12 +947,12 @@ export function calculatePartialReturnsBreakdown(params: {
  */
 export function calculateCycleFinances(
   cycle: {
-    startDate: string;
+    startDate?: string;
     actualEndDate?: string | null;
-    quantity: number;
-    dailyRate: number;
-    baseRent: number;
-    paidAmount: number;
+    quantity?: number;
+    dailyRate?: number;
+    baseRent?: number;
+    paidAmount?: number;
     days?: number;
     items?: Array<{ quantity: number; dailyRate: number; plateType?: string }>;
     returns?: Array<{
@@ -951,8 +969,21 @@ export function calculateCycleFinances(
   },
   asOfDateStr = new Date().toISOString().split('T')[0]
 ) {
+  if (!cycle) {
+    return {
+      elapsedDays: 1,
+      standardDays: 1,
+      extraDays: 0,
+      extraAmount: 0,
+      dailyRateTotal: 0,
+      dayWiseRent: 0,
+      totalAmount: 0,
+      pendingAmount: 0,
+    };
+  }
+  const startDate = cycle.startDate || asOfDateStr;
   const effectiveEndDate = cycle.actualEndDate || asOfDateStr;
-  const elapsedDays = calculateCalendarDays(cycle.startDate, effectiveEndDate);
+  const elapsedDays = Math.max(1, calculateCalendarDays(startDate, effectiveEndDate));
   const cycleTermDays = cycle.days && cycle.days > 0 ? cycle.days : 40;
 
   // Compute daily rate total across all itemized plates or single item
@@ -969,11 +1000,11 @@ export function calculateCycleFinances(
   // If partial returns exist for this cycle, integrate them into the calculation
   if (cycle.returns && cycle.returns.length > 0) {
     const breakdown = calculatePartialReturnsBreakdown({
-      startDate: cycle.startDate,
-      initialQuantity: cycle.quantity,
-      dailyRate: cycle.dailyRate,
+      startDate: startDate,
+      initialQuantity: cycle.quantity || 0,
+      dailyRate: cycle.dailyRate || 0,
       cycleDays: cycleTermDays,
-      paidAmount: cycle.paidAmount,
+      paidAmount: cycle.paidAmount || 0,
       items: cycle.items,
       returns: cycle.returns,
       asOfDate: effectiveEndDate,
@@ -1014,7 +1045,7 @@ export function calculateCycleFinances(
       extraAmount = Math.round(dailyRateTotal * extraDays * 100) / 100;
       totalAmount = Math.round((cycle.baseRent || dailyRateTotal * cycleTermDays) + extraAmount);
     } else {
-      totalAmount = cycle.baseRent > 0 ? cycle.baseRent : Math.round(dailyRateTotal * cycleTermDays * 100) / 100;
+      totalAmount = typeof cycle.baseRent === 'number' && cycle.baseRent > 0 ? cycle.baseRent : Math.round(dailyRateTotal * cycleTermDays * 100) / 100;
     }
   }
 

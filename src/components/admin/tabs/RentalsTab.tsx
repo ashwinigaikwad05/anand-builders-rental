@@ -14,6 +14,7 @@ import {
   ArrowUpDown,
   Edit2,
   MessageSquare,
+  Sparkles,
 } from 'lucide-react';
 import type { Party, PlateStock, Rental, RentalItem, RentalCycle, Payment, ReturnLog } from '../../../data/adminMockData';
 import {
@@ -71,6 +72,7 @@ interface RentalsTabProps {
     penalty?: number
   ) => Promise<void>;
   appLanguage?: AppLanguage;
+  onLoadSampleData?: () => void;
 }
 
 export const RentalsTab: React.FC<RentalsTabProps> = ({
@@ -85,6 +87,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   onUpdateBillNumber,
   onInitiateReturn,
   onRenewRental,
+  onLoadSampleData,
   appLanguage,
 }) => {
   const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
@@ -925,8 +928,40 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
               })}
               {rentals.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-10 text-center text-slate-400 font-light italic">
-                    No rentals yet.
+                  <td colSpan={10} className="px-6 py-14 text-center">
+                    <div className="flex flex-col items-center justify-center max-w-md mx-auto">
+                      <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-3 text-amber-500 shadow-sm">
+                        <ClipboardList className="w-7 h-7" />
+                      </div>
+                      <h4 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-1">
+                        {isMarathi ? 'कोणतेही भाडे वाटप नोंदी उपलब्ध नाहीत' : 'No Rental Dispatches Yet'}
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
+                        {isMarathi
+                          ? 'नवीन प्लेट्स भाडे वाटप नोंदवा किंवा त्वरित चाचणी व पावती तपासणीसाठी नमुना डेटा लोड करा.'
+                          : 'Register a new plate rental dispatch or load sample starter data to test bills and printing.'}
+                      </p>
+                      <div className="flex flex-wrap items-center justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddOpen(true)}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          {isMarathi ? 'नवीन भाडे वाटप (+)' : 'New Rental Dispatch (+)'}
+                        </button>
+                        {onLoadSampleData && (
+                          <button
+                            type="button"
+                            onClick={onLoadSampleData}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold border border-slate-300 dark:border-slate-700 transition-all cursor-pointer"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                            {isMarathi ? 'सँपल डेटा लोड करा' : 'Load Sample Data'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ) : filteredRentals.length === 0 ? (

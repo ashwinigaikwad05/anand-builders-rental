@@ -16,7 +16,9 @@ const STORAGE_PREFIX = 'anand_';
 const getLocal = <T>(key: string): T[] => {
   try {
     const raw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_PREFIX + key) : null;
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
   } catch {
     return [];
   }
