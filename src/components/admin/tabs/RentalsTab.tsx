@@ -125,6 +125,18 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   const numericPaid = parseFloat(amountPaid) || 0;
   const calculatedPending = Math.max(0, calculatedTotalRent - numericPaid);
 
+  const handleAmountPaidChange = (val: string) => {
+    setAmountPaid(val);
+    const num = parseFloat(val) || 0;
+    if (num > 0) {
+      if (paymentMode === 'Outstanding') {
+        setPaymentMode('Cash');
+      }
+    } else {
+      setPaymentMode('Outstanding');
+    }
+  };
+
   // Helper to fetch all cycles for a rental
   const getCyclesForRental = (rental: Rental): RentalCycle[] => {
     const list = rentalCycles.filter((c) => c.rentalId === rental.id);
@@ -415,6 +427,12 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
             .map((r) => `${r.plateType} (${parseInt(String(r.quantity), 10) || 1})`)
             .join(', ');
 
+    const finalPaid = parseFloat(amountPaid) || 0;
+    const finalPaymentMode: 'Account 1' | 'Account 2' | 'Cash' | 'Outstanding' =
+      finalPaid > 0
+        ? (paymentMode === 'Outstanding' ? 'Cash' : paymentMode)
+        : 'Outstanding';
+
     onAddRental({
       partyId: selectedPartyId,
       partyName: party.name,
@@ -423,8 +441,8 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
       dailyRate: parseFloat(String(plateRows[0]?.dailyRate)) || 1.5,
       issueDate,
       days: parseInt(String(plateRows[0]?.days), 10) || 40,
-      paid: parseFloat(amountPaid) || 0,
-      paymentMode,
+      paid: finalPaid,
+      paymentMode: finalPaymentMode,
       items,
     });
 
@@ -1407,10 +1425,10 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       value={amountPaid}
                       placeholder="0"
                       onFocus={(e) => e.target.select()}
-                      onChange={(e) => setAmountPaid(e.target.value)}
+                      onChange={(e) => handleAmountPaidChange(e.target.value)}
                       onBlur={() => {
                         if (amountPaid.trim() === '') {
-                          setAmountPaid('0');
+                          handleAmountPaidChange('0');
                         }
                       }}
                       className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
@@ -1426,7 +1444,9 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       onChange={(e) => setPaymentMode(e.target.value as any)}
                       className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
                     >
-                      <option value="Outstanding">{isMarathi ? 'बाकी' : 'Outstanding'}</option>
+                      {numericPaid === 0 && (
+                        <option value="Outstanding">{isMarathi ? 'बाकी' : 'Outstanding'}</option>
+                      )}
                       <option value="Account 1">{accountNames.cleanAccount1}</option>
                       <option value="Account 2">{accountNames.cleanAccount2}</option>
                       <option value="Cash">{accountNames.cleanCash}</option>
@@ -1434,12 +1454,28 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center pt-3 border-t border-slate-200 text-xs font-bold">
-                  <span className="text-slate-500 uppercase tracking-wider">{isMarathi ? 'येणे बाकी:' : 'Outstanding Dues:'}</span>
-                  <span className={`text-base font-black ${calculatedPending > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                    ₹{calculatedPending.toLocaleString('en-IN')}
-                  </span>
-                </div>
+                {calculatedPending > 0 ? (
+                  <div className="flex justify-between items-center pt-3 border-t border-slate-200 text-xs font-bold">
+                    <span className="text-slate-500 uppercase tracking-wider">{isMarathi ? 'येणे बाकी:' : 'Outstanding Dues:'}</span>
+                    <span className="text-base font-black text-rose-600">
+                      ₹{calculatedPending.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                ) : numericPaid > 0 ? (
+                  <div className="flex justify-between items-center pt-3 border-t border-slate-200 text-xs font-bold">
+                    <span className="text-emerald-700 uppercase tracking-wider">{isMarathi ? 'सर्व भाडे पूर्ण जमा:' : 'Full Payment Received:'}</span>
+                    <span className="text-base font-black text-emerald-600">
+                      {isMarathi ? 'काहीही बाकी नाही (₹०)' : 'No Dues (₹0)'}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center pt-3 border-t border-slate-200 text-xs font-bold">
+                    <span className="text-slate-500 uppercase tracking-wider">{isMarathi ? 'येणे बाकी:' : 'Outstanding Dues:'}</span>
+                    <span className="text-base font-black text-rose-600">
+                      ₹{calculatedPending.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
