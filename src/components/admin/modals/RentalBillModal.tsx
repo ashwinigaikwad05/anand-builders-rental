@@ -25,9 +25,17 @@ import {
   saveBillTemplateConfig,
   MARATHI_TERMS,
   ENGLISH_TERMS,
+  PAPER_SIZE_OPTIONS,
+  PAPER_ORIENTATION_OPTIONS,
+  PAPER_MARGIN_OPTIONS,
+  BILL_COPY_TYPE_OPTIONS,
   type BillTemplateConfig,
   type BillTemplateStyle,
   type BillLanguage,
+  type BillPaperSize,
+  type BillPaperOrientation,
+  type BillPaperMargin,
+  type BillCopyType,
 } from '../../../utils/billTemplateUtils';
 import { formatPartyName, formatPlateType } from '../../../utils/marathiUtils';
 import {
@@ -111,6 +119,26 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   });
   const [enlargedImage, setEnlargedImage] = useState<{ url: string; title: string } | null>(null);
 
+  // Bill Paper Format & Print Settings
+  const [paperSize, setPaperSize] = useState<BillPaperSize>(
+    templateConfig?.paperSize || config.paperSize || 'a4'
+  );
+  const [paperOrientation, setPaperOrientation] = useState<BillPaperOrientation>(
+    templateConfig?.paperOrientation || config.paperOrientation || 'portrait'
+  );
+  const [paperMargin, setPaperMargin] = useState<BillPaperMargin>(
+    templateConfig?.paperMargin || config.paperMargin || 'normal'
+  );
+  const [fitToSinglePage, setFitToSinglePage] = useState<boolean>(
+    templateConfig?.fitToSinglePage !== undefined
+      ? Boolean(templateConfig.fitToSinglePage)
+      : config.fitToSinglePage !== false
+  );
+  const [billCopyType, setBillCopyType] = useState<BillCopyType>(
+    templateConfig?.billCopyType || config.billCopyType || 'none'
+  );
+  const [isPaperSettingsOpen, setIsPaperSettingsOpen] = useState<boolean>(false);
+
   const [isSharingWhatsApp, setIsSharingWhatsApp] = useState<boolean>(false);
   const [shareToast, setShareToast] = useState<{ type: 'success' | 'info' | 'error'; message: string } | null>(null);
 
@@ -120,6 +148,21 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       setBillConfig(templateConfig);
       if (templateConfig.showBankDetails !== undefined) {
         setShowBankDetails(Boolean(templateConfig.showBankDetails));
+      }
+      if (templateConfig.paperSize) {
+        setPaperSize(templateConfig.paperSize);
+      }
+      if (templateConfig.paperOrientation) {
+        setPaperOrientation(templateConfig.paperOrientation);
+      }
+      if (templateConfig.paperMargin) {
+        setPaperMargin(templateConfig.paperMargin);
+      }
+      if (templateConfig.fitToSinglePage !== undefined) {
+        setFitToSinglePage(Boolean(templateConfig.fitToSinglePage));
+      }
+      if (templateConfig.billCopyType) {
+        setBillCopyType(templateConfig.billCopyType);
       }
     }
   }, [templateConfig]);
@@ -727,6 +770,8 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
           pendingAmount: totalPendingAmount,
           lang: selectedLanguage,
           phones,
+          paperSize,
+          paperOrientation,
         },
         (status, message) => {
           if (status === 'shared') {
@@ -930,6 +975,77 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
     );
   };
 
+  const isThermal = paperSize === 'thermal_80' || paperSize === 'thermal_58';
+  const thermalWidth = paperSize === 'thermal_58' ? '58mm' : '80mm';
+
+  // Dynamic CSS @page rules
+  const pageCssSize = isThermal
+    ? `${thermalWidth} auto`
+    : paperSize === 'a5'
+      ? `A5 ${paperOrientation}`
+      : paperSize === 'letter'
+        ? `letter ${paperOrientation}`
+        : `A4 ${paperOrientation}`;
+
+  const pageMarginCss = isThermal
+    ? '2mm 2mm'
+    : paperMargin === 'compact'
+      ? '3mm 4mm'
+      : paperMargin === 'wide'
+        ? '12mm 14mm'
+        : '6mm 8mm';
+
+  const sheetPaddingCss = isThermal
+    ? '2mm 3mm'
+    : paperMargin === 'compact'
+      ? '3mm 5mm'
+      : paperMargin === 'wide'
+        ? '10mm 12mm'
+        : isCompact ? '4mm 6mm' : '6mm 8mm';
+
+  const handleSavePaperAsDefault = () => {
+    const updated: BillTemplateConfig = {
+      ...billConfig,
+      paperSize,
+      paperOrientation,
+      paperMargin,
+      fitToSinglePage,
+      billCopyType,
+    };
+    setBillConfig(updated);
+    saveBillTemplateConfig(updated);
+    setIsPaperSettingsOpen(false);
+    setShareToast({
+      type: 'success',
+      message: selectedLanguage === 'marathi'
+        ? 'कागद साईझ व छपाई सेटिंग्ज सेव्ह झाल्या!'
+        : 'Paper format settings saved as default!',
+    });
+  };
+
+  const renderCopyTypeBadge = () => {
+    if (!billCopyType || billCopyType === 'none') return null;
+    const label = (() => {
+      switch (billCopyType) {
+        case 'original':
+          return selectedLanguage === 'marathi' ? 'मूळ प्रत (ORIGINAL)' : 'ORIGINAL COPY';
+        case 'duplicate':
+          return selectedLanguage === 'marathi' ? 'दुसरी प्रत (DUPLICATE)' : 'DUPLICATE COPY';
+        case 'office':
+          return selectedLanguage === 'marathi' ? 'कार्यालयीन प्रत (OFFICE)' : 'OFFICE COPY';
+        case 'triplicate':
+          return selectedLanguage === 'marathi' ? 'तिसरी प्रत (TRIPLICATE)' : 'TRIPLICATE COPY';
+        default:
+          return '';
+      }
+    })();
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded border border-slate-700 bg-slate-50 text-[10px] font-black tracking-wider uppercase text-slate-900 shadow-2xs">
+        {label}
+      </span>
+    );
+  };
+
   return createPortal(
     <div id="rental-bill-portal" className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static">
       {/* Print-specific CSS styles */}
@@ -992,25 +1108,32 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
           #rental-bill-sheet {
             display: block !important;
             position: static !important;
-            width: 100% !important;
-            max-width: 100% !important;
+            width: ${isThermal ? thermalWidth : '100%'} !important;
+            max-width: ${isThermal ? thermalWidth : '100%'} !important;
             margin: 0 auto !important;
-            padding: ${isCompact ? '4mm 6mm' : '6mm 8mm'} !important;
+            padding: ${sheetPaddingCss} !important;
             box-shadow: none !important;
-            border: 1px solid #1e293b !important;
+            border: ${isThermal ? 'none' : '1px solid #1e293b'} !important;
             background: white !important;
             color: black !important;
             overflow: visible !important;
+            font-size: ${isThermal ? (paperSize === 'thermal_58' ? '9px' : '10px') : 'inherit'} !important;
           }
 
           @page {
-            size: A4 portrait;
-            margin: 6mm 8mm;
+            size: ${pageCssSize};
+            margin: ${pageMarginCss};
           }
         }
       `}</style>
 
-      <div className={`bg-white rounded-3xl border border-slate-200 ${isCompact ? 'max-w-3xl' : 'max-w-4xl'} w-full max-h-[95vh] flex flex-col overflow-hidden shadow-2xl animate-scaleUp my-auto print:max-w-full print:max-h-none print:shadow-none print:border-none print:rounded-none`}>
+      <div className={`bg-white rounded-3xl border border-slate-200 ${
+        isThermal
+          ? (paperSize === 'thermal_58' ? 'max-w-md' : 'max-w-lg')
+          : paperOrientation === 'landscape'
+            ? 'max-w-6xl'
+            : (isCompact || paperSize === 'a5' ? 'max-w-3xl' : 'max-w-4xl')
+      } w-full max-h-[95vh] flex flex-col overflow-hidden shadow-2xl animate-scaleUp my-auto print:max-w-full print:max-h-none print:shadow-none print:border-none print:rounded-none`}>
         {/* Top Control Bar (Hidden during print) */}
         <div className="no-print px-5 py-3.5 border-b border-slate-200 flex flex-wrap justify-between items-center bg-slate-50 gap-3 flex-shrink-0">
           <div className="flex items-center gap-2">
@@ -1166,6 +1289,141 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               >
                 Compact
               </button>
+            </div>
+
+            {/* Paper Format Quick Selector Button & Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsPaperSettingsOpen(!isPaperSettingsOpen)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-xs cursor-pointer ${
+                  isPaperSettingsOpen
+                    ? 'bg-primary text-white border-primary shadow-sm'
+                    : 'bg-slate-200/90 hover:bg-slate-300/80 text-slate-800 border-slate-300/50'
+                }`}
+                title={selectedLanguage === 'marathi' ? 'कागद साईझ व छपाई सेटिंग्ज बदला' : 'Change paper size and print settings'}
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>
+                  {paperSize ? paperSize.toUpperCase().replace('_', ' ') : 'A4'}
+                  {paperSize !== 'thermal_80' && paperSize !== 'thermal_58' && ` (${paperOrientation === 'landscape' ? (selectedLanguage === 'marathi' ? 'आडवा' : 'Land') : (selectedLanguage === 'marathi' ? 'उभा' : 'Port')})`}
+                </span>
+              </button>
+
+              {/* Paper Format Dropdown Popover */}
+              {isPaperSettingsOpen && (
+                <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3.5 z-50 text-slate-800 space-y-3 animate-scaleUp">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                      <Printer className="w-4 h-4 text-primary" />
+                      <span>{selectedLanguage === 'marathi' ? 'कागद व प्रिंट सेटिंग्ज' : 'Paper & Print Settings'}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsPaperSettingsOpen(false)}
+                      className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Paper Size */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-500">
+                      {selectedLanguage === 'marathi' ? 'कागद साईझ (Paper Size):' : 'Paper Size:'}
+                    </label>
+                    <select
+                      value={paperSize}
+                      onChange={(e) => setPaperSize(e.target.value as BillPaperSize)}
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-primary px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
+                    >
+                      {PAPER_SIZE_OPTIONS.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {selectedLanguage === 'marathi' ? opt.labelMr : opt.labelEn} ({opt.dimensions})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Orientation (if not thermal) */}
+                  {paperSize !== 'thermal_80' && paperSize !== 'thermal_58' && (
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-slate-500">
+                        {selectedLanguage === 'marathi' ? 'कागद दिशा (Orientation):' : 'Orientation:'}
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {PAPER_ORIENTATION_OPTIONS.map((ori) => (
+                          <button
+                            key={ori.id}
+                            type="button"
+                            onClick={() => setPaperOrientation(ori.id)}
+                            className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                              paperOrientation === ori.id
+                                ? 'bg-primary text-white border-primary shadow-xs'
+                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {selectedLanguage === 'marathi' ? ori.labelMr : ori.labelEn}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Margins */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-500">
+                      {selectedLanguage === 'marathi' ? 'समास (Margins):' : 'Margins:'}
+                    </label>
+                    <div className="grid grid-cols-3 gap-1">
+                      {PAPER_MARGIN_OPTIONS.map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => setPaperMargin(m.id)}
+                          className={`py-1 px-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                            paperMargin === m.id
+                              ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {selectedLanguage === 'marathi' ? m.labelMr.split(' ')[0] : m.labelEn.split(' ')[0]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Copy Type Stamp */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-500">
+                      {selectedLanguage === 'marathi' ? 'प्रत शिक्का (Copy Stamp):' : 'Copy Stamp:'}
+                    </label>
+                    <select
+                      value={billCopyType}
+                      onChange={(e) => setBillCopyType(e.target.value as BillCopyType)}
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-primary px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
+                    >
+                      {BILL_COPY_TYPE_OPTIONS.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {selectedLanguage === 'marathi' ? c.labelMr : c.labelEn}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Save as default button */}
+                  <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
+                    <button
+                      type="button"
+                      onClick={handleSavePaperAsDefault}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-1.5 px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{selectedLanguage === 'marathi' ? 'नेहमीसाठी सेव्ह करा' : 'Save as Default'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Cycles Breakdown Checkbox */}
@@ -1346,12 +1604,128 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
         <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-100/70 print:bg-white print:p-0 print:overflow-visible">
           
           {/* ========================================================= */}
-          {/* 1. SIMPLE BILL FORMAT (साधे बिल) - DEFAULT & RECOMMENDED */}
+          {/* 0. THERMAL RECEIPT FORMAT (POS ROLL) - 80mm & 58mm        */}
           {/* ========================================================= */}
-          {isSimple ? (
+          {isThermal ? (
             <div
               id="rental-bill-sheet"
-              className="bg-white text-black p-8 sm:p-10 font-sans mx-auto max-w-2xl border border-slate-200 shadow-sm rounded-xl print:border-none print:shadow-none print:p-4 print:max-w-none text-xs leading-relaxed"
+              className={`bg-white text-black p-3.5 font-mono mx-auto ${
+                paperSize === 'thermal_58' ? 'max-w-[270px] text-[10px]' : 'max-w-[340px] text-xs'
+              } border border-slate-300 shadow-md rounded-lg print:border-none print:shadow-none print:p-0 print:max-w-none leading-tight`}
+            >
+              {/* Thermal Header */}
+              <div className="text-center pb-2 border-b border-dashed border-slate-400 space-y-0.5">
+                <h1 className="text-sm font-black uppercase tracking-tight text-black">
+                  {selectedLanguage === 'marathi' ? businessNameMr : businessName}
+                </h1>
+                <p className="text-[10px] text-slate-700">{address}</p>
+                <p className="text-[10px] font-bold text-slate-800">
+                  {selectedLanguage === 'marathi' ? 'मो.:' : 'Mob:'} {phones.split(',')[0]?.trim()}
+                </p>
+                <div className="pt-1 flex items-center justify-center gap-1.5">
+                  <span className="font-extrabold underline uppercase text-[11px] text-black">
+                    {selectedLanguage === 'marathi' ? 'भाडे पावती व चालान' : 'RENTAL RECEIPT'}
+                  </span>
+                  {renderCopyTypeBadge()}
+                </div>
+              </div>
+
+              {/* Thermal Bill Meta */}
+              <div className="py-2 border-b border-dashed border-slate-400 text-[10px] space-y-0.5">
+                <div className="flex justify-between">
+                  <span className="font-bold">{selectedLanguage === 'marathi' ? 'बिल क्र.:' : 'Bill No:'} #{billNumber}</span>
+                  <span>{issueDateFormatted}</span>
+                </div>
+                <div className="font-bold text-black truncate">
+                  {selectedLanguage === 'marathi' ? 'ग्राहक:' : 'Customer:'} {rawPartyName}
+                </div>
+                {partyDisplayMobile && (
+                  <div>{selectedLanguage === 'marathi' ? 'मोबाईल:' : 'Mob:'} {partyDisplayMobile}</div>
+                )}
+                {partyDisplayAddress && (
+                  <div className="truncate">{selectedLanguage === 'marathi' ? 'साइट:' : 'Site:'} {partyDisplayAddress}</div>
+                )}
+                <div className="text-[9px] text-slate-600">
+                  {selectedLanguage === 'marathi' ? 'कालावधी:' : 'Period:'} {cycleDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'Days'} ({cycleStartFormatted} - {cycleEndFormatted})
+                </div>
+              </div>
+
+              {/* Thermal Items Table */}
+              <div className="py-2 border-b border-dashed border-slate-400">
+                <div className="flex justify-between text-[10px] font-black border-b border-black pb-1 mb-1">
+                  <span className="flex-1">{selectedLanguage === 'marathi' ? 'साहित्य' : 'Item'}</span>
+                  <span className="w-12 text-center">{selectedLanguage === 'marathi' ? 'नग' : 'Qty'}</span>
+                  <span className="w-16 text-right">{selectedLanguage === 'marathi' ? 'रक्कम' : 'Total'}</span>
+                </div>
+                {plateItems.map((item, idx) => (
+                  <div key={idx} className="flex justify-between text-[10px] py-0.5">
+                    <span className="flex-1 truncate font-medium">{formatPlateType(item.plateType)}</span>
+                    <span className="w-12 text-center font-bold">{item.quantity}</span>
+                    <span className="w-16 text-right font-bold">₹{Math.round(item.quantity * item.dailyRate * (item.days || cycleDays)).toLocaleString('en-IN')}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Thermal Totals */}
+              <div className="py-2 border-b border-dashed border-slate-400 space-y-1 text-[11px]">
+                <div className="flex justify-between">
+                  <span>{selectedLanguage === 'marathi' ? 'एकूण भाडे:' : 'Total Rent:'}</span>
+                  <span className="font-bold">₹{totalCycleAmount.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between text-emerald-800">
+                  <span>{selectedLanguage === 'marathi' ? 'जमा रक्कम:' : 'Paid Amount:'}</span>
+                  <span className="font-bold">₹{totalPaidAmount.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between font-black text-xs border border-black p-1 bg-slate-50 mt-1">
+                  <span>{selectedLanguage === 'marathi' ? 'येणे बाकी:' : 'Balance Due:'}</span>
+                  <span>₹{totalPendingAmount.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              {/* Thermal Bank Details if enabled */}
+              {showBankDetails && billConfig.bankName && (
+                <div className="py-1.5 border-b border-dashed border-slate-400 text-[9px] space-y-0.5">
+                  <div className="font-bold">{billConfig.bankName}</div>
+                  {billConfig.accountNumber && <div>A/C: {billConfig.accountNumber}</div>}
+                  {billConfig.ifscCode && <div>IFSC: {billConfig.ifscCode}</div>}
+                  {billConfig.upiId && <div>UPI: {billConfig.upiId}</div>}
+                </div>
+              )}
+
+              {/* Thermal Terms if enabled */}
+              {printTerms && activeTerms.length > 0 && (
+                <div className="py-1 border-b border-dashed border-slate-400 text-[8px] text-slate-700 leading-tight">
+                  <div className="font-bold">{selectedLanguage === 'marathi' ? 'नियम व अटी:' : 'Terms:'}</div>
+                  <p>{activeTerms[0]}</p>
+                </div>
+              )}
+
+              {/* Thermal Signatures & Footer */}
+              <div className="pt-2 text-center text-[9px] space-y-1">
+                <div className="pt-4 flex justify-between items-end text-[9px]">
+                  <div>
+                    <div className="border-t border-black pt-0.5 w-16 text-center">{selectedLanguage === 'marathi' ? 'ग्राहक सही' : 'Customer'}</div>
+                  </div>
+                  <div>
+                    <div className="border-t border-black pt-0.5 w-16 text-center">{selectedLanguage === 'marathi' ? 'अधिकृत सही' : 'Signatory'}</div>
+                  </div>
+                </div>
+                <p className="text-[9px] pt-1 font-semibold">{selectedLanguage === 'marathi' ? 'धन्यवाद! पुन्हा भेट द्या.' : 'Thank you!'}</p>
+              </div>
+
+              {/* KYC Annexure if enabled */}
+              {showKycDocs && renderKycDocumentsSection(true)}
+            </div>
+          ) : isSimple ? (
+            <div
+              id="rental-bill-sheet"
+              className={`bg-white text-black font-sans mx-auto border border-slate-200 shadow-sm rounded-xl print:border-none print:shadow-none print:p-2 print:max-w-none leading-relaxed ${
+                paperSize === 'a5'
+                  ? 'p-5 sm:p-6 max-w-xl text-[11px]'
+                  : paperOrientation === 'landscape'
+                    ? 'p-6 sm:p-8 max-w-4xl text-xs'
+                    : 'p-8 sm:p-10 max-w-2xl text-xs'
+              }`}
             >
               {/* TOP HEADER: Left Company Info | Right INVOICE & Meta */}
               <div className="flex justify-between items-start pb-4">
@@ -1377,9 +1751,12 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 </div>
 
                 <div className="text-right space-y-0.5">
-                  <h2 className="text-xl sm:text-2xl font-black tracking-wider text-black uppercase">
-                    {selectedLanguage === 'marathi' ? 'भाडे पावती' : 'INVOICE'}
-                  </h2>
+                  <div className="flex items-center justify-end gap-2">
+                    <h2 className="text-xl sm:text-2xl font-black tracking-wider text-black uppercase">
+                      {selectedLanguage === 'marathi' ? 'भाडे पावती' : 'INVOICE'}
+                    </h2>
+                    {renderCopyTypeBadge()}
+                  </div>
                   <div className="flex items-center justify-end gap-1.5 group">
                     <p className="text-xs font-mono font-bold text-slate-900">#{billNumber}</p>
                     <button
@@ -1856,7 +2233,13 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
             /* ========================================================= */
             <div
               id="rental-bill-sheet"
-              className={`bg-white border border-slate-200 shadow-sm rounded-2xl ${isCompact ? 'p-5 sm:p-6' : 'p-6 sm:p-8'} text-slate-800 font-sans mx-auto max-w-3xl print:border-none print:shadow-none print:p-0`}
+              className={`bg-white border border-slate-200 shadow-sm rounded-2xl ${
+                paperSize === 'a5'
+                  ? 'p-4 sm:p-5 max-w-xl text-[11px]'
+                  : paperOrientation === 'landscape'
+                    ? 'p-5 sm:p-6 max-w-5xl text-xs'
+                    : isCompact ? 'p-5 sm:p-6 max-w-3xl text-xs' : 'p-6 sm:p-8 max-w-3xl text-xs'
+              } text-slate-800 font-sans mx-auto print:border-none print:shadow-none print:p-0`}
             >
               {/* Header Section */}
               <div className={`border-b-2 border-slate-800 ${isCompact ? 'pb-3 mb-4' : 'pb-5 mb-6'}`}>
@@ -1914,6 +2297,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                   <span className="text-xs font-black uppercase tracking-wider">
                     {currentT.billTitle}
                   </span>
+                  {renderCopyTypeBadge()}
                 </div>
                 <div className="text-xs font-bold tracking-wide flex items-center gap-1.5">
                   <span>{currentT.billNoLabel}</span>

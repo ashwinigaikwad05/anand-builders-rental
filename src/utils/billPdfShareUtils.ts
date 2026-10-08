@@ -2,6 +2,11 @@ import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
 import { getCleanPhoneNumber } from './alertMessaging.ts';
 import { formatPartyName } from './marathiUtils.ts';
+import {
+  getBillTemplateConfig,
+  type BillPaperSize,
+  type BillPaperOrientation,
+} from './billTemplateUtils.ts';
 
 export interface BillShareItem {
   plateType: string;
@@ -26,6 +31,8 @@ export interface BillShareData {
   pendingAmount: number;
   lang?: 'marathi' | 'english';
   phones?: string;
+  paperSize?: BillPaperSize;
+  paperOrientation?: BillPaperOrientation;
 }
 
 const AUTO_WHATSAPP_STORAGE_KEY = 'anand_auto_whatsapp_share';
@@ -108,12 +115,20 @@ export function buildBillWhatsAppSummary(data: BillShareData): string {
 }
 
 /**
- * Renders an HTML element to a high-resolution PDF Blob
+ * Renders an HTML element to a high-resolution PDF Blob respecting configured paper format
  */
 export async function generateBillPdfBlob(
   element: HTMLElement,
-  title = 'Rental_Bill'
+  title = 'Rental_Bill',
+  paperOptions?: {
+    paperSize?: BillPaperSize;
+    orientation?: BillPaperOrientation;
+  }
 ): Promise<{ blob: Blob; filename: string }> {
+  const cfg = getBillTemplateConfig();
+  const paperSize: BillPaperSize = paperOptions?.paperSize || cfg.paperSize || 'a4';
+  const orientation: BillPaperOrientation = paperOptions?.orientation || cfg.paperOrientation || 'portrait';
+
   // 1. Capture element to high-res canvas (scale 2.0 ensures crisp text and logo)
   const canvas = await html2canvas(element, {
     scale: 2.0,
@@ -124,33 +139,95 @@ export async function generateBillPdfBlob(
     windowWidth: element.scrollWidth || 900,
   });
 
-  // 2. Prepare jsPDF A4 document
-  const pdf = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-    compress: true,
-  });
+  let pdf: jsPDF;
+  let pageWidth: number;
+  let pageHeight: number;
 
-  const pageWidth = 210; // A4 width mm
-  const pageHeight = 297; // A4 height mm
+  if (paperSize === 'thermal_80') {
+    pageWidth = 80;
+    pageHeight = Math.max(90, Math.round((canvas.height * pageWidth) / canvas.width));
+    pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [pageWidth, pageHeight],
+      compress: true,
+    });
+  } else if (paperSize === 'thermal_58') {
+    pageWidth = 58;
+    pageHeight = Math.max(70, Math.round((canvas.height * pageWidth) / canvas.width));
+    pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [pageWidth, pageHeight],
+      compress: true,
+    });
+  } else if (paperSize === 'a5') {
+    if (orientation === 'landscape') {
+      pageWidth = 210;
+      pageHeight = 148;
+    } else {
+      pageWidth = 148;
+      pageHeight = 210;
+    }
+    pdf = new jsPDF({
+      orientation,
+      unit: 'mm',
+      format: 'a5',
+      compress: true,
+    });
+  } else if (paperSize === 'letter') {
+    if (orientation === 'landscape') {
+      pageWidth = 279;
+      pageHeight = 216;
+    } else {
+      pageWidth = 216;
+      pageHeight = 279;
+    }
+    pdf = new jsPDF({
+      orientation,
+      unit: 'mm',
+      format: 'letter',
+      compress: true,
+    });
+  } else {
+    // Default: A4
+    if (orientation === 'landscape') {
+      pageWidth = 297;
+      pageHeight = 210;
+    } else {
+      pageWidth = 210;
+      pageHeight = 297;
+    }
+    pdf = new jsPDF({
+      orientation,
+      unit: 'mm',
+      format: 'a4',
+      compress: true,
+    });
+  }
+
   const imgWidth = pageWidth;
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
   const imgData = canvas.toDataURL('image/jpeg', 0.95);
-  let heightLeft = imgHeight;
-  let position = 0;
 
-  // First page
-  pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-  heightLeft -= pageHeight;
+  if (paperSize === 'thermal_80' || paperSize === 'thermal_58') {
+    // Continuous thermal roll slip
+    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
+  } else {
+    let heightLeft = imgHeight;
+    let position = 0;
 
-  // Subsequent pages if long document (e.g. attached KYC documents)
-  while (heightLeft > 0) {
-    position = heightLeft - imgHeight;
-    pdf.addPage();
+    // First page
     pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
     heightLeft -= pageHeight;
+
+    // Subsequent pages if long document (e.g. attached KYC documents)
+    while (heightLeft > 2) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= pageHeight;
+    }
   }
 
   const safeTitle = title.replace(/[^a-zA-Z0-9_\u0900-\u097F-]/g, '_');
@@ -276,7 +353,10 @@ export async function autoShareBillPdfViaWhatsApp(
 
     const cleanParty = (data.partyName || 'Customer').trim().replace(/\s+/g, '_');
     const pdfTitle = `Anand_Bill_#${data.billNumber}_${cleanParty}`;
-    const { blob, filename } = await generateBillPdfBlob(element, pdfTitle);
+    const { blob, filename } = await generateBillPdfBlob(element, pdfTitle, {
+      paperSize: data.paperSize,
+      orientation: data.paperOrientation,
+    });
 
     // 1. Mobile Web Share API: If device supports sharing files directly (Android / iOS)
     if (typeof navigator !== 'undefined' && typeof File !== 'undefined' && navigator.canShare) {

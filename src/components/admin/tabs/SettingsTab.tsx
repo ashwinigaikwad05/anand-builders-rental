@@ -20,15 +20,24 @@ import {
   Bell,
   RefreshCw,
   Loader2,
+  Printer,
 } from 'lucide-react';
 import {
   getBillTemplateConfig,
   saveBillTemplateConfig,
   MARATHI_TERMS,
   ENGLISH_TERMS,
+  PAPER_SIZE_OPTIONS,
+  PAPER_ORIENTATION_OPTIONS,
+  PAPER_MARGIN_OPTIONS,
+  BILL_COPY_TYPE_OPTIONS,
   type BillTemplateConfig,
   type BillTemplateStyle,
   type BillLanguage,
+  type BillPaperSize,
+  type BillPaperOrientation,
+  type BillPaperMargin,
+  type BillCopyType,
 } from '../../../utils/billTemplateUtils';
 import { RentalBillModal } from '../modals/RentalBillModal';
 import { DeleteDataConfirmModal, type DeleteDataCategory } from '../modals/DeleteDataConfirmModal';
@@ -211,10 +220,69 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   const handleUpdateTemplateStyle = (style: BillTemplateStyle) => {
-    setBillConfig((prev) => ({
-      ...prev,
-      templateStyle: style,
-    }));
+    setBillConfig((prev) => {
+      const updated = {
+        ...prev,
+        templateStyle: style,
+      };
+      saveBillTemplateConfig(updated);
+      return updated;
+    });
+  };
+
+  const handleUpdatePaperSize = (size: BillPaperSize) => {
+    setBillConfig((prev) => {
+      const updated = {
+        ...prev,
+        paperSize: size,
+      };
+      saveBillTemplateConfig(updated);
+      return updated;
+    });
+  };
+
+  const handleUpdateOrientation = (orientation: BillPaperOrientation) => {
+    setBillConfig((prev) => {
+      const updated = {
+        ...prev,
+        paperOrientation: orientation,
+      };
+      saveBillTemplateConfig(updated);
+      return updated;
+    });
+  };
+
+  const handleUpdateMargin = (margin: BillPaperMargin) => {
+    setBillConfig((prev) => {
+      const updated = {
+        ...prev,
+        paperMargin: margin,
+      };
+      saveBillTemplateConfig(updated);
+      return updated;
+    });
+  };
+
+  const handleToggleFitToSinglePage = (fit: boolean) => {
+    setBillConfig((prev) => {
+      const updated = {
+        ...prev,
+        fitToSinglePage: fit,
+      };
+      saveBillTemplateConfig(updated);
+      return updated;
+    });
+  };
+
+  const handleUpdateCopyType = (copyType: BillCopyType) => {
+    setBillConfig((prev) => {
+      const updated = {
+        ...prev,
+        billCopyType: copyType,
+      };
+      saveBillTemplateConfig(updated);
+      return updated;
+    });
   };
 
   const handleUpdateLanguage = (lang: BillLanguage) => {
@@ -829,6 +897,180 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     ? 'सर्व तपशील, चालान क्रमांक आणि साहित्याच्या विस्‍तृत माहितीसह चालान पावती.'
                     : 'Full-featured rental bill & dispatch challan. Best for standard yard operations.'}
                 </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Paper Format & Print Settings */}
+          <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="p-2 bg-orange-100 text-primary rounded-xl">
+                  <Printer className="w-4 h-4" />
+                </span>
+                <div>
+                  <h5 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                    {isMarathi ? 'कागद साईझ व छपाई फॉरमॅट सेटिंग्ज' : 'Bill Paper Size & Print Format Settings'}
+                  </h5>
+                  <p className="text-[11px] text-slate-500">
+                    {isMarathi
+                      ? 'बिलासाठी कागदाचा आकार (A4, A5, थर्मल POS), दिशा, समास आणि प्रत शिक्का निवडा'
+                      : 'Choose paper dimensions (A4, A5, Thermal POS), page orientation, margins, and copy watermark'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-slate-900 text-white shadow-2xs">
+                  {billConfig.paperSize ? billConfig.paperSize.toUpperCase().replace('_', ' ') : 'A4'} •{' '}
+                  {billConfig.paperOrientation === 'landscape' ? (isMarathi ? 'आडवा' : 'Landscape') : (isMarathi ? 'उभा' : 'Portrait')}
+                </span>
+              </div>
+            </div>
+
+            {/* A. Paper Size Cards */}
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wide block mb-2">
+                {isMarathi ? 'कागदाचा आकार (Paper Size):' : 'Paper Size:'}
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {PAPER_SIZE_OPTIONS.map((opt) => {
+                  const isSelected = (billConfig.paperSize || 'a4') === opt.id;
+                  return (
+                    <div
+                      key={opt.id}
+                      onClick={() => handleUpdatePaperSize(opt.id)}
+                      className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                        isSelected
+                          ? 'border-primary bg-white shadow-xs ring-1 ring-primary/30'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-black text-slate-900">
+                            {isMarathi ? opt.labelMr : opt.labelEn}
+                          </span>
+                        </div>
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                          {opt.dimensions}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-snug line-clamp-2">
+                        {isMarathi ? opt.descriptionMr : opt.descriptionEn}
+                      </p>
+                      {isSelected && (
+                        <div className="mt-2 pt-1 border-t border-slate-100 flex items-center justify-between text-[10px] text-primary font-bold">
+                          <span>{isMarathi ? 'सक्रिय साईझ' : 'Active Size'}</span>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* B. Orientation & Margins Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              {/* Orientation */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wide block">
+                  {isMarathi ? 'कागद दिशा (Orientation):' : 'Page Orientation:'}
+                </label>
+                {(billConfig.paperSize === 'thermal_80' || billConfig.paperSize === 'thermal_58') ? (
+                  <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-xs text-slate-600 font-medium">
+                    {isMarathi
+                      ? 'थर्मल प्रिंटर रोल अखंड उभा (Vertical Continuous) असतो.'
+                      : 'Thermal receipt printer rolls are continuous vertical slips.'}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {PAPER_ORIENTATION_OPTIONS.map((ori) => {
+                      const isSelected = (billConfig.paperOrientation || 'portrait') === ori.id;
+                      return (
+                        <button
+                          key={ori.id}
+                          type="button"
+                          onClick={() => handleUpdateOrientation(ori.id)}
+                          className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                            isSelected
+                              ? 'border-primary bg-primary text-white shadow-xs'
+                              : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                          }`}
+                        >
+                          <span>{isMarathi ? ori.labelMr : ori.labelEn}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Margins */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wide block">
+                  {isMarathi ? 'प्रिंट समास (Print Margins):' : 'Print Margins:'}
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {PAPER_MARGIN_OPTIONS.map((m) => {
+                    const isSelected = (billConfig.paperMargin || 'normal') === m.id;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => handleUpdateMargin(m.id)}
+                        className={`py-2 px-1.5 rounded-xl border text-[11px] font-bold transition-all text-center cursor-pointer ${
+                          isSelected
+                            ? 'border-primary bg-white text-primary shadow-xs ring-1 ring-primary'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        {isMarathi ? m.labelMr.split(' ')[0] : m.labelEn.split(' ')[0]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* C. Single Page Fit & Copy Type Stamp */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 border-t border-slate-200/80">
+              {/* Single Page Auto Fit Toggle */}
+              <label className="flex items-center gap-2.5 cursor-pointer p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={billConfig.fitToSinglePage !== false}
+                  onChange={(e) => handleToggleFitToSinglePage(e.target.checked)}
+                  className="w-4 h-4 rounded text-primary focus:ring-primary accent-primary"
+                />
+                <div className="text-left">
+                  <span className="text-xs font-bold text-slate-900 block">
+                    {isMarathi ? 'एका पानात स्वयंचलित बसवा (Fit to 1 Page)' : 'Fit to Single Page (Auto-Scale)'}
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    {isMarathi
+                      ? 'बिल जास्त मोठे असल्यास फॉन्ट व समास अनुकूल करून एका पानात पूर्ण बसेल'
+                      : 'Optimizes margins and line heights to fit completely on one sheet'}
+                  </span>
+                </div>
+              </label>
+
+              {/* Bill Copy Type Stamp */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wide block">
+                  {isMarathi ? 'बिलावर प्रत शिक्का (Copy Type Stamp):' : 'Copy Watermark / Stamp:'}
+                </label>
+                <select
+                  value={billConfig.billCopyType || 'none'}
+                  onChange={(e) => handleUpdateCopyType(e.target.value as BillCopyType)}
+                  className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none px-3 py-2 rounded-xl text-xs font-bold text-slate-800 cursor-pointer"
+                >
+                  {BILL_COPY_TYPE_OPTIONS.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {isMarathi ? c.labelMr : c.labelEn}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
