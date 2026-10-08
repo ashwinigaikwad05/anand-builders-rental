@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Loader2,
   Printer,
+  Scissors,
 } from 'lucide-react';
 import {
   getBillTemplateConfig,
@@ -235,6 +236,30 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       const updated = {
         ...prev,
         paperSize: size,
+        twoBillsPerPage: size === 'a4_2in1' ? true : (prev.paperSize === 'a4_2in1' ? false : prev.twoBillsPerPage),
+      };
+      saveBillTemplateConfig(updated);
+      return updated;
+    });
+  };
+
+  const handleToggleTwoBillsPerPage = (enabled: boolean) => {
+    setBillConfig((prev) => {
+      const updated = {
+        ...prev,
+        twoBillsPerPage: enabled,
+        paperSize: enabled ? ('a4_2in1' as BillPaperSize) : (prev.paperSize === 'a4_2in1' ? ('a4' as BillPaperSize) : prev.paperSize),
+      };
+      saveBillTemplateConfig(updated);
+      return updated;
+    });
+  };
+
+  const handleUpdateTwoBillsSecondCopyLabel = (label: 'office' | 'duplicate' | 'store') => {
+    setBillConfig((prev) => {
+      const updated = {
+        ...prev,
+        twoBillsSecondCopyLabel: label,
       };
       saveBillTemplateConfig(updated);
       return updated;
@@ -1033,7 +1058,59 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
             </div>
 
-            {/* C. Single Page Fit & Copy Type Stamp */}
+            {/* C. 2 Bills on 1 Sheet / 1 पानात २ पावत्या Setting Banner */}
+            <div className={`p-3.5 rounded-2xl border-2 transition-all ${
+              (billConfig.paperSize === 'a4_2in1' || billConfig.twoBillsPerPage)
+                ? 'bg-amber-50/90 border-amber-300 shadow-xs'
+                : 'bg-white border-slate-200'
+            }`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={billConfig.paperSize === 'a4_2in1' || Boolean(billConfig.twoBillsPerPage)}
+                    onChange={(e) => handleToggleTwoBillsPerPage(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded text-amber-600 focus:ring-amber-500 accent-amber-600 cursor-pointer"
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-slate-900 uppercase flex items-center gap-1.5">
+                        <Scissors className="w-3.5 h-3.5 text-amber-600" />
+                        <span>{isMarathi ? '१ पानात २ पावत्या प्रिंट करा (2-in-1 Format)' : 'Print 2 Bills on 1 Page (2-in-1 Format)'}</span>
+                      </span>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 uppercase">
+                        {isMarathi ? '५०% कागद बचत' : 'Saves 50% Paper'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 mt-0.5">
+                      {isMarathi
+                        ? 'एकाच A4 पानावर वर ग्राहक मूळ प्रत व खाली दुकान/कार्यालय प्रत (कापण्यासाठी ✂ कटिंग लाईनसह) प्रिंट होते.'
+                        : 'Prints 2 complete bills on one A4 page: Customer original copy on top and office copy on bottom with cut line.'}
+                    </p>
+                  </div>
+                </label>
+
+                {/* 2nd Copy Label Selector if enabled */}
+                {(billConfig.paperSize === 'a4_2in1' || billConfig.twoBillsPerPage) && (
+                  <div className="flex items-center gap-2 sm:self-center pl-7 sm:pl-0 flex-shrink-0">
+                    <span className="text-[10px] font-bold text-slate-700 uppercase whitespace-nowrap">
+                      {isMarathi ? 'दुसऱ्या प्रतीचे नाव:' : '2nd Copy:'}
+                    </span>
+                    <select
+                      value={billConfig.twoBillsSecondCopyLabel || 'office'}
+                      onChange={(e) => handleUpdateTwoBillsSecondCopyLabel(e.target.value as any)}
+                      className="bg-white border border-amber-300 focus:border-amber-500 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800 shadow-2xs cursor-pointer"
+                    >
+                      <option value="office">{isMarathi ? 'कार्यालयीन प्रत (Office Copy)' : 'Office Copy'}</option>
+                      <option value="duplicate">{isMarathi ? 'दुसरी प्रत (Duplicate Copy)' : 'Duplicate Copy'}</option>
+                      <option value="store">{isMarathi ? 'दुकान प्रत (Store Copy)' : 'Store Copy'}</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* D. Single Page Fit & Copy Type Stamp */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 border-t border-slate-200/80">
               {/* Single Page Auto Fit Toggle */}
               <label className="flex items-center gap-2.5 cursor-pointer p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 transition-colors">

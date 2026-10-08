@@ -137,6 +137,14 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   const [billCopyType, setBillCopyType] = useState<BillCopyType>(
     templateConfig?.billCopyType || config.billCopyType || 'none'
   );
+  const [twoBillsPerPage, setTwoBillsPerPage] = useState<boolean>(
+    templateConfig?.twoBillsPerPage !== undefined
+      ? Boolean(templateConfig.twoBillsPerPage)
+      : (config.twoBillsPerPage ?? (config.paperSize === 'a4_2in1' || templateConfig?.paperSize === 'a4_2in1'))
+  );
+  const [twoBillsSecondCopyLabel, setTwoBillsSecondCopyLabel] = useState<'office' | 'duplicate' | 'store'>(
+    templateConfig?.twoBillsSecondCopyLabel || config.twoBillsSecondCopyLabel || 'office'
+  );
   const [isPaperSettingsOpen, setIsPaperSettingsOpen] = useState<boolean>(false);
 
   const [isSharingWhatsApp, setIsSharingWhatsApp] = useState<boolean>(false);
@@ -163,6 +171,14 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       }
       if (templateConfig.billCopyType) {
         setBillCopyType(templateConfig.billCopyType);
+      }
+      if (templateConfig.twoBillsPerPage !== undefined) {
+        setTwoBillsPerPage(Boolean(templateConfig.twoBillsPerPage));
+      } else if (templateConfig.paperSize === 'a4_2in1') {
+        setTwoBillsPerPage(true);
+      }
+      if (templateConfig.twoBillsSecondCopyLabel) {
+        setTwoBillsSecondCopyLabel(templateConfig.twoBillsSecondCopyLabel);
       }
     }
   }, [templateConfig]);
@@ -977,40 +993,49 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
   const isThermal = paperSize === 'thermal_80' || paperSize === 'thermal_58';
   const thermalWidth = paperSize === 'thermal_58' ? '58mm' : '80mm';
+  const isTwoBills = paperSize === 'a4_2in1' || Boolean(twoBillsPerPage);
 
   // Dynamic CSS @page rules
   const pageCssSize = isThermal
     ? `${thermalWidth} auto`
-    : paperSize === 'a5'
-      ? `A5 ${paperOrientation}`
-      : paperSize === 'letter'
-        ? `letter ${paperOrientation}`
-        : `A4 ${paperOrientation}`;
+    : isTwoBills
+      ? 'A4 portrait'
+      : paperSize === 'a5'
+        ? `A5 ${paperOrientation}`
+        : paperSize === 'letter'
+          ? `letter ${paperOrientation}`
+          : `A4 ${paperOrientation}`;
 
   const pageMarginCss = isThermal
     ? '2mm 2mm'
-    : paperMargin === 'compact'
-      ? '3mm 4mm'
-      : paperMargin === 'wide'
-        ? '12mm 14mm'
-        : '6mm 8mm';
+    : isTwoBills
+      ? '4mm 5mm'
+      : paperMargin === 'compact'
+        ? '3mm 4mm'
+        : paperMargin === 'wide'
+          ? '12mm 14mm'
+          : '6mm 8mm';
 
   const sheetPaddingCss = isThermal
     ? '2mm 3mm'
-    : paperMargin === 'compact'
-      ? '3mm 5mm'
-      : paperMargin === 'wide'
-        ? '10mm 12mm'
-        : isCompact ? '4mm 6mm' : '6mm 8mm';
+    : isTwoBills
+      ? '2mm 3mm'
+      : paperMargin === 'compact'
+        ? '3mm 5mm'
+        : paperMargin === 'wide'
+          ? '10mm 12mm'
+          : isCompact ? '4mm 6mm' : '6mm 8mm';
 
   const handleSavePaperAsDefault = () => {
     const updated: BillTemplateConfig = {
       ...billConfig,
-      paperSize,
+      paperSize: isTwoBills ? 'a4_2in1' : paperSize,
       paperOrientation,
       paperMargin,
       fitToSinglePage,
       billCopyType,
+      twoBillsPerPage: isTwoBills,
+      twoBillsSecondCopyLabel,
     };
     setBillConfig(updated);
     saveBillTemplateConfig(updated);
@@ -1021,6 +1046,182 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
         ? 'कागद साईझ व छपाई सेटिंग्ज सेव्ह झाल्या!'
         : 'Paper format settings saved as default!',
     });
+  };
+
+  const renderTwoBillsSubSheet = (copyBadgeText: string, isUpper: boolean) => {
+    const totalPlateUnits = plateItems.reduce((acc, it) => acc + (it.quantity || 0), 0);
+
+    return (
+      <div
+        key={isUpper ? 'copy-upper' : 'copy-lower'}
+        className="two-bills-copy bg-white border border-slate-900 rounded-lg p-2 sm:p-2.5 text-[9.5px] leading-tight flex flex-col justify-between"
+        style={{
+          boxSizing: 'border-box',
+          pageBreakInside: 'avoid',
+          breakInside: 'avoid',
+        }}
+      >
+        {/* 1. Header Row */}
+        <div className="flex justify-between items-start pb-1 border-b border-slate-800">
+          {/* Left: Branding & Company Info */}
+          <div className="flex items-center gap-2">
+            <img
+              src="/logo.png"
+              alt="ANAND"
+              className="h-8 w-auto object-contain flex-shrink-0"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+            <div>
+              <h2 className="text-xs sm:text-sm font-black uppercase text-slate-950 tracking-tight leading-none">
+                {selectedLanguage === 'marathi' ? businessNameMr : businessName}
+              </h2>
+              <p className="text-[9px] text-slate-600 font-semibold leading-tight mt-0.5">
+                {selectedLanguage === 'marathi' ? 'शटरिंग प्लेट्स भाडे व बांधकाम साहित्य पुरवठादार' : 'Shuttering Plates Rentals & Scaffolding'} • {address}
+              </p>
+              <p className="text-[9px] text-slate-700 font-bold leading-tight">
+                {selectedLanguage === 'marathi' ? 'मोबाईल:' : 'Mob:'} {phones.split(',')[0]?.trim()} / {phones.split(',')[1]?.trim() || '9881985058'}
+              </p>
+            </div>
+          </div>
+
+          {/* Right: Bill Title, Copy Badge, Bill No & Date */}
+          <div className="text-right flex-shrink-0">
+            <div className="flex items-center justify-end gap-1.5 mb-0.5">
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-950">
+                {selectedLanguage === 'marathi' ? 'भाडे पावती व चालान' : 'RENTAL BILL & CHALLAN'}
+              </span>
+              <span className="px-1.5 py-0.5 rounded border border-slate-900 bg-slate-100 text-[8.5px] font-black uppercase tracking-wider text-slate-900 shadow-2xs">
+                {copyBadgeText}
+              </span>
+            </div>
+            <div className="text-[9.5px] font-mono font-bold text-slate-900">
+              <span>#{billNumber}</span>
+              <span className="mx-1 text-slate-400">|</span>
+              <span>{selectedLanguage === 'marathi' ? 'दिनांक:' : 'Date:'} {issueDateFormatted}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Customer & Rental Metadata Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 py-1 my-0.5 bg-slate-50 border-y border-slate-300 text-[9px]">
+          <div>
+            <span className="font-bold text-slate-600">{selectedLanguage === 'marathi' ? 'ग्राहक नाव:' : 'Customer:'} </span>
+            <span className="font-black text-slate-900 uppercase">#{assignedCustomerNumber} {partyDisplayName}</span>
+          </div>
+          <div>
+            <span className="font-bold text-slate-600">{selectedLanguage === 'marathi' ? 'मोबाईल:' : 'Mobile:'} </span>
+            <span className="font-mono font-bold text-slate-900">{partyDisplayMobile || '-'}</span>
+            {partyDisplayAddress && (
+              <span className="text-slate-600 truncate ml-1">({partyDisplayAddress})</span>
+            )}
+          </div>
+          <div className="text-right col-span-2 sm:col-span-1">
+            <span className="font-bold text-slate-600">{selectedLanguage === 'marathi' ? 'वाटप:' : 'Dispatch:'} </span>
+            <span className="font-mono font-bold text-slate-900">{cycleStartFormatted !== '-' ? cycleStartFormatted : issueDateFormatted}</span>
+            <span className="text-slate-500 ml-1">({cycleDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'days'})</span>
+          </div>
+        </div>
+
+        {/* 3. Plate Items Table */}
+        <div className="my-0.5 overflow-hidden rounded border border-slate-800">
+          <table className="w-full border-collapse text-[9px]">
+            <thead>
+              <tr className="bg-slate-100 border-b border-slate-800 text-slate-900 font-bold">
+                <th className="py-0.5 px-1 text-center border-r border-slate-800 w-6">क्र.</th>
+                <th className="py-0.5 px-1.5 text-left border-r border-slate-800">साहित्य तपशील (Plate Size)</th>
+                <th className="py-0.5 px-1 text-center border-r border-slate-800 w-12">नग (Qty)</th>
+                <th className="py-0.5 px-1 text-right border-r border-slate-800 w-14">दर/दिवस</th>
+                <th className="py-0.5 px-1 text-center border-r border-slate-800 w-10">दिवस</th>
+                <th className="py-0.5 px-1.5 text-right w-16">एकूण भाडे</th>
+              </tr>
+            </thead>
+            <tbody>
+              {plateItems.map((item, index) => {
+                const itemDays = item.days || cycleDays;
+                const rowRent = item.quantity * (item.dailyRate || 1.5) * itemDays;
+                return (
+                  <tr key={index} className="border-b border-slate-200 text-slate-900">
+                    <td className="py-0.5 px-1 text-center border-r border-slate-200">{index + 1}</td>
+                    <td className="py-0.5 px-1.5 font-bold border-r border-slate-200">
+                      {formatPlateType(item.plateType, selectedLanguage)} प्लेट्स
+                    </td>
+                    <td className="py-0.5 px-1 text-center font-bold font-mono border-r border-slate-200">{item.quantity}</td>
+                    <td className="py-0.5 px-1 text-right font-mono border-r border-slate-200">₹{Number(item.dailyRate || 1.5).toFixed(2)}</td>
+                    <td className="py-0.5 px-1 text-center font-mono border-r border-slate-200">{itemDays}</td>
+                    <td className="py-0.5 px-1.5 text-right font-black font-mono">₹{rowRent.toLocaleString('en-IN')}</td>
+                  </tr>
+                );
+              })}
+              <tr className="bg-slate-50 font-bold text-slate-900 border-t border-slate-800">
+                <td colSpan={2} className="py-0.5 px-1.5 text-right border-r border-slate-800">
+                  {selectedLanguage === 'marathi' ? 'एकूण साहित्य:' : 'Total Plates:'}
+                </td>
+                <td className="py-0.5 px-1 text-center font-black font-mono border-r border-slate-800 text-primary">
+                  {totalPlateUnits} नग
+                </td>
+                <td colSpan={2} className="py-0.5 px-1.5 text-right border-r border-slate-800">
+                  {selectedLanguage === 'marathi' ? 'एकूण भाडे:' : 'Total Rent:'}
+                </td>
+                <td className="py-0.5 px-1.5 text-right font-black font-mono">
+                  ₹{allCyclesTotalRent.toLocaleString('en-IN')}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* 4. Financial Summary & Bank Details Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 py-0.5 my-0.5 text-[9px]">
+          {/* Left: Bank Details & Short Note */}
+          <div className="space-y-0.5">
+            {showBankDetails && (
+              <div className="bg-slate-50 border border-slate-200 rounded p-1 text-[8.5px]">
+                <span className="font-bold text-slate-800">{selectedLanguage === 'marathi' ? 'बँक माहिती:' : 'Bank:'} </span>
+                <span className="font-semibold text-slate-700">
+                  {billConfig.bankName || 'SBI'} • A/c: {billConfig.accountNumber || '39482910482'} • IFSC: {billConfig.ifscCode || 'SBIN0001234'} • UPI: {billConfig.upiId || 'anandbuilders@upi'}
+                </span>
+              </div>
+            )}
+            <p className="text-[8px] text-slate-500 italic leading-tight">
+              * {selectedLanguage === 'marathi' ? 'मानक मुदत ४० दिवस. साहित्य स्वच्छ परत आणणे. नुकसान झाल्यास भरपाई आकारली जाईल.' : 'Standard 40 days cycle. Return material clean. Breakages charged at market cost.'}
+            </p>
+          </div>
+
+          {/* Right: Payment Breakdown */}
+          <div className="flex flex-col items-end justify-center space-y-0.5">
+            <div className="flex items-center justify-between w-full max-w-[210px] text-[9px]">
+              <span className="text-slate-600">{selectedLanguage === 'marathi' ? 'एकूण भाडे:' : 'Total Rent:'}</span>
+              <span className="font-bold font-mono">₹{allCyclesTotalRent.toLocaleString('en-IN')}</span>
+            </div>
+            <div className="flex items-center justify-between w-full max-w-[210px] text-[9px]">
+              <span className="text-emerald-700 font-bold">{selectedLanguage === 'marathi' ? 'जमा रक्कम:' : 'Paid Amount:'}</span>
+              <span className="font-bold font-mono text-emerald-800">₹{allCyclesTotalPaid.toLocaleString('en-IN')}</span>
+            </div>
+            <div className="flex items-center justify-between w-full max-w-[210px] px-1.5 py-0.5 rounded bg-slate-900 text-white font-black text-[9.5px]">
+              <span>{selectedLanguage === 'marathi' ? 'शिल्लक बाकी:' : 'Balance Due:'}</span>
+              <span className="font-mono text-amber-300">₹{allCyclesBalanceDue.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 5. Signatures Footer */}
+        <div className="flex justify-between items-end pt-1 mt-0.5 border-t border-slate-300 text-[8.5px] text-slate-800">
+          <div className="text-center space-y-0.5">
+            <div className="border-b border-dashed border-slate-600 w-24 sm:w-32 mb-0.5" />
+            <p className="font-bold">{selectedLanguage === 'marathi' ? 'ग्राहकाची सही' : "Customer's Signature"}</p>
+          </div>
+          <div className="text-center space-y-0.5">
+            <div className="border-b border-dashed border-slate-600 w-24 sm:w-32 mb-0.5" />
+            <p className="font-bold">
+              {currentT.authorizedSign || (selectedLanguage === 'marathi' ? 'अधिकृत स्वाक्षरी' : 'Authorized Signatory')}<br />
+              <span className="text-[7.5px] text-slate-500 font-normal">{selectedLanguage === 'marathi' ? 'आनंद बिल्डर्स अँड डेव्हलपर्स' : 'Anand Builders & Developers'}</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderCopyTypeBadge = () => {
@@ -1113,11 +1314,19 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
             margin: 0 auto !important;
             padding: ${sheetPaddingCss} !important;
             box-shadow: none !important;
-            border: ${isThermal ? 'none' : '1px solid #1e293b'} !important;
+            border: ${isThermal ? 'none' : isTwoBills ? 'none' : '1px solid #1e293b'} !important;
             background: white !important;
             color: black !important;
             overflow: visible !important;
-            font-size: ${isThermal ? (paperSize === 'thermal_58' ? '9px' : '10px') : 'inherit'} !important;
+            font-size: ${isThermal ? (paperSize === 'thermal_58' ? '9px' : '10px') : isTwoBills ? '9.5px' : 'inherit'} !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
+          .two-bills-copy {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            box-sizing: border-box !important;
           }
 
           @page {
@@ -1130,9 +1339,11 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       <div className={`bg-white rounded-3xl border border-slate-200 ${
         isThermal
           ? (paperSize === 'thermal_58' ? 'max-w-md' : 'max-w-lg')
-          : paperOrientation === 'landscape'
-            ? 'max-w-6xl'
-            : (isCompact || paperSize === 'a5' ? 'max-w-3xl' : 'max-w-4xl')
+          : isTwoBills
+            ? 'max-w-4xl'
+            : paperOrientation === 'landscape'
+              ? 'max-w-6xl'
+              : (isCompact || paperSize === 'a5' ? 'max-w-3xl' : 'max-w-4xl')
       } w-full max-h-[95vh] flex flex-col overflow-hidden shadow-2xl animate-scaleUp my-auto print:max-w-full print:max-h-none print:shadow-none print:border-none print:rounded-none`}>
         {/* Top Control Bar (Hidden during print) */}
         <div className="no-print px-5 py-3.5 border-b border-slate-200 flex flex-wrap justify-between items-center bg-slate-50 gap-3 flex-shrink-0">
@@ -1291,6 +1502,36 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               </button>
             </div>
 
+            {/* Quick 1 Page 2 Bills Toggle Pill */}
+            <button
+              type="button"
+              onClick={() => {
+                const nextVal = !isTwoBills;
+                setTwoBillsPerPage(nextVal);
+                if (nextVal) {
+                  setPaperSize('a4_2in1');
+                } else if (paperSize === 'a4_2in1') {
+                  setPaperSize('a4');
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-xs cursor-pointer ${
+                isTwoBills
+                  ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-700 shadow-xs'
+                  : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+              }`}
+              title={
+                selectedLanguage === 'marathi'
+                  ? 'एका पानात २ पावत्या प्रिंट करा (मूळ प्रत + कार्यालयीन प्रत)'
+                  : 'Print 2 bills on 1 sheet (Original + Office Copy)'
+              }
+            >
+              <span className="text-xs">✂</span>
+              <span>{selectedLanguage === 'marathi' ? '१ पानात २ पावत्या' : '2 Bills / Sheet'}</span>
+              {isTwoBills && (
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              )}
+            </button>
+
             {/* Paper Format Quick Selector Button & Dropdown */}
             <div className="relative">
               <button
@@ -1305,8 +1546,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>
-                  {paperSize ? paperSize.toUpperCase().replace('_', ' ') : 'A4'}
-                  {paperSize !== 'thermal_80' && paperSize !== 'thermal_58' && ` (${paperOrientation === 'landscape' ? (selectedLanguage === 'marathi' ? 'आडवा' : 'Land') : (selectedLanguage === 'marathi' ? 'उभा' : 'Port')})`}
+                  {isTwoBills
+                    ? 'A4 (2-in-1)'
+                    : (paperSize ? paperSize.toUpperCase().replace('_', ' ') : 'A4')}
+                  {!isTwoBills && paperSize !== 'thermal_80' && paperSize !== 'thermal_58' && ` (${paperOrientation === 'landscape' ? (selectedLanguage === 'marathi' ? 'आडवा' : 'Land') : (selectedLanguage === 'marathi' ? 'उभा' : 'Port')})`}
                 </span>
               </button>
 
@@ -1334,7 +1577,15 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     </label>
                     <select
                       value={paperSize}
-                      onChange={(e) => setPaperSize(e.target.value as BillPaperSize)}
+                      onChange={(e) => {
+                        const newSize = e.target.value as BillPaperSize;
+                        setPaperSize(newSize);
+                        if (newSize === 'a4_2in1') {
+                          setTwoBillsPerPage(true);
+                        } else if (paperSize === 'a4_2in1') {
+                          setTwoBillsPerPage(false);
+                        }
+                      }}
                       className="w-full bg-slate-50 border border-slate-200 focus:border-primary px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
                     >
                       {PAPER_SIZE_OPTIONS.map((opt) => (
@@ -1345,8 +1596,47 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     </select>
                   </div>
 
-                  {/* Orientation (if not thermal) */}
-                  {paperSize !== 'thermal_80' && paperSize !== 'thermal_58' && (
+                  {/* 1 Sheet 2 Bills Toggle inside Popover */}
+                  <div className="p-2 rounded-xl bg-amber-50/80 border border-amber-200/80 space-y-1.5">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isTwoBills}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setTwoBillsPerPage(checked);
+                          if (checked) {
+                            setPaperSize('a4_2in1');
+                          } else if (paperSize === 'a4_2in1') {
+                            setPaperSize('a4');
+                          }
+                        }}
+                        className="w-3.5 h-3.5 rounded text-amber-600 focus:ring-amber-500 accent-amber-600 cursor-pointer"
+                      />
+                      <span className="text-xs font-bold text-slate-900">
+                        {selectedLanguage === 'marathi' ? '१ पानात २ पावत्या (2-in-1)' : '2 Bills on 1 Sheet (2-in-1)'}
+                      </span>
+                    </label>
+                    {isTwoBills && (
+                      <div className="pl-5 space-y-1">
+                        <label className="text-[9px] font-bold text-slate-600 uppercase">
+                          {selectedLanguage === 'marathi' ? 'दुसऱ्या प्रतीचे नाव:' : '2nd Copy Label:'}
+                        </label>
+                        <select
+                          value={twoBillsSecondCopyLabel}
+                          onChange={(e) => setTwoBillsSecondCopyLabel(e.target.value as any)}
+                          className="w-full bg-white border border-slate-200 focus:border-primary px-2 py-1 rounded-lg text-[11px] font-bold text-slate-800 cursor-pointer"
+                        >
+                          <option value="office">{selectedLanguage === 'marathi' ? 'कार्यालयीन प्रत (Office Copy)' : 'Office Copy'}</option>
+                          <option value="duplicate">{selectedLanguage === 'marathi' ? 'दुसरी प्रत (Duplicate Copy)' : 'Duplicate Copy'}</option>
+                          <option value="store">{selectedLanguage === 'marathi' ? 'दुकान प्रत (Store Copy)' : 'Store Copy'}</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Orientation (if not thermal and not 2-in-1) */}
+                  {!isTwoBills && paperSize !== 'thermal_80' && paperSize !== 'thermal_58' && (
                     <div className="space-y-1">
                       <label className="text-[10px] font-black uppercase text-slate-500">
                         {selectedLanguage === 'marathi' ? 'कागद दिशा (Orientation):' : 'Orientation:'}
@@ -1371,45 +1661,49 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                   )}
 
                   {/* Margins */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-500">
-                      {selectedLanguage === 'marathi' ? 'समास (Margins):' : 'Margins:'}
-                    </label>
-                    <div className="grid grid-cols-3 gap-1">
-                      {PAPER_MARGIN_OPTIONS.map((m) => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => setPaperMargin(m.id)}
-                          className={`py-1 px-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
-                            paperMargin === m.id
-                              ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                          }`}
-                        >
-                          {selectedLanguage === 'marathi' ? m.labelMr.split(' ')[0] : m.labelEn.split(' ')[0]}
-                        </button>
-                      ))}
+                  {!isTwoBills && (
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-slate-500">
+                        {selectedLanguage === 'marathi' ? 'समास (Margins):' : 'Margins:'}
+                      </label>
+                      <div className="grid grid-cols-3 gap-1">
+                        {PAPER_MARGIN_OPTIONS.map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setPaperMargin(m.id)}
+                            className={`py-1 px-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                              paperMargin === m.id
+                                ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {selectedLanguage === 'marathi' ? m.labelMr.split(' ')[0] : m.labelEn.split(' ')[0]}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Copy Type Stamp */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-500">
-                      {selectedLanguage === 'marathi' ? 'प्रत शिक्का (Copy Stamp):' : 'Copy Stamp:'}
-                    </label>
-                    <select
-                      value={billCopyType}
-                      onChange={(e) => setBillCopyType(e.target.value as BillCopyType)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-primary px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
-                    >
-                      {BILL_COPY_TYPE_OPTIONS.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {selectedLanguage === 'marathi' ? c.labelMr : c.labelEn}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* Copy Type Stamp (for standard single bill) */}
+                  {!isTwoBills && (
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-slate-500">
+                        {selectedLanguage === 'marathi' ? 'प्रत शिक्का (Copy Stamp):' : 'Copy Stamp:'}
+                      </label>
+                      <select
+                        value={billCopyType}
+                        onChange={(e) => setBillCopyType(e.target.value as BillCopyType)}
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-primary px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
+                      >
+                        {BILL_COPY_TYPE_OPTIONS.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {selectedLanguage === 'marathi' ? c.labelMr : c.labelEn}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Save as default button */}
                   <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
@@ -1715,6 +2009,46 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
               {/* KYC Annexure if enabled */}
               {showKycDocs && renderKycDocumentsSection(true)}
+            </div>
+          ) : isTwoBills ? (
+            /* ========================================================= */
+            /* 1. 2 BILLS ON 1 SHEET (A4 2-in-1 FORMAT)                  */
+            /* ========================================================= */
+            <div
+              id="rental-bill-sheet"
+              className="bg-white text-black font-sans mx-auto border border-slate-300 shadow-sm rounded-2xl max-w-4xl p-2.5 sm:p-3 text-[9.5px] leading-tight print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none flex flex-col justify-between"
+            >
+              {/* Upper Bill: Customer / Original Copy */}
+              {renderTwoBillsSubSheet(
+                selectedLanguage === 'marathi' ? 'मूळ प्रत (ग्राहक प्रत)' : 'ORIGINAL COPY (Customer)',
+                true
+              )}
+
+              {/* Perforation Cut Line */}
+              <div className="relative py-1 flex items-center justify-center my-0.5 print:my-0 select-none">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t-2 border-dashed border-slate-500" />
+                </div>
+                <div className="relative bg-white px-3 py-0.5 text-[8.5px] font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5 border border-dashed border-slate-400 rounded-full shadow-2xs">
+                  <span className="text-xs">✂</span>
+                  <span>
+                    {selectedLanguage === 'marathi'
+                      ? 'इथून कापा (CUT HERE) — वर: ग्राहक मूळ प्रत | खाली: दुकान / कार्यालय प्रत'
+                      : 'CUT HERE (इथून कापा) — TOP: CUSTOMER COPY | BOTTOM: OFFICE COPY'}
+                  </span>
+                  <span className="text-xs">✂</span>
+                </div>
+              </div>
+
+              {/* Lower Bill: Office / Duplicate / Store Copy */}
+              {renderTwoBillsSubSheet(
+                twoBillsSecondCopyLabel === 'duplicate'
+                  ? (selectedLanguage === 'marathi' ? 'दुसरी प्रत (Duplicate)' : 'DUPLICATE COPY')
+                  : twoBillsSecondCopyLabel === 'store'
+                    ? (selectedLanguage === 'marathi' ? 'दुकान प्रत (Store Copy)' : 'STORE COPY')
+                    : (selectedLanguage === 'marathi' ? 'कार्यालयीन प्रत (Office Copy)' : 'OFFICE COPY'),
+                false
+              )}
             </div>
           ) : isSimple ? (
             <div

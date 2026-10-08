@@ -61,10 +61,11 @@ runTest('DEFAULT_BILL_TEMPLATE_CONFIG contains default paper format fields', () 
   assert.strictEqual(DEFAULT_BILL_TEMPLATE_CONFIG.billCopyType, 'none');
 });
 
-runTest('PAPER_SIZE_OPTIONS defines all 5 standard paper formats with dimensions', () => {
-  assert.strictEqual(PAPER_SIZE_OPTIONS.length, 5);
+runTest('PAPER_SIZE_OPTIONS defines all 6 standard paper formats including 2-in-1 format', () => {
+  assert.strictEqual(PAPER_SIZE_OPTIONS.length, 6);
   const ids = PAPER_SIZE_OPTIONS.map((o) => o.id);
   assert.ok(ids.includes('a4'));
+  assert.ok(ids.includes('a4_2in1'));
   assert.ok(ids.includes('a5'));
   assert.ok(ids.includes('thermal_80'));
   assert.ok(ids.includes('thermal_58'));
@@ -73,6 +74,11 @@ runTest('PAPER_SIZE_OPTIONS defines all 5 standard paper formats with dimensions
   const a4Opt = PAPER_SIZE_OPTIONS.find((o) => o.id === 'a4');
   assert.strictEqual(a4Opt.dimensions, '210 × 297 mm');
   assert.ok(a4Opt.labelMr.includes('A4'));
+
+  const a4TwoInOneOpt = PAPER_SIZE_OPTIONS.find((o) => o.id === 'a4_2in1');
+  assert.strictEqual(a4TwoInOneOpt.dimensions, '210 × 297 mm (2 × A5)');
+  assert.ok(a4TwoInOneOpt.labelMr.includes('२ पावत्या'));
+  assert.ok(a4TwoInOneOpt.labelEn.includes('2 Bills'));
 
   const a5Opt = PAPER_SIZE_OPTIONS.find((o) => o.id === 'a5');
   assert.strictEqual(a5Opt.dimensions, '148 × 210 mm');
@@ -171,6 +177,35 @@ runTest('getBillTemplateConfig handles legacy or unknown paper formats gracefull
   assert.strictEqual(retrieved.paperOrientation, 'portrait');
   assert.strictEqual(retrieved.paperMargin, 'normal');
   assert.strictEqual(retrieved.billCopyType, 'none');
+});
+
+runTest('updatePaperFormatConfig persists a4_2in1 and twoBillsPerPage configuration', () => {
+  localStorageMock.clear();
+  updatePaperFormatConfig({
+    paperSize: 'a4_2in1',
+    twoBillsPerPage: true,
+    twoBillsSecondCopyLabel: 'store',
+  });
+
+  const retrieved = getBillTemplateConfig();
+  assert.strictEqual(retrieved.paperSize, 'a4_2in1');
+  assert.strictEqual(retrieved.twoBillsPerPage, true);
+  assert.strictEqual(retrieved.twoBillsSecondCopyLabel, 'store');
+});
+
+runTest('a4_2in1 automatically enables twoBillsPerPage when not explicitly specified', () => {
+  localStorageMock.clear();
+  localStorageMock.setItem(
+    'anand_bill_template_config',
+    JSON.stringify({
+      paperSize: 'a4_2in1',
+    })
+  );
+
+  const retrieved = getBillTemplateConfig();
+  assert.strictEqual(retrieved.paperSize, 'a4_2in1');
+  assert.strictEqual(retrieved.twoBillsPerPage, true);
+  assert.strictEqual(retrieved.twoBillsSecondCopyLabel, 'office');
 });
 
 console.log('===========================================================================');

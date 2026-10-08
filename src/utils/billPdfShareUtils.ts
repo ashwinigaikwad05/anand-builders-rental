@@ -127,7 +127,9 @@ export async function generateBillPdfBlob(
 ): Promise<{ blob: Blob; filename: string }> {
   const cfg = getBillTemplateConfig();
   const paperSize: BillPaperSize = paperOptions?.paperSize || cfg.paperSize || 'a4';
-  const orientation: BillPaperOrientation = paperOptions?.orientation || cfg.paperOrientation || 'portrait';
+  const orientation: BillPaperOrientation = paperSize === 'a4_2in1'
+    ? 'portrait'
+    : (paperOptions?.orientation || cfg.paperOrientation || 'portrait');
 
   // 1. Capture element to high-res canvas (scale 2.0 ensures crisp text and logo)
   const canvas = await html2canvas(element, {
