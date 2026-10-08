@@ -236,7 +236,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       const updated = {
         ...prev,
         paperSize: size,
-        twoBillsPerPage: size === 'a4_2in1' ? true : (prev.paperSize === 'a4_2in1' ? false : prev.twoBillsPerPage),
+        twoBillsPerPage: size === 'a4_2in1' ? true : (size === 'half_page' || size === 'a5' || prev.paperSize === 'a4_2in1' ? false : prev.twoBillsPerPage),
         halfPageFormat: size === 'half_page' || size === 'a5',
       };
       saveBillTemplateConfig(updated);
