@@ -94,7 +94,6 @@ import {
   clearAllParties,
   clearAllNotifications,
   factoryResetAllDatabase,
-  seedSampleStarterData,
   restoreBackupData,
   type RentalItemRecord,
 } from '../../lib/supabase';
@@ -268,20 +267,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       const safePayments = Array.isArray(loadedPayments) ? loadedPayments : [];
       const safeLedger = Array.isArray(loadedLedger) ? loadedLedger : [];
       const safeNotifications = Array.isArray(loadedNotifications) ? loadedNotifications : [];
-
-      // Auto-seed sample starter data on first run if database/local storage is completely empty
-      const hasSeededBefore = typeof window !== 'undefined' ? localStorage.getItem('anand_starter_seeded') : 'true';
-      if (!hasSeededBefore && safeParties.length === 0 && safeRentals.length === 0 && safeStock.length === 0) {
-        try {
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('anand_starter_seeded', 'true');
-          }
-          await seedSampleStarterData();
-          return await loadAllData(false);
-        } catch (seedErr) {
-          console.warn('Initial sample seeding notice:', seedErr);
-        }
-      }
 
       const todayStr = new Date().toISOString().split('T')[0];
 
@@ -2482,25 +2467,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
     }
   };
 
-  const handleLoadSampleData = async () => {
-    try {
-      setIsLoading(true);
-      await seedSampleStarterData();
-      await loadAllData(false);
-      addToast(
-        'success',
-        appLanguage === 'marathi'
-          ? 'नमुना (डेमो) डेटा यशस्वीरीत्या लोड झाला!'
-          : 'Sample starter data loaded successfully!'
-      );
-    } catch (err: any) {
-      console.error('Failed to load sample data:', err);
-      addToast('error', 'Failed to load sample data.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleRestoreBackup = async (backupJson: any) => {
     try {
       setIsLoading(true);
@@ -2544,7 +2510,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             onTabChange={handleTabChange}
             onRenewRental={handleRenewRental}
             onInitiateReturn={handleInitiateReturn}
-            onLoadSampleData={handleLoadSampleData}
             appLanguage={appLanguage}
           />
         );
@@ -2601,7 +2566,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             onUpdateRentalStatus={handleUpdateRentalStatus}
             onUpdateBillNumber={handleUpdateBillNumber}
             onInitiateReturn={handleInitiateReturn}
-            onLoadSampleData={handleLoadSampleData}
             appLanguage={appLanguage}
           />
         );
@@ -2670,7 +2634,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             notifications={notifications}
             onDeduplicate={handleDeduplicateData}
             onDeleteData={handleDeleteData}
-            onLoadSampleData={handleLoadSampleData}
             onRestoreBackup={handleRestoreBackup}
             appLanguage={appLanguage}
           />

@@ -59,7 +59,6 @@ interface SettingsTabProps {
   notifications?: any[];
   onDeduplicate?: () => Promise<any>;
   onDeleteData?: (category: DeleteDataCategory) => Promise<void>;
-  onLoadSampleData?: () => Promise<void>;
   onRestoreBackup?: (backupData: any) => Promise<void>;
   appLanguage?: AppLanguage;
 }
@@ -76,7 +75,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   notifications = [],
   onDeduplicate,
   onDeleteData,
-  onLoadSampleData: _unusedOnLoadSampleData,
   onRestoreBackup,
   appLanguage,
 }) => {
@@ -802,7 +800,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 title="Preview using customer rental data"
               >
                 <option value="latest">
-                  {isMarathi ? 'ताजे:' : 'Latest:'} {latestRental ? `${latestRental.partyName}` : 'Sample Bill'}
+                  {isMarathi ? 'ताजे:' : 'Latest:'} {latestRental ? `${latestRental.partyName}` : (isMarathi ? 'डिफॉल्ट बिल' : 'Default Bill')}
                 </option>
                 {rentals.map((r, idx) => (
                   <option key={r.id} value={r.id}>

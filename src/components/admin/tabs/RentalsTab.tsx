@@ -14,7 +14,6 @@ import {
   ArrowUpDown,
   Edit2,
   MessageSquare,
-  Sparkles,
 } from 'lucide-react';
 import type { Party, PlateStock, Rental, RentalItem, RentalCycle, Payment, ReturnLog } from '../../../data/adminMockData';
 import {
@@ -72,7 +71,6 @@ interface RentalsTabProps {
     penalty?: number
   ) => Promise<void>;
   appLanguage?: AppLanguage;
-  onLoadSampleData?: () => void;
 }
 
 export const RentalsTab: React.FC<RentalsTabProps> = ({
@@ -87,7 +85,6 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   onUpdateBillNumber,
   onInitiateReturn,
   onRenewRental,
-  onLoadSampleData,
   appLanguage,
 }) => {
   const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
@@ -938,8 +935,8 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       </h4>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
                         {isMarathi
-                          ? 'नवीन प्लेट्स भाडे वाटप नोंदवा किंवा त्वरित चाचणी व पावती तपासणीसाठी नमुना डेटा लोड करा.'
-                          : 'Register a new plate rental dispatch or load sample starter data to test bills and printing.'}
+                          ? 'नवीन प्लेट्स भाडे वाटप नोंदवण्यासाठी खालील बटणावर क्लिक करा.'
+                          : 'Click the button below to register a new plate rental dispatch.'}
                       </p>
                       <div className="flex flex-wrap items-center justify-center gap-3">
                         <button
@@ -950,16 +947,6 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                           <Plus className="w-3.5 h-3.5" />
                           {isMarathi ? 'नवीन भाडे वाटप (+)' : 'New Rental Dispatch (+)'}
                         </button>
-                        {onLoadSampleData && (
-                          <button
-                            type="button"
-                            onClick={onLoadSampleData}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold border border-slate-300 dark:border-slate-700 transition-all cursor-pointer"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                            {isMarathi ? 'सँपल डेटा लोड करा' : 'Load Sample Data'}
-                          </button>
-                        )}
                       </div>
                     </div>
                   </td>

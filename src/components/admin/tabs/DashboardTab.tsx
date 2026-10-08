@@ -19,7 +19,6 @@ import {
   MessageSquare,
   AlertCircle,
   X,
-  Sparkles,
   Upload,
   Globe,
 } from 'lucide-react';
@@ -68,7 +67,6 @@ interface DashboardTabProps {
     penalty?: number
   ) => Promise<void>;
   onInitiateReturn?: (rental: Rental) => void;
-  onLoadSampleData?: () => Promise<void>;
   appLanguage?: AppLanguage;
 }
 
@@ -82,11 +80,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   onTabChange,
   onRenewRental,
   onInitiateReturn,
-  onLoadSampleData,
   appLanguage,
 }) => {
   const todayStr = new Date().toISOString().split('T')[0];
-  const [isSeeding, setIsSeeding] = useState(false);
   const accountNames = useAccountNames();
 
   // Selected Language State
@@ -425,29 +421,18 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </div>
             <p className="text-xs text-slate-600 font-medium max-w-xl leading-relaxed">
               {currentLang === 'marathi'
-                ? 'सध्या पोर्टलमध्ये कोणताही डेटा नाही. प्रणाली तपासण्यासाठी आपण एका क्लिकवर नमुना डेटा लोड करू शकता किंवा सेटिंग्समधून बॅकअप फाइल अपलोड करू शकता.'
-                : 'The admin portal currently has 0 records. You can load sample demo data with 1 click to test the dashboard, or restore a backup file in Settings.'}
+                ? 'सध्या पोर्टलमध्ये कोणत्याही नोंदी नाहीत. नवीन प्लेट्स भाडे वाटप नोंदवा किंवा सेटिंग्समधून आधीचा बॅकअप रिस्टोअर करा.'
+                : 'The admin portal currently has 0 records. You can register a new rental or restore an existing backup in Settings.'}
             </p>
           </div>
           <div className="flex items-center gap-2.5 flex-wrap">
-            {onLoadSampleData && (
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    setIsSeeding(true);
-                    await onLoadSampleData();
-                  } finally {
-                    setIsSeeding(false);
-                  }
-                }}
-                disabled={isSeeding}
-                className="px-4 py-2.5 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl shadow-md hover:shadow-orange-500/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                {isSeeding ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                <span>{currentLang === 'marathi' ? '⚡ नमुना डेटा लोड करा' : '⚡ Load Sample Data'}</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => onTabChange('Rentals')}
+              className="px-4 py-2.5 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl shadow-md hover:shadow-orange-500/25 transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <span>{currentLang === 'marathi' ? 'नवीन भाडे वाटप (+)' : 'New Rental Dispatch (+)'}</span>
+            </button>
             <button
               type="button"
               onClick={() => onTabChange('Settings')}
