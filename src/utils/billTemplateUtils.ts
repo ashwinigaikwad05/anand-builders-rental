@@ -1,6 +1,6 @@
 export type BillTemplateStyle = 'simple' | 'standard' | 'tax_invoice' | 'compact';
 export type BillLanguage = 'marathi' | 'english';
-export type BillPaperSize = 'a4' | 'a5' | 'thermal_80' | 'thermal_58' | 'letter' | 'a4_2in1';
+export type BillPaperSize = 'a4' | 'a5' | 'half_page' | 'thermal_80' | 'thermal_58' | 'letter' | 'a4_2in1';
 export type BillPaperOrientation = 'portrait' | 'landscape';
 export type BillPaperMargin = 'compact' | 'normal' | 'wide';
 export type BillCopyType = 'none' | 'original' | 'duplicate' | 'office' | 'triplicate';
@@ -30,6 +30,14 @@ export const PAPER_SIZE_OPTIONS: PaperSizeOption[] = [
     descriptionMr: 'एकाच A4 पानावर वर मूळ प्रत व खाली कार्यालयीन प्रत (कापण्यासाठी कटिंग लाईनसह). कागदाची ५०% बचत!',
     descriptionEn: 'Prints 2 bills on one A4 sheet (Original on top, Office copy on bottom with cut line). Saves paper!',
     dimensions: '210 × 297 mm (2 × A5)',
+  },
+  {
+    id: 'half_page',
+    labelMr: 'A4 - अर्धे पान (Half Page)',
+    labelEn: 'A4 - Half Page (Top Half)',
+    descriptionMr: 'A4 कागदाच्या फक्त वरच्या अर्ध्या भागात बिल प्रिंट होते (कापण्यासाठी कटिंग लाईनसह). ५०% कागद बचत!',
+    descriptionEn: 'Prints single compact bill on top half of A4 page with cut line. Saves bottom half!',
+    dimensions: '210 × 148 mm (Half A4)',
   },
   {
     id: 'a5',
@@ -109,6 +117,7 @@ export interface BillTemplateConfig {
   billCopyType?: BillCopyType;
   twoBillsPerPage?: boolean;
   twoBillsSecondCopyLabel?: 'office' | 'duplicate' | 'store';
+  halfPageFormat?: boolean;
 }
 
 export const MARATHI_TERMS = [
@@ -149,6 +158,7 @@ export const DEFAULT_BILL_TEMPLATE_CONFIG: BillTemplateConfig = {
   billCopyType: 'none',
   twoBillsPerPage: false,
   twoBillsSecondCopyLabel: 'office',
+  halfPageFormat: false,
 };
 
 const STORAGE_KEY = 'anand_bill_template_config';
@@ -204,7 +214,7 @@ export function getBillTemplateConfig(): BillTemplateConfig {
       ? parsed.upiId
       : DEFAULT_BILL_TEMPLATE_CONFIG.upiId;
 
-    const paperSize: BillPaperSize = ['a4', 'a4_2in1', 'a5', 'thermal_80', 'thermal_58', 'letter'].includes(parsed.paperSize)
+    const paperSize: BillPaperSize = ['a4', 'a4_2in1', 'half_page', 'a5', 'thermal_80', 'thermal_58', 'letter'].includes(parsed.paperSize)
       ? parsed.paperSize
       : 'a4';
     const paperOrientation: BillPaperOrientation = parsed.paperOrientation === 'landscape'
@@ -225,6 +235,9 @@ export function getBillTemplateConfig(): BillTemplateConfig {
     const twoBillsSecondCopyLabel: 'office' | 'duplicate' | 'store' = ['office', 'duplicate', 'store'].includes(parsed.twoBillsSecondCopyLabel)
       ? parsed.twoBillsSecondCopyLabel
       : 'office';
+    const halfPageFormat = parsed.halfPageFormat !== undefined
+      ? Boolean(parsed.halfPageFormat)
+      : (paperSize === 'half_page' || paperSize === 'a5');
 
     return {
       ...DEFAULT_BILL_TEMPLATE_CONFIG,
@@ -247,6 +260,7 @@ export function getBillTemplateConfig(): BillTemplateConfig {
       billCopyType,
       twoBillsPerPage,
       twoBillsSecondCopyLabel,
+      halfPageFormat,
     };
   } catch {
     return DEFAULT_BILL_TEMPLATE_CONFIG;
@@ -281,7 +295,7 @@ export function updateBankDetailsConfig(
 }
 
 export function updatePaperFormatConfig(
-  updates: Partial<Pick<BillTemplateConfig, 'paperSize' | 'paperOrientation' | 'paperMargin' | 'fitToSinglePage' | 'billCopyType' | 'twoBillsPerPage' | 'twoBillsSecondCopyLabel'>>
+  updates: Partial<Pick<BillTemplateConfig, 'paperSize' | 'paperOrientation' | 'paperMargin' | 'fitToSinglePage' | 'billCopyType' | 'twoBillsPerPage' | 'twoBillsSecondCopyLabel' | 'halfPageFormat'>>
 ): BillTemplateConfig {
   const current = getBillTemplateConfig();
   const updated: BillTemplateConfig = {

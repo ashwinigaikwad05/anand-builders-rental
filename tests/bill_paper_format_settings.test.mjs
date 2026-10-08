@@ -61,11 +61,12 @@ runTest('DEFAULT_BILL_TEMPLATE_CONFIG contains default paper format fields', () 
   assert.strictEqual(DEFAULT_BILL_TEMPLATE_CONFIG.billCopyType, 'none');
 });
 
-runTest('PAPER_SIZE_OPTIONS defines all 6 standard paper formats including 2-in-1 format', () => {
-  assert.strictEqual(PAPER_SIZE_OPTIONS.length, 6);
+runTest('PAPER_SIZE_OPTIONS defines all 7 standard paper formats including 2-in-1 and half-page formats', () => {
+  assert.strictEqual(PAPER_SIZE_OPTIONS.length, 7);
   const ids = PAPER_SIZE_OPTIONS.map((o) => o.id);
   assert.ok(ids.includes('a4'));
   assert.ok(ids.includes('a4_2in1'));
+  assert.ok(ids.includes('half_page'));
   assert.ok(ids.includes('a5'));
   assert.ok(ids.includes('thermal_80'));
   assert.ok(ids.includes('thermal_58'));
@@ -79,6 +80,11 @@ runTest('PAPER_SIZE_OPTIONS defines all 6 standard paper formats including 2-in-
   assert.strictEqual(a4TwoInOneOpt.dimensions, '210 × 297 mm (2 × A5)');
   assert.ok(a4TwoInOneOpt.labelMr.includes('२ पावत्या'));
   assert.ok(a4TwoInOneOpt.labelEn.includes('2 Bills'));
+
+  const halfPageOpt = PAPER_SIZE_OPTIONS.find((o) => o.id === 'half_page');
+  assert.strictEqual(halfPageOpt.dimensions, '210 × 148 mm (Half A4)');
+  assert.ok(halfPageOpt.labelMr.includes('अर्धे पान'));
+  assert.ok(halfPageOpt.labelEn.includes('Half Page'));
 
   const a5Opt = PAPER_SIZE_OPTIONS.find((o) => o.id === 'a5');
   assert.strictEqual(a5Opt.dimensions, '148 × 210 mm');
@@ -206,6 +212,32 @@ runTest('a4_2in1 automatically enables twoBillsPerPage when not explicitly speci
   assert.strictEqual(retrieved.paperSize, 'a4_2in1');
   assert.strictEqual(retrieved.twoBillsPerPage, true);
   assert.strictEqual(retrieved.twoBillsSecondCopyLabel, 'office');
+});
+
+runTest('updatePaperFormatConfig persists half_page and enables halfPageFormat', () => {
+  localStorageMock.clear();
+  updatePaperFormatConfig({
+    paperSize: 'half_page',
+    halfPageFormat: true,
+  });
+
+  const retrieved = getBillTemplateConfig();
+  assert.strictEqual(retrieved.paperSize, 'half_page');
+  assert.strictEqual(retrieved.halfPageFormat, true);
+});
+
+runTest('a5 paper size automatically enables halfPageFormat', () => {
+  localStorageMock.clear();
+  localStorageMock.setItem(
+    'anand_bill_template_config',
+    JSON.stringify({
+      paperSize: 'a5',
+    })
+  );
+
+  const retrieved = getBillTemplateConfig();
+  assert.strictEqual(retrieved.paperSize, 'a5');
+  assert.strictEqual(retrieved.halfPageFormat, true);
 });
 
 console.log('===========================================================================');

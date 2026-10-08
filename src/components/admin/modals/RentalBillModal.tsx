@@ -994,6 +994,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
   const isThermal = paperSize === 'thermal_80' || paperSize === 'thermal_58';
   const thermalWidth = paperSize === 'thermal_58' ? '58mm' : '80mm';
   const isTwoBills = paperSize === 'a4_2in1' || Boolean(twoBillsPerPage);
+  const isHalfPage = (paperSize === 'half_page' || paperSize === 'a5') && !isTwoBills;
 
   // Dynamic CSS @page rules
   const pageCssSize = isThermal
@@ -1002,13 +1003,15 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       ? 'A4 portrait'
       : paperSize === 'a5'
         ? `A5 ${paperOrientation}`
-        : paperSize === 'letter'
-          ? `letter ${paperOrientation}`
-          : `A4 ${paperOrientation}`;
+        : paperSize === 'half_page'
+          ? 'A4 portrait'
+          : paperSize === 'letter'
+            ? `letter ${paperOrientation}`
+            : `A4 ${paperOrientation}`;
 
   const pageMarginCss = isThermal
     ? '2mm 2mm'
-    : isTwoBills
+    : (isTwoBills || isHalfPage)
       ? '4mm 5mm'
       : paperMargin === 'compact'
         ? '3mm 4mm'
@@ -1018,7 +1021,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
   const sheetPaddingCss = isThermal
     ? '2mm 3mm'
-    : isTwoBills
+    : (isTwoBills || isHalfPage)
       ? '2mm 3mm'
       : paperMargin === 'compact'
         ? '3mm 5mm'
@@ -1036,6 +1039,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       billCopyType,
       twoBillsPerPage: isTwoBills,
       twoBillsSecondCopyLabel,
+      halfPageFormat: isHalfPage,
     };
     setBillConfig(updated);
     saveBillTemplateConfig(updated);
@@ -1224,22 +1228,24 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
     );
   };
 
+  const getCopyTypeBadgeText = () => {
+    switch (billCopyType) {
+      case 'original':
+        return selectedLanguage === 'marathi' ? 'मूळ प्रत (ORIGINAL)' : 'ORIGINAL COPY';
+      case 'duplicate':
+        return selectedLanguage === 'marathi' ? 'दुसरी प्रत (DUPLICATE)' : 'DUPLICATE COPY';
+      case 'office':
+        return selectedLanguage === 'marathi' ? 'कार्यालयीन प्रत (OFFICE)' : 'OFFICE COPY';
+      case 'triplicate':
+        return selectedLanguage === 'marathi' ? 'तिसरी प्रत (TRIPLICATE)' : 'TRIPLICATE COPY';
+      default:
+        return selectedLanguage === 'marathi' ? 'मूळ प्रत' : 'ORIGINAL COPY';
+    }
+  };
+
   const renderCopyTypeBadge = () => {
     if (!billCopyType || billCopyType === 'none') return null;
-    const label = (() => {
-      switch (billCopyType) {
-        case 'original':
-          return selectedLanguage === 'marathi' ? 'मूळ प्रत (ORIGINAL)' : 'ORIGINAL COPY';
-        case 'duplicate':
-          return selectedLanguage === 'marathi' ? 'दुसरी प्रत (DUPLICATE)' : 'DUPLICATE COPY';
-        case 'office':
-          return selectedLanguage === 'marathi' ? 'कार्यालयीन प्रत (OFFICE)' : 'OFFICE COPY';
-        case 'triplicate':
-          return selectedLanguage === 'marathi' ? 'तिसरी प्रत (TRIPLICATE)' : 'TRIPLICATE COPY';
-        default:
-          return '';
-      }
-    })();
+    const label = getCopyTypeBadgeText();
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded border border-slate-700 bg-slate-50 text-[10px] font-black tracking-wider uppercase text-slate-900 shadow-2xs">
         {label}
@@ -1502,6 +1508,35 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               </button>
             </div>
 
+            {/* Quick 1 Half-Page Bill Toggle Pill */}
+            <button
+              type="button"
+              onClick={() => {
+                if (isHalfPage) {
+                  setPaperSize('a4');
+                } else {
+                  setPaperSize('half_page');
+                  setTwoBillsPerPage(false);
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-xs cursor-pointer ${
+                isHalfPage
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                  : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+              }`}
+              title={
+                selectedLanguage === 'marathi'
+                  ? 'अर्ध्या पानात बिल प्रिंट करा (A5 किंवा A4 चा वरचा अर्धा भाग)'
+                  : 'Print bill in half page format (A5 or top half of A4)'
+              }
+            >
+              <FileBadge className="w-3.5 h-3.5" />
+              <span>{selectedLanguage === 'marathi' ? 'अर्धे पान (Half)' : 'Half Page'}</span>
+              {isHalfPage && (
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              )}
+            </button>
+
             {/* Quick 1 Page 2 Bills Toggle Pill */}
             <button
               type="button"
@@ -1548,8 +1583,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 <span>
                   {isTwoBills
                     ? 'A4 (2-in-1)'
-                    : (paperSize ? paperSize.toUpperCase().replace('_', ' ') : 'A4')}
-                  {!isTwoBills && paperSize !== 'thermal_80' && paperSize !== 'thermal_58' && ` (${paperOrientation === 'landscape' ? (selectedLanguage === 'marathi' ? 'आडवा' : 'Land') : (selectedLanguage === 'marathi' ? 'उभा' : 'Port')})`}
+                    : isHalfPage
+                      ? (paperSize === 'a5' ? 'A5 (Half)' : 'Half Page')
+                      : (paperSize ? paperSize.toUpperCase().replace('_', ' ') : 'A4')}
+                  {!isTwoBills && !isHalfPage && paperSize !== 'thermal_80' && paperSize !== 'thermal_58' && ` (${paperOrientation === 'landscape' ? (selectedLanguage === 'marathi' ? 'आडवा' : 'Land') : (selectedLanguage === 'marathi' ? 'उभा' : 'Port')})`}
                 </span>
               </button>
 
@@ -2048,6 +2085,42 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     ? (selectedLanguage === 'marathi' ? 'दुकान प्रत (Store Copy)' : 'STORE COPY')
                     : (selectedLanguage === 'marathi' ? 'कार्यालयीन प्रत (Office Copy)' : 'OFFICE COPY'),
                 false
+              )}
+            </div>
+          ) : isHalfPage ? (
+            /* ========================================================= */
+            /* 1.5. HALF-PAGE BILL FORMAT (A5 / TOP HALF OF A4)          */
+            /* ========================================================= */
+            <div
+              id="rental-bill-sheet"
+              className={`bg-white text-black font-sans mx-auto border border-slate-300 shadow-sm rounded-2xl ${
+                paperSize === 'a5' ? 'max-w-xl' : 'max-w-4xl'
+              } p-2.5 sm:p-3 text-[9.5px] leading-tight print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none flex flex-col justify-start`}
+            >
+              {/* Single Half-Page Bill */}
+              {renderTwoBillsSubSheet(
+                billCopyType && billCopyType !== 'none'
+                  ? getCopyTypeBadgeText()
+                  : (selectedLanguage === 'marathi' ? 'मूळ प्रत (ग्राहक)' : 'ORIGINAL COPY'),
+                true
+              )}
+
+              {/* Cutting Guide for A4 Half-Sheet: marks cut line and saves bottom half */}
+              {paperSize === 'half_page' && (
+                <div className="relative py-2 flex items-center justify-center mt-3 print:mt-1.5 select-none">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t-2 border-dashed border-slate-400" />
+                  </div>
+                  <div className="relative bg-white px-2.5 py-0.5 text-[8.5px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-1.5 border border-dashed border-slate-300 rounded-full shadow-2xs">
+                    <span className="text-xs">✂</span>
+                    <span>
+                      {selectedLanguage === 'marathi'
+                        ? 'इथून कापा (CUT HERE) — अर्धे पान पावती | उरलेले ५०% पान पुढील बिलासाठी वापरा'
+                        : 'CUT HERE (इथून कापा) — HALF PAGE BILL | REMAINING 50% SHEET SAVED'}
+                    </span>
+                    <span className="text-xs">✂</span>
+                  </div>
+                </div>
               )}
             </div>
           ) : isSimple ? (

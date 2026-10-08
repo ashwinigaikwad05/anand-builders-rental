@@ -237,6 +237,20 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         ...prev,
         paperSize: size,
         twoBillsPerPage: size === 'a4_2in1' ? true : (prev.paperSize === 'a4_2in1' ? false : prev.twoBillsPerPage),
+        halfPageFormat: size === 'half_page' || size === 'a5',
+      };
+      saveBillTemplateConfig(updated);
+      return updated;
+    });
+  };
+
+  const handleToggleHalfPageFormat = (enabled: boolean) => {
+    setBillConfig((prev) => {
+      const updated = {
+        ...prev,
+        halfPageFormat: enabled,
+        paperSize: enabled ? ('half_page' as BillPaperSize) : (prev.paperSize === 'half_page' || prev.paperSize === 'a5' ? ('a4' as BillPaperSize) : prev.paperSize),
+        twoBillsPerPage: enabled ? false : prev.twoBillsPerPage,
       };
       saveBillTemplateConfig(updated);
       return updated;
@@ -249,6 +263,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         ...prev,
         twoBillsPerPage: enabled,
         paperSize: enabled ? ('a4_2in1' as BillPaperSize) : (prev.paperSize === 'a4_2in1' ? ('a4' as BillPaperSize) : prev.paperSize),
+        halfPageFormat: enabled ? false : prev.halfPageFormat,
       };
       saveBillTemplateConfig(updated);
       return updated;
@@ -1058,55 +1073,86 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
             </div>
 
-            {/* C. 2 Bills on 1 Sheet / 1 पानात २ पावत्या Setting Banner */}
-            <div className={`p-3.5 rounded-2xl border-2 transition-all ${
-              (billConfig.paperSize === 'a4_2in1' || billConfig.twoBillsPerPage)
-                ? 'bg-amber-50/90 border-amber-300 shadow-xs'
-                : 'bg-white border-slate-200'
-            }`}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* C. Half-Page & 2-in-1 Paper Saving Options */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* 1. Half-Page Bill Card */}
+              <div className={`p-3.5 rounded-2xl border-2 transition-all ${
+                (billConfig.paperSize === 'half_page' || billConfig.paperSize === 'a5' || billConfig.halfPageFormat) && billConfig.paperSize !== 'a4_2in1'
+                  ? 'bg-emerald-50/90 border-emerald-400 shadow-xs'
+                  : 'bg-white border-slate-200'
+              }`}>
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={billConfig.paperSize === 'a4_2in1' || Boolean(billConfig.twoBillsPerPage)}
-                    onChange={(e) => handleToggleTwoBillsPerPage(e.target.checked)}
-                    className="w-4 h-4 mt-0.5 rounded text-amber-600 focus:ring-amber-500 accent-amber-600 cursor-pointer"
+                    checked={(billConfig.paperSize === 'half_page' || billConfig.paperSize === 'a5' || Boolean(billConfig.halfPageFormat)) && billConfig.paperSize !== 'a4_2in1'}
+                    onChange={(e) => handleToggleHalfPageFormat(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
                   />
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-black text-slate-900 uppercase flex items-center gap-1.5">
-                        <Scissors className="w-3.5 h-3.5 text-amber-600" />
-                        <span>{isMarathi ? '१ पानात २ पावत्या प्रिंट करा (2-in-1 Format)' : 'Print 2 Bills on 1 Page (2-in-1 Format)'}</span>
+                      <span className="text-xs font-black text-slate-900 uppercase">
+                        {isMarathi ? 'अर्धे पान पावती फॉरमॅट (Half Page Bill)' : 'Half Page Bill Format (A5 / Half A4)'}
                       </span>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 uppercase">
-                        {isMarathi ? '५०% कागद बचत' : 'Saves 50% Paper'}
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 uppercase">
+                        {isMarathi ? '५०% बचत' : 'Save 50%'}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-600 mt-0.5">
                       {isMarathi
-                        ? 'एकाच A4 पानावर वर ग्राहक मूळ प्रत व खाली दुकान/कार्यालय प्रत (कापण्यासाठी ✂ कटिंग लाईनसह) प्रिंट होते.'
-                        : 'Prints 2 complete bills on one A4 page: Customer original copy on top and office copy on bottom with cut line.'}
+                        ? 'संपूर्ण बिल A4 कागदाच्या फक्त वरच्या अर्ध्या भागात (किंवा A5 लहान पानात) सुटसुटीत बसते. उरलेला अर्धा कागद पुढील वापरासाठी वाचतो.'
+                        : 'Prints single compact bill strictly on the top half of A4 page (or A5 sheet). Saves remaining half sheet for reuse.'}
                     </p>
                   </div>
                 </label>
+              </div>
 
-                {/* 2nd Copy Label Selector if enabled */}
-                {(billConfig.paperSize === 'a4_2in1' || billConfig.twoBillsPerPage) && (
-                  <div className="flex items-center gap-2 sm:self-center pl-7 sm:pl-0 flex-shrink-0">
-                    <span className="text-[10px] font-bold text-slate-700 uppercase whitespace-nowrap">
-                      {isMarathi ? 'दुसऱ्या प्रतीचे नाव:' : '2nd Copy:'}
-                    </span>
-                    <select
-                      value={billConfig.twoBillsSecondCopyLabel || 'office'}
-                      onChange={(e) => handleUpdateTwoBillsSecondCopyLabel(e.target.value as any)}
-                      className="bg-white border border-amber-300 focus:border-amber-500 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800 shadow-2xs cursor-pointer"
-                    >
-                      <option value="office">{isMarathi ? 'कार्यालयीन प्रत (Office Copy)' : 'Office Copy'}</option>
-                      <option value="duplicate">{isMarathi ? 'दुसरी प्रत (Duplicate Copy)' : 'Duplicate Copy'}</option>
-                      <option value="store">{isMarathi ? 'दुकान प्रत (Store Copy)' : 'Store Copy'}</option>
-                    </select>
-                  </div>
-                )}
+              {/* 2. 2 Bills on 1 Sheet Card */}
+              <div className={`p-3.5 rounded-2xl border-2 transition-all ${
+                (billConfig.paperSize === 'a4_2in1' || billConfig.twoBillsPerPage)
+                  ? 'bg-amber-50/90 border-amber-300 shadow-xs'
+                  : 'bg-white border-slate-200'
+              }`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={billConfig.paperSize === 'a4_2in1' || Boolean(billConfig.twoBillsPerPage)}
+                      onChange={(e) => handleToggleTwoBillsPerPage(e.target.checked)}
+                      className="w-4 h-4 mt-0.5 rounded text-amber-600 focus:ring-amber-500 accent-amber-600 cursor-pointer"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-slate-900 uppercase flex items-center gap-1.5">
+                          <Scissors className="w-3.5 h-3.5 text-amber-600" />
+                          <span>{isMarathi ? '१ पानात २ पावत्या (2-in-1)' : '2 Bills on 1 Page (2-in-1)'}</span>
+                        </span>
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 uppercase">
+                          {isMarathi ? '२ प्रती' : '2 Copies'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-0.5">
+                        {isMarathi
+                          ? 'एकाच A4 पानावर वर ग्राहक मूळ प्रत व खाली दुकान प्रत (कटिंग लाईनसह) प्रिंट होते.'
+                          : 'Prints 2 copies on 1 A4 sheet: Original on top, Office copy on bottom with cut line.'}
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* 2nd Copy Label Selector if enabled */}
+                  {(billConfig.paperSize === 'a4_2in1' || billConfig.twoBillsPerPage) && (
+                    <div className="flex items-center gap-2 sm:self-center pl-7 sm:pl-0 flex-shrink-0">
+                      <select
+                        value={billConfig.twoBillsSecondCopyLabel || 'office'}
+                        onChange={(e) => handleUpdateTwoBillsSecondCopyLabel(e.target.value as any)}
+                        className="bg-white border border-amber-300 focus:border-amber-500 rounded-xl px-2.5 py-1 text-xs font-bold text-slate-800 shadow-2xs cursor-pointer"
+                      >
+                        <option value="office">{isMarathi ? 'कार्यालयीन प्रत' : 'Office Copy'}</option>
+                        <option value="duplicate">{isMarathi ? 'दुसरी प्रत' : 'Duplicate Copy'}</option>
+                        <option value="store">{isMarathi ? 'दुकान प्रत' : 'Store Copy'}</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
