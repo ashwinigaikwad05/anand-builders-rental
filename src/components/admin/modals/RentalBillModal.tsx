@@ -1324,7 +1324,15 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
             background: white !important;
             color: black !important;
             overflow: visible !important;
-            font-size: ${isThermal ? (paperSize === 'thermal_58' ? '9px' : '10px') : isTwoBills ? '9.5px' : 'inherit'} !important;
+            font-size: ${isThermal ? (paperSize === 'thermal_58' ? '9px' : '10px') : isTwoBills ? '9.5px' : isHalfPage ? '9px' : 'inherit'} !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
+          #rental-bill-sheet.is-half-page-sheet {
+            max-height: 138mm !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
           }
@@ -1347,9 +1355,11 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
           ? (paperSize === 'thermal_58' ? 'max-w-md' : 'max-w-lg')
           : isTwoBills
             ? 'max-w-4xl'
-            : paperOrientation === 'landscape'
-              ? 'max-w-6xl'
-              : (isCompact || paperSize === 'a5' ? 'max-w-3xl' : 'max-w-4xl')
+            : isHalfPage
+              ? 'max-w-2xl'
+              : paperOrientation === 'landscape'
+                ? 'max-w-6xl'
+                : (isCompact || paperSize === 'a5' ? 'max-w-3xl' : 'max-w-4xl')
       } w-full max-h-[95vh] flex flex-col overflow-hidden shadow-2xl animate-scaleUp my-auto print:max-w-full print:max-h-none print:shadow-none print:border-none print:rounded-none`}>
         {/* Top Control Bar (Hidden during print) */}
         <div className="no-print px-5 py-3.5 border-b border-slate-200 flex flex-wrap justify-between items-center bg-slate-50 gap-3 flex-shrink-0">
@@ -2087,70 +2097,36 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 false
               )}
             </div>
-          ) : isHalfPage ? (
-            /* ========================================================= */
-            /* 1.5. HALF-PAGE BILL FORMAT (A5 / TOP HALF OF A4)          */
-            /* ========================================================= */
-            <div
-              id="rental-bill-sheet"
-              className={`bg-white text-black font-sans mx-auto border border-slate-300 shadow-sm rounded-2xl ${
-                paperSize === 'a5' ? 'max-w-xl' : 'max-w-4xl'
-              } p-2.5 sm:p-3 text-[9.5px] leading-tight print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none flex flex-col justify-start`}
-            >
-              {/* Single Half-Page Bill */}
-              {renderTwoBillsSubSheet(
-                billCopyType && billCopyType !== 'none'
-                  ? getCopyTypeBadgeText()
-                  : (selectedLanguage === 'marathi' ? 'मूळ प्रत (ग्राहक)' : 'ORIGINAL COPY'),
-                true
-              )}
-
-              {/* Cutting Guide for A4 Half-Sheet: marks cut line and saves bottom half */}
-              {paperSize === 'half_page' && (
-                <div className="relative py-2 flex items-center justify-center mt-3 print:mt-1.5 select-none">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t-2 border-dashed border-slate-400" />
-                  </div>
-                  <div className="relative bg-white px-2.5 py-0.5 text-[8.5px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-1.5 border border-dashed border-slate-300 rounded-full shadow-2xs">
-                    <span className="text-xs">✂</span>
-                    <span>
-                      {selectedLanguage === 'marathi'
-                        ? 'इथून कापा (CUT HERE) — अर्धे पान पावती | उरलेले ५०% पान पुढील बिलासाठी वापरा'
-                        : 'CUT HERE (इथून कापा) — HALF PAGE BILL | REMAINING 50% SHEET SAVED'}
-                    </span>
-                    <span className="text-xs">✂</span>
-                  </div>
-                </div>
-              )}
-            </div>
           ) : isSimple ? (
             <div
               id="rental-bill-sheet"
-              className={`bg-white text-black font-sans mx-auto border border-slate-200 shadow-sm rounded-xl print:border-none print:shadow-none print:p-2 print:max-w-none leading-relaxed ${
-                paperSize === 'a5'
-                  ? 'p-5 sm:p-6 max-w-xl text-[11px]'
-                  : paperOrientation === 'landscape'
-                    ? 'p-6 sm:p-8 max-w-4xl text-xs'
-                    : 'p-8 sm:p-10 max-w-2xl text-xs'
+              className={`bg-white text-black font-sans mx-auto border border-slate-200 shadow-sm rounded-xl print:border-none print:shadow-none print:p-2 print:max-w-none ${
+                isHalfPage
+                  ? 'p-3 sm:p-4 max-w-2xl text-[9.5px] leading-snug is-half-page-sheet'
+                  : paperSize === 'a5'
+                    ? 'p-5 sm:p-6 max-w-xl text-[11px] leading-relaxed'
+                    : paperOrientation === 'landscape'
+                      ? 'p-6 sm:p-8 max-w-4xl text-xs leading-relaxed'
+                      : 'p-8 sm:p-10 max-w-2xl text-xs leading-relaxed'
               }`}
             >
               {/* TOP HEADER: Left Company Info | Right INVOICE & Meta */}
-              <div className="flex justify-between items-start pb-4">
-                <div className="flex items-center gap-3 sm:gap-4">
+              <div className={`flex justify-between items-start ${isHalfPage ? 'pb-2 border-b border-slate-200' : 'pb-4'}`}>
+                <div className={`flex items-center ${isHalfPage ? 'gap-2 sm:gap-2.5' : 'gap-3 sm:gap-4'}`}>
                   <img
                     src="/logo.png"
                     alt="ANAND Logo"
-                    className="h-14 sm:h-16 w-auto object-contain flex-shrink-0"
+                    className={`${isHalfPage ? 'h-8 sm:h-9' : 'h-14 sm:h-16'} w-auto object-contain flex-shrink-0`}
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
                     }}
                   />
                   <div className="text-left space-y-0.5">
-                    <h1 className="text-xl sm:text-2xl font-black text-black tracking-tight uppercase leading-tight">
+                    <h1 className={`${isHalfPage ? 'text-sm sm:text-base' : 'text-xl sm:text-2xl'} font-black text-black tracking-tight uppercase leading-tight`}>
                       {selectedLanguage === 'marathi' ? businessNameMr : businessName}
                     </h1>
-                    <p className="text-xs text-slate-800 font-medium">{address}</p>
-                    <p className="text-xs text-slate-800 font-medium">
+                    <p className={`${isHalfPage ? 'text-[9px]' : 'text-xs'} text-slate-800 font-medium`}>{address}</p>
+                    <p className={`${isHalfPage ? 'text-[9px]' : 'text-xs'} text-slate-800 font-medium`}>
                       {selectedLanguage === 'marathi' ? 'फोन:' : 'Ph:'} {phones.split(',')[0]?.trim() || '7020914957'}
                       {phones.split(',')[1] && `, ${phones.split(',')[1].trim()}`}
                     </p>
@@ -2158,14 +2134,14 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 </div>
 
                 <div className="text-right space-y-0.5">
-                  <div className="flex items-center justify-end gap-2">
-                    <h2 className="text-xl sm:text-2xl font-black tracking-wider text-black uppercase">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <h2 className={`${isHalfPage ? 'text-sm sm:text-base' : 'text-xl sm:text-2xl'} font-black tracking-wider text-black uppercase`}>
                       {selectedLanguage === 'marathi' ? 'भाडे पावती' : 'INVOICE'}
                     </h2>
                     {renderCopyTypeBadge()}
                   </div>
                   <div className="flex items-center justify-end gap-1.5 group">
-                    <p className="text-xs font-mono font-bold text-slate-900">#{billNumber}</p>
+                    <p className={`${isHalfPage ? 'text-[10px]' : 'text-xs'} font-mono font-bold text-slate-900`}>#{billNumber}</p>
                     <button
                       type="button"
                       onClick={() => {
@@ -2175,10 +2151,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                       className="no-print p-0.5 text-slate-400 hover:text-primary transition-colors cursor-pointer"
                       title={selectedLanguage === 'marathi' ? 'बिल नंबर बदला' : 'Edit Bill Number'}
                     >
-                      <Edit2 className="w-3 h-3" />
+                      <Edit2 className={`${isHalfPage ? 'w-2.5 h-2.5' : 'w-3 h-3'}`} />
                     </button>
                   </div>
-                  <div className="text-xs font-mono font-bold text-slate-900 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded mt-1 inline-block">
+                  <div className={`${isHalfPage ? 'text-[9px] px-1.5 py-0.2' : 'text-xs px-2 py-0.5'} font-mono font-bold text-slate-900 bg-slate-100 border border-slate-300 rounded mt-0.5 inline-block`}>
                     <span className="text-slate-600 font-semibold">{selectedLanguage === 'marathi' ? 'बिल दिनांक:' : 'Bill Dated:'}</span>{' '}
                     {issueDateFormatted}
                   </div>
@@ -2186,15 +2162,15 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               </div>
 
               {/* SUBHEADER: Bill To, Delivery & Rental Duration Time */}
-              <div className="text-xs pt-3 pb-2 font-normal">
+              <div className={`${isHalfPage ? 'text-[9px] pt-1.5 pb-1' : 'text-xs pt-3 pb-2'} font-normal`}>
                 <div className="flex justify-between items-baseline">
                   <div>
                     <span className="font-bold text-black">{selectedLanguage === 'marathi' ? 'बिल नाव:' : 'Bill To:'}</span>{' '}
-                    <span className="font-mono font-bold text-slate-900 bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded text-[11px] mr-1.5">
+                    <span className={`font-mono font-bold text-slate-900 bg-slate-100 border border-slate-300 ${isHalfPage ? 'px-1 py-0.2 text-[9px]' : 'px-1.5 py-0.5 text-[11px]'} rounded mr-1`}>
                       {selectedLanguage === 'marathi' ? 'ग्राहक #' : 'Cust #'}{assignedCustomerNumber}
                     </span>
                     <span className="font-bold text-black uppercase">{partyDisplayName}</span>{' '}
-                    <span className="font-mono text-slate-800 ml-3">{partyDisplayMobile}</span>
+                    <span className="font-mono text-slate-800 ml-2">{partyDisplayMobile}</span>
                   </div>
                   <div className="text-right">
                     <span className="font-bold text-black">{selectedLanguage === 'marathi' ? 'साहित्य वाटप:' : 'Dispatch Date:'}</span>{' '}
@@ -2203,7 +2179,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 </div>
 
                 {/* Rental Duration & Period Row */}
-                <div className="flex justify-between items-baseline pt-1">
+                <div className="flex justify-between items-baseline pt-0.5">
                   <div className="text-slate-700">
                     {partyDisplayAddress ? (
                       <>
@@ -2220,7 +2196,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     </span>{' '}
                     <span className="font-mono text-black font-bold">{cycleDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'Days'}</span>
                     {cycleEndFormatted && cycleEndFormatted !== '40 Days from issue' && cycleEndFormatted !== '४० दिवसांनंतर' && (
-                      <span className="font-mono text-slate-700 font-semibold text-[11px] ml-1.5">
+                      <span className={`font-mono text-slate-700 font-semibold ${isHalfPage ? 'text-[9px]' : 'text-[11px]'} ml-1`}>
                         ({cycleStartFormatted} {selectedLanguage === 'marathi' ? 'ते' : 'to'} {cycleEndFormatted})
                       </span>
                     )}
@@ -2231,35 +2207,35 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               {/* TABLE: Clean Divider lines above and below headers, and at bottom of rows */}
               <table className="w-full text-left my-1 border-collapse">
                 <thead>
-                  <tr className="border-t-2 border-b-2 border-slate-900 text-xs font-bold text-black">
-                    <th className="py-2 pr-4 text-left">{selectedLanguage === 'marathi' ? 'साहित्य' : 'Item'}</th>
-                    <th className="py-2 px-3 text-center">{selectedLanguage === 'marathi' ? 'नग' : 'Qty'}</th>
-                    <th className="py-2 px-3 text-right">{selectedLanguage === 'marathi' ? 'दर' : 'Rate'}</th>
-                    <th className="py-2 pl-4 text-right">{selectedLanguage === 'marathi' ? 'रक्कम' : 'Amt'}</th>
+                  <tr className={`border-t-2 border-b-2 border-slate-900 ${isHalfPage ? 'text-[9px]' : 'text-xs'} font-bold text-black`}>
+                    <th className={`${isHalfPage ? 'py-1 pr-2' : 'py-2 pr-4'} text-left`}>{selectedLanguage === 'marathi' ? 'साहित्य' : 'Item'}</th>
+                    <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center`}>{selectedLanguage === 'marathi' ? 'नग' : 'Qty'}</th>
+                    <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right`}>{selectedLanguage === 'marathi' ? 'दर' : 'Rate'}</th>
+                    <th className={`${isHalfPage ? 'py-1 pl-2' : 'py-2 pl-4'} text-right`}>{selectedLanguage === 'marathi' ? 'रक्कम' : 'Amt'}</th>
                   </tr>
                 </thead>
-                <tbody className="text-xs border-b-2 border-slate-900">
+                <tbody className={`${isHalfPage ? 'text-[9.5px]' : 'text-xs'} border-b-2 border-slate-900`}>
                   {plateItems.map((item, index) => {
                     const itemDays = item.days || cycleDays;
                     const rowRent = item.quantity * item.dailyRate * itemDays;
                     return (
                       <tr key={index}>
-                        <td className="py-2.5 pr-4 text-black">
-                          <div className="font-bold uppercase text-[12px]">
+                        <td className={`${isHalfPage ? 'py-1 pr-2' : 'py-2.5 pr-4'} text-black`}>
+                          <div className={`font-bold uppercase ${isHalfPage ? 'text-[10px]' : 'text-[12px]'}`}>
                             {formatPlateType(item.plateType, selectedLanguage)}
                           </div>
                           {/* Explicit Day-Wise Calculation Formula */}
-                          <div className="text-[11px] font-mono font-medium text-slate-700 bg-slate-100/90 border border-slate-300 px-2 py-0.5 rounded mt-1 inline-block">
+                          <div className={`${isHalfPage ? 'text-[8.5px] px-1.5 py-0' : 'text-[11px] px-2 py-0.5'} font-mono font-medium text-slate-700 bg-slate-100/90 border border-slate-300 rounded mt-0.5 inline-block`}>
                             {item.quantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'plates'} × ₹{Number(item.dailyRate).toFixed(2)}/{selectedLanguage === 'marathi' ? 'दिवस' : 'day'} × {itemDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'days'}
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 text-center font-mono text-black align-top font-bold text-sm">
+                        <td className={`${isHalfPage ? 'py-1 px-1.5 text-xs' : 'py-2.5 px-3 text-sm'} text-center font-mono text-black align-top font-bold`}>
                           {item.quantity}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-black align-top font-semibold">
+                        <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2.5 px-3'} text-right font-mono text-black align-top font-semibold`}>
                           ₹{Number(item.dailyRate).toFixed(2)}/{selectedLanguage === 'marathi' ? 'दिवस' : 'd'}
                         </td>
-                        <td className="py-2.5 pl-4 text-right font-mono text-black align-top font-black text-sm">
+                        <td className={`${isHalfPage ? 'py-1 pl-2 font-bold' : 'py-2.5 pl-4 font-black text-sm'} text-right font-mono text-black align-top`}>
                           ₹{rowRent.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                       </tr>
@@ -2269,7 +2245,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                   {/* Overdue Extra Days Row if applicable */}
                   {extraDays > 0 && extraAmount > 0 && (
                     <tr>
-                      <td className="py-2 pr-4 text-black">
+                      <td className={`${isHalfPage ? 'py-1 pr-2' : 'py-2 pr-4'} text-black`}>
                         <div className="lowercase">
                           {selectedLanguage === 'marathi' ? 'अतिरिक्त दिवस' : 'extra days'} (+{extraDays}{selectedLanguage === 'marathi' ? ' दि' : 'd'})
                         </div>
@@ -2277,9 +2253,9 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                           {selectedLanguage === 'marathi' ? 'मुदतीनंतरचा वापर' : 'Overdue usage beyond cycle'}
                         </div>
                       </td>
-                      <td className="py-2 px-3 text-center font-mono text-black align-top">{rental.quantity}</td>
-                      <td className="py-2 px-3 text-right font-mono text-black align-top">₹{Number(rental.dailyRate || 1.5).toFixed(2)}</td>
-                      <td className="py-2 pl-4 text-right font-mono text-black align-top">
+                      <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center font-mono text-black align-top`}>{rental.quantity}</td>
+                      <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right font-mono text-black align-top`}>₹{Number(rental.dailyRate || 1.5).toFixed(2)}</td>
+                      <td className={`${isHalfPage ? 'py-1 pl-2' : 'py-2 pl-4'} text-right font-mono text-black align-top`}>
                         ₹{extraAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                     </tr>
@@ -2456,8 +2432,8 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               )}
 
               {/* SUMMARY SECTION: Right-aligned under table */}
-              <div className="flex justify-end pt-2 pb-4">
-                <div className="w-64 sm:w-72 space-y-1 text-xs">
+              <div className={`flex justify-end ${isHalfPage ? 'pt-1 pb-1' : 'pt-2 pb-4'}`}>
+                <div className={`${isHalfPage ? 'w-56 sm:w-64 text-[9px]' : 'w-64 sm:w-72 text-xs'} space-y-0.5`}>
                   {allCycles.length > 1 ? (
                     <>
                       <div className="flex justify-between py-0.5 text-slate-700">
@@ -2485,11 +2461,11 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                         </span>
                       </div>
                       {allCyclesBalanceDue > 0 ? (
-                        <div className="border-t-2 border-slate-900 pt-1.5 mt-1 flex justify-between items-baseline">
-                          <span className="text-base font-black text-rose-700">
+                        <div className={`border-t-2 border-slate-900 ${isHalfPage ? 'pt-1' : 'pt-1.5 mt-1'} flex justify-between items-baseline`}>
+                          <span className={`${isHalfPage ? 'text-xs' : 'text-base'} font-black text-rose-700`}>
                             {selectedLanguage === 'marathi' ? 'एकूण येणे बाकी:' : 'Balance Due:'}
                           </span>
-                          <span className="text-base sm:text-lg font-black font-mono text-rose-700">
+                          <span className={`${isHalfPage ? 'text-sm' : 'text-base sm:text-lg'} font-black font-mono text-rose-700`}>
                             ₹{allCyclesBalanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
@@ -2498,16 +2474,16 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                           <span className="text-xs font-black text-emerald-900">
                             {selectedLanguage === 'marathi' ? 'ग्राहकाला परतावा शिल्लक:' : 'Refund Due to Customer:'}
                           </span>
-                          <span className="text-sm sm:text-base font-black font-mono text-emerald-800">
+                          <span className={`${isHalfPage ? 'text-xs' : 'text-sm sm:text-base'} font-black font-mono text-emerald-800`}>
                             ₹{allCyclesRefundDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       ) : (
-                        <div className="border-t-2 border-emerald-600 bg-emerald-50/60 p-1.5 rounded mt-1 flex justify-between items-baseline">
-                          <span className="text-xs font-black text-emerald-900">
+                        <div className="border-t-2 border-emerald-600 bg-emerald-50/60 p-1 rounded mt-0.5 flex justify-between items-baseline">
+                          <span className="text-[10px] font-black text-emerald-900">
                             {selectedLanguage === 'marathi' ? 'हिशोब पूर्ण समतोल:' : 'Fully Settled:'}
                           </span>
-                          <span className="text-sm font-black font-mono text-emerald-800">
+                          <span className="text-[11px] font-black font-mono text-emerald-800">
                             ₹0.00 ✓
                           </span>
                         </div>
@@ -2532,11 +2508,11 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                         </span>
                       </div>
                       {allCyclesBalanceDue > 0 ? (
-                        <div className="border-t-2 border-slate-900 pt-1.5 mt-1 flex justify-between items-baseline">
-                          <span className="text-base font-black text-rose-700">
+                        <div className={`border-t-2 border-slate-900 ${isHalfPage ? 'pt-1' : 'pt-1.5 mt-1'} flex justify-between items-baseline`}>
+                          <span className={`${isHalfPage ? 'text-xs' : 'text-base'} font-black text-rose-700`}>
                             {selectedLanguage === 'marathi' ? 'शिल्लक येणे बाकी:' : 'Balance Remaining Due:'}
                           </span>
-                          <span className="text-base sm:text-lg font-black font-mono text-rose-700">
+                          <span className={`${isHalfPage ? 'text-sm' : 'text-base sm:text-lg'} font-black font-mono text-rose-700`}>
                             ₹{allCyclesBalanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
@@ -2545,16 +2521,16 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                           <span className="text-xs font-black text-emerald-900">
                             {selectedLanguage === 'marathi' ? 'ग्राहकाला परतावा शिल्लक:' : 'Excess Refund to Customer:'}
                           </span>
-                          <span className="text-sm sm:text-base font-black font-mono text-emerald-800">
+                          <span className={`${isHalfPage ? 'text-xs' : 'text-sm sm:text-base'} font-black font-mono text-emerald-800`}>
                             ₹{allCyclesRefundDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       ) : (
-                        <div className="border-t-2 border-emerald-600 bg-emerald-50/60 p-1.5 rounded mt-1 flex justify-between items-baseline">
-                          <span className="text-xs font-black text-emerald-900">
+                        <div className="border-t-2 border-emerald-600 bg-emerald-50/60 p-1 rounded mt-0.5 flex justify-between items-baseline">
+                          <span className="text-[10px] font-black text-emerald-900">
                             {selectedLanguage === 'marathi' ? 'हिशोब पूर्ण समतोल:' : 'Fully Settled:'}
                           </span>
-                          <span className="text-sm font-black font-mono text-emerald-800">
+                          <span className="text-[11px] font-black font-mono text-emerald-800">
                             ₹0.00 ✓
                           </span>
                         </div>
@@ -2565,33 +2541,33 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               </div>
 
               {/* FOOTER: Left Party Signature | Center Thank You | Right Authorized Signature */}
-              <div className="pt-6">
-                <div className="flex justify-between items-end gap-3 sm:gap-6">
+              <div className={`${isHalfPage ? 'pt-2' : 'pt-6'}`}>
+                <div className={`flex justify-between items-end ${isHalfPage ? 'gap-2 sm:gap-3' : 'gap-3 sm:gap-6'}`}>
                   {/* Left: Party / Customer Signature */}
-                  <div className="text-center min-w-[120px] sm:min-w-[140px]">
-                    <div className="border-b border-black w-32 sm:w-36 mb-1 mx-auto" />
-                    <p className="text-[10px] font-bold uppercase text-black tracking-wider">
+                  <div className={`text-center ${isHalfPage ? 'min-w-[100px] sm:min-w-[120px]' : 'min-w-[120px] sm:min-w-[140px]'}`}>
+                    <div className={`border-b border-black ${isHalfPage ? 'w-24 sm:w-28' : 'w-32 sm:w-36'} mb-1 mx-auto`} />
+                    <p className={`${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} font-bold uppercase text-black tracking-wider`}>
                       {selectedLanguage === 'marathi' ? 'ग्राहकाची सही / अंगठा' : "Customer's Signature"}
                     </p>
-                    <p className="text-[9px] text-slate-700 font-semibold truncate max-w-[160px] mx-auto">
+                    <p className={`${isHalfPage ? 'text-[8px]' : 'text-[9px]'} text-slate-700 font-semibold truncate ${isHalfPage ? 'max-w-[130px]' : 'max-w-[160px]'} mx-auto`}>
                       {partyDisplayName}
                     </p>
                   </div>
 
                   {/* Center: Thank you */}
-                  <div className="text-center pb-1">
-                    <p className="text-sm sm:text-base font-black text-black tracking-wide">
+                  <div className="text-center pb-0.5">
+                    <p className={`${isHalfPage ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'} font-black text-black tracking-wide`}>
                       {selectedLanguage === 'marathi' ? '॥ धन्यवाद ॥' : 'Thank you!'}
                     </p>
                   </div>
 
                   {/* Right: Authorized Signature */}
-                  <div className="text-center min-w-[120px] sm:min-w-[140px]">
-                    <div className="border-b border-black w-32 sm:w-36 mb-1 mx-auto" />
-                    <p className="text-[10px] font-bold uppercase text-black tracking-wider">
+                  <div className={`text-center ${isHalfPage ? 'min-w-[100px] sm:min-w-[120px]' : 'min-w-[120px] sm:min-w-[140px]'}`}>
+                    <div className={`border-b border-black ${isHalfPage ? 'w-24 sm:w-28' : 'w-32 sm:w-36'} mb-1 mx-auto`} />
+                    <p className={`${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} font-bold uppercase text-black tracking-wider`}>
                       {selectedLanguage === 'marathi' ? 'अधिकृत स्वाक्षरी' : 'Authorized Signature'}
                     </p>
-                    <p className="text-[9px] text-slate-700 font-semibold truncate max-w-[160px] mx-auto">
+                    <p className={`${isHalfPage ? 'text-[8px]' : 'text-[9px]'} text-slate-700 font-semibold truncate ${isHalfPage ? 'max-w-[130px]' : 'max-w-[160px]'} mx-auto`}>
                       {selectedLanguage === 'marathi' ? businessNameMr : businessName}
                     </p>
                   </div>
@@ -2599,7 +2575,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
                 {/* Bank Details & Terms */}
                 {(showBankDetails || (printTerms && activeTerms && activeTerms.length > 0)) && (
-                  <div className="mt-6 pt-3 border-t border-slate-100 text-[10px] text-slate-500 space-y-1">
+                  <div className={`${isHalfPage ? 'mt-2 pt-1 text-[8.5px]' : 'mt-6 pt-3 text-[10px]'} border-t border-slate-100 text-slate-500 space-y-0.5`}>
                     {showBankDetails && (
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <p className="font-mono">
@@ -2618,7 +2594,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                       </div>
                     )}
                     {printTerms && activeTerms && activeTerms.length > 0 && (
-                      <div className="space-y-0.5 pt-1">
+                      <div className="space-y-0.5 pt-0.5">
                         <span className="font-bold text-slate-700 block">{currentT.termsTitle}</span>
                         {activeTerms.map((term, i) => (
                           <p key={i} className="text-slate-600 leading-tight">
@@ -2632,6 +2608,24 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
                 {/* KYC / Customer Verification Documents (Aadhaar Front/Back, Face, Cheque) */}
                 {renderKycDocumentsSection(true)}
+
+                {/* Perforation cutting guide for A4 Half-Sheet: marks cut line and saves 50% paper */}
+                {isHalfPage && paperSize === 'half_page' && (
+                  <div className="relative py-2 flex items-center justify-center mt-2.5 print:mt-1.5 select-none">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t-2 border-dashed border-slate-400" />
+                    </div>
+                    <div className="relative bg-white px-2.5 py-0.5 text-[8px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-1.5 border border-dashed border-slate-300 rounded-full shadow-2xs">
+                      <span className="text-xs">✂</span>
+                      <span>
+                        {selectedLanguage === 'marathi'
+                          ? 'इथून कापा (CUT HERE) — अर्धे पान पावती | उरलेले ५०% पान पुढील बिलासाठी वापरा'
+                          : 'CUT HERE (इथून कापा) — HALF PAGE BILL | REMAINING 50% SHEET SAVED'}
+                      </span>
+                      <span className="text-xs">✂</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -2641,18 +2635,20 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
             <div
               id="rental-bill-sheet"
               className={`bg-white border border-slate-200 shadow-sm rounded-2xl ${
-                paperSize === 'a5'
-                  ? 'p-4 sm:p-5 max-w-xl text-[11px]'
-                  : paperOrientation === 'landscape'
-                    ? 'p-5 sm:p-6 max-w-5xl text-xs'
-                    : isCompact ? 'p-5 sm:p-6 max-w-3xl text-xs' : 'p-6 sm:p-8 max-w-3xl text-xs'
+                isHalfPage
+                  ? 'p-3 sm:p-4 max-w-2xl text-[9.5px] leading-snug is-half-page-sheet'
+                  : paperSize === 'a5'
+                    ? 'p-4 sm:p-5 max-w-xl text-[11px]'
+                    : paperOrientation === 'landscape'
+                      ? 'p-5 sm:p-6 max-w-5xl text-xs'
+                      : isCompact ? 'p-5 sm:p-6 max-w-3xl text-xs' : 'p-6 sm:p-8 max-w-3xl text-xs'
               } text-slate-800 font-sans mx-auto print:border-none print:shadow-none print:p-0`}
             >
               {/* Header Section */}
-              <div className={`border-b-2 border-slate-800 ${isCompact ? 'pb-3 mb-4' : 'pb-5 mb-6'}`}>
+              <div className={`border-b-2 border-slate-800 ${isHalfPage ? 'pb-2 mb-2' : (isCompact ? 'pb-3 mb-4' : 'pb-5 mb-6')}`}>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div className="flex items-center gap-3">
-                    <div className={`${isCompact ? 'w-11 h-11' : 'w-14 h-14'} rounded-2xl bg-white border border-slate-200 flex items-center justify-center p-1.5 shadow-2xs flex-shrink-0`}>
+                    <div className={`${isHalfPage ? 'w-8 h-8' : (isCompact ? 'w-11 h-11' : 'w-14 h-14')} rounded-2xl bg-white border border-slate-200 flex items-center justify-center p-1 shadow-2xs flex-shrink-0`}>
                       <img
                         src="/logo.png"
                         alt="Anand Logo"
@@ -2663,7 +2659,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                       />
                     </div>
                     <div>
-                      <h1 className={`${isCompact ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl'} font-black tracking-tight text-slate-900 uppercase`}>
+                      <h1 className={`${isHalfPage ? 'text-sm sm:text-base' : (isCompact ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl')} font-black tracking-tight text-slate-900 uppercase`}>
                         {selectedLanguage === 'marathi' ? businessNameMr : businessName}
                       </h1>
                       {config.showMarathiHeader && (
@@ -2673,7 +2669,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                             : `${businessName} • Centering Plates & Rental Services`}
                         </p>
                       )}
-                      <p className="text-[11px] text-slate-500 font-medium">
+                      <p className={`${isHalfPage ? 'text-[9.5px]' : 'text-[11px]'} text-slate-500 font-medium`}>
                         {selectedLanguage === 'marathi'
                           ? 'हेवी-गेज स्टील शटरिंग प्लेट्स, कॉलम बॉक्सेस आणि बांधकाम साहित्य'
                           : 'Heavy-Duty Steel Shuttering Plates, Columns & Scaffolding Material'}
@@ -2691,14 +2687,14 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                       <Phone className="w-3.5 h-3.5 text-primary" />
                       <span>+91 {phones.split(',')[0]?.trim() || '7020914957'}</span>
                     </div>
-                    <p className="text-[11px] text-slate-500">{selectedLanguage === 'marathi' ? 'संपर्क:' : 'Contact:'} {phones.split(',').slice(1).join(' / ').trim() || '9881985058'}</p>
-                    <p className="text-[11px] text-slate-500">{address}</p>
+                    <p className={`${isHalfPage ? 'text-[9.5px]' : 'text-[11px]'} text-slate-500`}>{selectedLanguage === 'marathi' ? 'संपर्क:' : 'Contact:'} {phones.split(',').slice(1).join(' / ').trim() || '9881985058'}</p>
+                    <p className={`${isHalfPage ? 'text-[9.5px]' : 'text-[11px]'} text-slate-500`}>{address}</p>
                   </div>
                 </div>
               </div>
 
               {/* Bill Title Banner */}
-              <div className={`flex justify-between items-center ${isTaxInvoice ? 'bg-indigo-950' : 'bg-slate-900'} text-white px-4 ${isCompact ? 'py-1.5 mb-4' : 'py-2.5 mb-6'} rounded-xl shadow-sm`}>
+              <div className={`flex justify-between items-center ${isTaxInvoice ? 'bg-indigo-950' : 'bg-slate-900'} text-white px-4 ${isHalfPage ? 'py-1 mb-2 text-[10px]' : (isCompact ? 'py-1.5 mb-4' : 'py-2.5 mb-6')} rounded-xl shadow-sm`}>
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-orange-400" />
                   <span className="text-xs font-black uppercase tracking-wider">
@@ -2724,7 +2720,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               </div>
 
               {/* Customer & Billing Details Grid */}
-              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${isCompact ? 'mb-4 p-3' : 'mb-6 p-4'} bg-slate-50/90 border border-slate-200/80 rounded-xl text-xs`}>
+              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${isHalfPage ? 'mb-2 p-2 text-[9px] gap-2' : (isCompact ? 'mb-4 p-3' : 'mb-6 p-4')} bg-slate-50/90 border border-slate-200/80 rounded-xl text-xs`}>
                 <div className="space-y-1.5">
                   <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
                     <User className="w-3 h-3 text-slate-500" /> {currentT.customerTitle}
@@ -3136,17 +3132,17 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               )}
 
               {/* Signatures */}
-              <div className={`grid grid-cols-2 gap-8 ${isCompact ? 'pt-4' : 'pt-6'} border-t border-slate-200 text-xs`}>
-                <div className="text-center space-y-6">
-                  <div className="border-b border-dashed border-slate-400 w-44 mx-auto" />
+              <div className={`grid grid-cols-2 gap-8 ${isHalfPage ? 'pt-2' : (isCompact ? 'pt-4' : 'pt-6')} border-t border-slate-200 text-xs`}>
+                <div className={`text-center ${isHalfPage ? 'space-y-2' : 'space-y-6'}`}>
+                  <div className={`border-b border-dashed border-slate-400 ${isHalfPage ? 'w-28' : 'w-44'} mx-auto`} />
                   <p className="font-bold text-slate-800">
                     {currentT.customerSign}<br />
                     <span className="text-[10px] text-slate-400 font-normal">{currentT.customerSignSub}</span>
                   </p>
                 </div>
 
-                <div className="text-center space-y-6">
-                  <div className="border-b border-dashed border-slate-400 w-44 mx-auto" />
+                <div className={`text-center ${isHalfPage ? 'space-y-2' : 'space-y-6'}`}>
+                  <div className={`border-b border-dashed border-slate-400 ${isHalfPage ? 'w-28' : 'w-44'} mx-auto`} />
                   <p className="font-bold text-slate-800">
                     {currentT.authorizedSign}<br />
                     <span className="text-[10px] text-slate-400 font-normal">{currentT.authorizedSignSub}</span>
@@ -3156,6 +3152,24 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
               {/* KYC / Customer Verification Documents (Aadhaar Front/Back, Face, Cheque) */}
               {renderKycDocumentsSection(false)}
+
+              {/* Perforation cutting guide for A4 Half-Sheet: marks cut line and saves 50% paper */}
+              {isHalfPage && paperSize === 'half_page' && (
+                <div className="relative py-2 flex items-center justify-center mt-2.5 print:mt-1.5 select-none">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t-2 border-dashed border-slate-400" />
+                  </div>
+                  <div className="relative bg-white px-2.5 py-0.5 text-[8px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-1.5 border border-dashed border-slate-300 rounded-full shadow-2xs">
+                    <span className="text-xs">✂</span>
+                    <span>
+                      {selectedLanguage === 'marathi'
+                        ? 'इथून कापा (CUT HERE) — अर्धे पान पावती | उरलेले ५०% पान पुढील बिलासाठी वापरा'
+                        : 'CUT HERE (इथून कापा) — HALF PAGE BILL | REMAINING 50% SHEET SAVED'}
+                    </span>
+                    <span className="text-xs">✂</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
