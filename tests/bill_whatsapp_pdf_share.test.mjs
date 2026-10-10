@@ -139,6 +139,35 @@ runTest('buildBillWhatsAppUrl produces valid wa.me link with encoded text', () =
   assert.ok(url.includes(encodeURIComponent('राहुल शिंदे')), 'URL text should contain party name');
 });
 
+// TEST 6: Bill export filter excludes edit buttons, icons, and placeholder elements
+runTest('isBillExportIgnoredElement filters out all edit controls, buttons, and no-print elements', async () => {
+  const { isBillExportIgnoredElement } = await import('../src/utils/billPdfShareUtils.ts');
+
+  // Interactive buttons (like Edit Bank, Edit Bill #)
+  const buttonEl = { tagName: 'BUTTON', classList: { contains: () => false }, getAttribute: () => null };
+  assert.strictEqual(isBillExportIgnoredElement(buttonEl), true, 'All buttons must be ignored');
+
+  // Elements with no-print class
+  const noPrintEl = { tagName: 'DIV', classList: { contains: (c) => c === 'no-print' }, getAttribute: () => null };
+  assert.strictEqual(isBillExportIgnoredElement(noPrintEl), true, 'no-print elements must be ignored');
+
+  // Elements with bill-edit-control class
+  const editControlEl = { tagName: 'SPAN', classList: { contains: (c) => c === 'bill-edit-control' }, getAttribute: () => null };
+  assert.strictEqual(isBillExportIgnoredElement(editControlEl), true, 'bill-edit-control must be ignored');
+
+  // Elements with kyc-empty-placeholder class
+  const kycPlaceholderEl = { tagName: 'DIV', classList: { contains: (c) => c === 'kyc-empty-placeholder' }, getAttribute: () => null };
+  assert.strictEqual(isBillExportIgnoredElement(kycPlaceholderEl), true, 'kyc-empty-placeholder must be ignored');
+
+  // Elements with data-no-print attribute
+  const dataNoPrintEl = { tagName: 'P', classList: { contains: () => false }, getAttribute: (a) => a === 'data-no-print' ? 'true' : null };
+  assert.strictEqual(isBillExportIgnoredElement(dataNoPrintEl), true, 'data-no-print=true must be ignored');
+
+  // Normal bill elements (like party name, tables, rates, totals)
+  const normalBillEl = { tagName: 'P', classList: { contains: () => false }, getAttribute: () => null };
+  assert.strictEqual(isBillExportIgnoredElement(normalBillEl), false, 'Normal bill elements must NOT be ignored');
+});
+
 console.log('===========================================================================');
 if (testsFailed === 0) {
   console.log(`  🎉 ALL ${testsPassed} WHATSAPP BILL SHARE TESTS PASSED! (100% SUCCESS)`);

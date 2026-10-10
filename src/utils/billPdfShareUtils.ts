@@ -54,6 +54,35 @@ export function setAutoWhatsAppShareSetting(enabled: boolean): void {
 }
 
 /**
+ * Helper to determine whether an element should be ignored when capturing
+ * the bill for PDF generation, WhatsApp sharing, or clipboard copy.
+ * Filters out all edit controls, buttons, pencil icons, and screen-only elements.
+ */
+export function isBillExportIgnoredElement(el: Element): boolean {
+  if (!el) return false;
+  const tagName = el.tagName ? el.tagName.toLowerCase() : '';
+  // Interactive buttons (like Edit Bank, Edit Bill #) should never appear on final bill output
+  if (tagName === 'button') {
+    return true;
+  }
+  const classList = el.classList;
+  if (classList) {
+    if (
+      classList.contains('no-print') ||
+      classList.contains('print:hidden') ||
+      classList.contains('bill-edit-control') ||
+      classList.contains('kyc-empty-placeholder')
+    ) {
+      return true;
+    }
+  }
+  if (el.getAttribute && el.getAttribute('data-no-print') === 'true') {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Builds a clean, professional WhatsApp text summary of the bill
  */
 export function buildBillWhatsAppSummary(data: BillShareData): string {
@@ -132,14 +161,21 @@ export async function generateBillPdfBlob(
     : (paperOptions?.orientation || cfg.paperOrientation || 'portrait');
 
   // 1. Capture element to high-res canvas (scale 2.0 ensures crisp text and logo)
-  const canvas = await html2canvas(element, {
-    scale: 2.0,
-    useCORS: true,
-    allowTaint: true,
-    logging: false,
-    backgroundColor: '#ffffff',
-    windowWidth: element.scrollWidth || 900,
-  });
+  element.classList?.add('is-exporting-clean-bill');
+  let canvas: HTMLCanvasElement;
+  try {
+    canvas = await html2canvas(element, {
+      scale: 2.0,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      windowWidth: element.scrollWidth || 900,
+      ignoreElements: (el) => isBillExportIgnoredElement(el),
+    });
+  } finally {
+    element.classList?.remove('is-exporting-clean-bill');
+  }
 
   let pdf: jsPDF;
   let pageWidth: number;
@@ -301,14 +337,21 @@ export function openCustomerWhatsAppChat(mobile: string, message: string): void 
  */
 export async function copyBillImageToClipboard(element: HTMLElement): Promise<boolean> {
   try {
-    const canvas = await html2canvas(element, {
-      scale: 2.0,
-      useCORS: true,
-      allowTaint: true,
-      logging: false,
-      backgroundColor: '#ffffff',
-      windowWidth: element.scrollWidth || 900,
-    });
+    element.classList?.add('is-exporting-clean-bill');
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await html2canvas(element, {
+        scale: 2.0,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: element.scrollWidth || 900,
+        ignoreElements: (el) => isBillExportIgnoredElement(el),
+      });
+    } finally {
+      element.classList?.remove('is-exporting-clean-bill');
+    }
 
     if (typeof navigator === 'undefined' || !navigator.clipboard || typeof ClipboardItem === 'undefined') {
       return false;

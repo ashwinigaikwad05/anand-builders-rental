@@ -87,7 +87,20 @@
   header,
   nav,
   .no-print,
+  .bill-edit-control,
+  [data-no-print="true"],
+  .kyc-empty-placeholder,
   .md\:hidden {
     display: none !important;
   }
+}
+
+.is-exporting-clean-bill .no-print,
+.is-exporting-clean-bill .print\:hidden,
+.is-exporting-clean-bill .bill-edit-control,
+.is-exporting-clean-bill [data-no-print="true"],
+.is-exporting-clean-bill button,
+.is-exporting-clean-bill .kyc-empty-placeholder {
+  display: none !important;
+  visibility: hidden !important;
 }

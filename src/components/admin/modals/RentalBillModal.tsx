@@ -905,7 +905,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
     // In print mode, hide completely. On screen, show a clean informative banner.
     if (uploadedDocs.length === 0) {
       return (
-        <div className="mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500 italic print:hidden flex items-center justify-center gap-2">
+        <div
+          data-no-print="true"
+          className="no-print print:hidden kyc-empty-placeholder mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500 italic flex items-center justify-center gap-2"
+        >
           <ShieldCheck className="w-4 h-4 text-slate-400 shrink-0" />
           <span>
             {selectedLanguage === 'marathi'
@@ -1257,6 +1260,17 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
     <div id="rental-bill-portal" className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static">
       {/* Print-specific CSS styles */}
       <style>{`
+        /* Clean export rules when capturing for PDF, WhatsApp or clipboard copy */
+        .is-exporting-clean-bill .no-print,
+        .is-exporting-clean-bill .print\:hidden,
+        .is-exporting-clean-bill [data-no-print="true"],
+        .is-exporting-clean-bill .bill-edit-control,
+        .is-exporting-clean-bill button,
+        .is-exporting-clean-bill .kyc-empty-placeholder {
+          display: none !important;
+          visibility: hidden !important;
+        }
+
         @media print {
           html, body {
             margin: 0 !important;
@@ -1275,9 +1289,15 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
             display: none !important;
           }
 
-          /* Hide controls and screen-only elements */
-          .no-print {
+          /* Hide controls, edit buttons and screen-only elements */
+          .no-print,
+          .print\:hidden,
+          [data-no-print="true"],
+          .bill-edit-control,
+          #rental-bill-sheet button,
+          .kyc-empty-placeholder {
             display: none !important;
+            visibility: hidden !important;
           }
 
           /* Portal container */
@@ -2146,11 +2166,12 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     <p className={`${isHalfPage ? 'text-[10px]' : 'text-xs'} font-mono font-bold text-slate-900`}>#{billNumber}</p>
                     <button
                       type="button"
+                      data-no-print="true"
                       onClick={() => {
                         setTempBillNo(currentBillNo);
                         setIsEditingBillNo(true);
                       }}
-                      className="no-print p-0.5 text-slate-400 hover:text-primary transition-colors cursor-pointer"
+                      className="no-print bill-edit-control p-0.5 text-slate-400 hover:text-primary transition-colors cursor-pointer group-hover:opacity-100 opacity-0"
                       title={selectedLanguage === 'marathi' ? 'बिल नंबर बदला' : 'Edit Bill Number'}
                     >
                       <Edit2 className={`${isHalfPage ? 'w-2.5 h-2.5' : 'w-3 h-3'}`} />
@@ -2579,15 +2600,16 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 {(showBankDetails || (printTerms && activeTerms && activeTerms.length > 0)) && (
                   <div className={`${isHalfPage ? 'mt-2 pt-1 text-[8.5px]' : 'mt-6 pt-3 text-[10px]'} border-t border-slate-100 text-slate-500 space-y-0.5`}>
                     {showBankDetails && (
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center justify-between gap-2 flex-wrap group">
                         <p className="font-mono">
                           {selectedLanguage === 'marathi' ? 'बँक:' : 'Bank:'} {config.bankName || 'SBI'} • {selectedLanguage === 'marathi' ? 'खाते क्र.:' : 'A/C:'} {config.accountNumber || '39482910482'} • IFSC: {config.ifscCode || 'SBIN0001234'}
                           {config.upiId && ` • UPI: ${config.upiId}`}
                         </p>
                         <button
                           type="button"
+                          data-no-print="true"
                           onClick={handleOpenBankEdit}
-                          className="no-print text-primary hover:text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200/80 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer flex-shrink-0"
+                          className="no-print bill-edit-control text-primary hover:text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200/80 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer flex-shrink-0 group-hover:opacity-100 opacity-0"
                           title={selectedLanguage === 'marathi' ? 'बँक तपशील बदला' : 'Edit Bank Details'}
                         >
                           <Edit2 className="w-2.5 h-2.5" />
@@ -2709,11 +2731,12 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                   <span className="text-orange-400 font-mono font-black">#{billNumber}</span>
                   <button
                     type="button"
+                    data-no-print="true"
                     onClick={() => {
                       setTempBillNo(currentBillNo);
                       setIsEditingBillNo(true);
                     }}
-                    className="no-print p-0.5 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    className="no-print bill-edit-control p-0.5 text-slate-400 hover:text-white transition-colors cursor-pointer group-hover:opacity-100 opacity-0"
                     title={selectedLanguage === 'marathi' ? 'बिल नंबर बदला' : 'Edit Bill Number'}
                   >
                     <Edit2 className="w-3 h-3" />
@@ -3017,14 +3040,15 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
                   {showBankDetails && (
                     <div className={`bg-blue-50/70 border border-blue-200/80 rounded-xl ${isHalfPage ? 'p-2' : 'p-3'} relative group`}>
-                      <div className="flex items-center justify-between gap-1 mb-1">
+                      <div className="flex items-center justify-between gap-1 mb-1 group">
                         <span className={`${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} font-black uppercase text-blue-800 tracking-wider flex items-center gap-1`}>
                           <Landmark className={`${isHalfPage ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-blue-600`} /> {currentT.bankTitle}
                         </span>
                         <button
                           type="button"
+                          data-no-print="true"
                           onClick={handleOpenBankEdit}
-                          className="no-print text-blue-700 hover:text-blue-900 bg-white hover:bg-blue-100/80 border border-blue-200 px-1.5 py-0.2 rounded text-[9px] font-bold flex items-center gap-0.5 transition-all cursor-pointer shadow-2xs"
+                          className="no-print bill-edit-control text-blue-700 hover:text-blue-900 bg-white hover:bg-blue-100/80 border border-blue-200 px-1.5 py-0.2 rounded text-[9px] font-bold flex items-center gap-0.5 transition-all cursor-pointer shadow-2xs group-hover:opacity-100 opacity-0"
                           title={selectedLanguage === 'marathi' ? 'बँक तपशील बदला' : 'Edit Bank Details'}
                         >
                           <Edit2 className="w-2.5 h-2.5" />
