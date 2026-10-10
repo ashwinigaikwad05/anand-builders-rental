@@ -2564,23 +2564,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 {/* KYC / Customer Verification Documents (Aadhaar Front/Back, Face, Cheque) */}
                 {renderKycDocumentsSection(true)}
 
-                {/* Perforation cutting guide for A4 Half-Sheet: marks cut line and saves 50% paper */}
-                {isHalfPage && paperSize === 'half_page' && (
-                  <div className="relative py-2 flex items-center justify-center mt-2.5 print:mt-1.5 select-none">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t-2 border-dashed border-slate-400" />
-                    </div>
-                    <div className="relative bg-white px-2.5 py-0.5 text-[8px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-1.5 border border-dashed border-slate-300 rounded-full shadow-2xs">
-                      <span className="text-xs">✂</span>
-                      <span>
-                        {selectedLanguage === 'marathi'
-                          ? 'इथून कापा (CUT HERE) — अर्धे पान पावती | उरलेले ५०% पान पुढील बिलासाठी वापरा'
-                          : 'CUT HERE (इथून कापा) — HALF PAGE BILL | REMAINING 50% SHEET SAVED'}
-                      </span>
-                      <span className="text-xs">✂</span>
-                    </div>
-                  </div>
-                )}
+
               </div>
             </div>
           ) : (
@@ -3109,23 +3093,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               {/* KYC / Customer Verification Documents (Aadhaar Front/Back, Face, Cheque) */}
               {renderKycDocumentsSection(false)}
 
-              {/* Perforation cutting guide for A4 Half-Sheet: marks cut line and saves 50% paper */}
-              {isHalfPage && paperSize === 'half_page' && (
-                <div className="relative py-2 flex items-center justify-center mt-2.5 print:mt-1.5 select-none">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t-2 border-dashed border-slate-400" />
-                  </div>
-                  <div className="relative bg-white px-2.5 py-0.5 text-[8px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-1.5 border border-dashed border-slate-300 rounded-full shadow-2xs">
-                    <span className="text-xs">✂</span>
-                    <span>
-                      {selectedLanguage === 'marathi'
-                        ? 'इथून कापा (CUT HERE) — अर्धे पान पावती | उरलेले ५०% पान पुढील बिलासाठी वापरा'
-                        : 'CUT HERE (इथून कापा) — HALF PAGE BILL | REMAINING 50% SHEET SAVED'}
-                    </span>
-                    <span className="text-xs">✂</span>
-                  </div>
-                </div>
-              )}
+
             </div>
           )}
         </div>
