@@ -1392,24 +1392,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
                   {currentT.billTitle}
                 </h3>
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                  {selectedStyle.replace('_', ' ')}
-                </span>
               </div>
-              <div className="flex items-center gap-1">
-                <p className="text-[11px] text-slate-500 font-medium">{currentT.billNoLabel} #{billNumber}</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTempBillNo(currentBillNo);
-                    setIsEditingBillNo(true);
-                  }}
-                  className="p-0.5 text-slate-400 hover:text-primary transition-colors cursor-pointer"
-                  title="Edit Bill Number"
-                >
-                  <Edit2 className="w-3 h-3" />
-                </button>
-              </div>
+              <p className="text-[11px] text-slate-500 font-medium">
+                {selectedLanguage === 'marathi' ? 'ग्राहक:' : 'Customer:'} #{assignedCustomerNumber} {partyDisplayName}
+              </p>
             </div>
           </div>
 
@@ -1538,86 +1524,77 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               </button>
             </div>
 
-            {/* Quick 1 Half-Page Bill Toggle Pill */}
-            <button
-              type="button"
-              onClick={() => {
-                if (isHalfPage) {
+            {/* Unified Paper Format Selector & Settings */}
+            <div className="relative flex items-center bg-slate-200/90 p-1 rounded-xl text-xs font-bold shadow-xs">
+              <button
+                type="button"
+                onClick={() => {
                   setPaperSize('a4');
-                } else {
+                  setTwoBillsPerPage(false);
+                }}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                  !isHalfPage && !isTwoBills && !isThermal
+                    ? 'bg-white text-slate-900 shadow-xs font-black'
+                    : 'text-slate-700 hover:text-slate-950'
+                }`}
+                title="A4 Full Page"
+              >
+                {selectedLanguage === 'marathi' ? 'A4 पूर्ण' : 'A4 Full'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
                   setPaperSize('half_page');
                   setTwoBillsPerPage(false);
+                }}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                  isHalfPage
+                    ? 'bg-emerald-600 text-white shadow-xs font-black'
+                    : 'text-slate-700 hover:text-slate-950'
+                }`}
+                title={
+                  selectedLanguage === 'marathi'
+                    ? 'अर्ध्या पानात बिल (A5 किंवा A4 चा वरचा भाग)'
+                    : 'Half Page format (A5 or top half of A4)'
                 }
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-xs cursor-pointer ${
-                isHalfPage
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 shadow-xs'
-                  : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
-              }`}
-              title={
-                selectedLanguage === 'marathi'
-                  ? 'अर्ध्या पानात बिल प्रिंट करा (A5 किंवा A4 चा वरचा अर्धा भाग)'
-                  : 'Print bill in half page format (A5 or top half of A4)'
-              }
-            >
-              <FileBadge className="w-3.5 h-3.5" />
-              <span>{selectedLanguage === 'marathi' ? 'अर्धे पान (Half)' : 'Half Page'}</span>
-              {isHalfPage && (
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              )}
-            </button>
+              >
+                <FileBadge className="w-3.5 h-3.5" />
+                <span>{selectedLanguage === 'marathi' ? 'अर्धे पान (Half)' : 'Half Page'}</span>
+              </button>
 
-            {/* Quick 1 Page 2 Bills Toggle Pill */}
-            <button
-              type="button"
-              onClick={() => {
-                const nextVal = !isTwoBills;
-                setTwoBillsPerPage(nextVal);
-                if (nextVal) {
+              <button
+                type="button"
+                onClick={() => {
+                  setTwoBillsPerPage(true);
                   setPaperSize('a4_2in1');
-                } else if (paperSize === 'a4_2in1') {
-                  setPaperSize('a4');
+                }}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                  isTwoBills
+                    ? 'bg-amber-600 text-white shadow-xs font-black'
+                    : 'text-slate-700 hover:text-slate-950'
+                }`}
+                title={
+                  selectedLanguage === 'marathi'
+                    ? 'एका पानात २ पावत्या (मूळ प्रत + कार्यालयीन प्रत)'
+                    : '2 Bills on 1 Sheet'
                 }
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-xs cursor-pointer ${
-                isTwoBills
-                  ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-700 shadow-xs'
-                  : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
-              }`}
-              title={
-                selectedLanguage === 'marathi'
-                  ? 'एका पानात २ पावत्या प्रिंट करा (मूळ प्रत + कार्यालयीन प्रत)'
-                  : 'Print 2 bills on 1 sheet (Original + Office Copy)'
-              }
-            >
-              <span className="text-xs">✂</span>
-              <span>{selectedLanguage === 'marathi' ? '१ पानात २ पावत्या' : '2 Bills / Sheet'}</span>
-              {isTwoBills && (
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              )}
-            </button>
+              >
+                <span className="text-xs">✂</span>
+                <span>{selectedLanguage === 'marathi' ? '१ पानात २' : '2-in-1'}</span>
+              </button>
 
-            {/* Paper Format Quick Selector Button & Dropdown */}
-            <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsPaperSettingsOpen(!isPaperSettingsOpen)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-xs cursor-pointer ${
+                className={`p-1 rounded-lg transition-all cursor-pointer ml-0.5 border-l border-slate-300 pl-1.5 ${
                   isPaperSettingsOpen
-                    ? 'bg-primary text-white border-primary shadow-sm'
-                    : 'bg-slate-200/90 hover:bg-slate-300/80 text-slate-800 border-slate-300/50'
+                    ? 'bg-primary text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
                 }`}
-                title={selectedLanguage === 'marathi' ? 'कागद साईझ व छपाई सेटिंग्ज बदला' : 'Change paper size and print settings'}
+                title={selectedLanguage === 'marathi' ? 'अधिक कागद व छपाई सेटिंग्ज (Margins, Orientation, Thermal)' : 'More Print & Paper Settings'}
               >
                 <Printer className="w-3.5 h-3.5" />
-                <span>
-                  {isTwoBills
-                    ? 'A4 (2-in-1)'
-                    : isHalfPage
-                      ? (paperSize === 'a5' ? 'A5 (Half)' : 'Half Page')
-                      : (paperSize ? paperSize.toUpperCase().replace('_', ' ') : 'A4')}
-                  {!isTwoBills && !isHalfPage && paperSize !== 'thermal_80' && paperSize !== 'thermal_58' && ` (${paperOrientation === 'landscape' ? (selectedLanguage === 'marathi' ? 'आडवा' : 'Land') : (selectedLanguage === 'marathi' ? 'उभा' : 'Port')})`}
-                </span>
               </button>
 
               {/* Paper Format Dropdown Popover */}
@@ -1817,42 +1794,44 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               <span>{selectedLanguage === 'marathi' ? 'जमा पेमेंट्स' : 'Payments'}</span>
             </label>
 
-            {/* Bank Details Checkbox */}
-            <label
-              className="flex items-center gap-1.5 bg-slate-200/90 hover:bg-slate-300/80 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-800 cursor-pointer transition-all select-none border border-slate-300/50 shadow-xs"
-              title={
-                selectedLanguage === 'marathi'
-                  ? 'बिलावर बँक खाते व युपीआय तपशील दाखवण्यासाठी टिक करा'
-                  : 'Tick to display Bank & UPI details on bill'
-              }
-            >
-              <input
-                type="checkbox"
-                id="toggle-bank-details-modal"
-                checked={showBankDetails}
-                onChange={(e) => handleToggleShowBankDetails(e.target.checked)}
-                className="w-3.5 h-3.5 accent-primary rounded cursor-pointer text-primary focus:ring-primary"
-              />
-              <span className="flex items-center gap-1">
-                <Landmark className="w-3.5 h-3.5 text-primary" />
-                <span>{selectedLanguage === 'marathi' ? 'बँक तपशील' : 'Bank Details'}</span>
-              </span>
-            </label>
+            {/* Bank Details Checkbox & Edit Control */}
+            <div className="flex items-center bg-slate-200/90 p-1 rounded-xl text-xs font-bold shadow-xs">
+              <label
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg cursor-pointer transition-all select-none"
+                title={
+                  selectedLanguage === 'marathi'
+                    ? 'बिलावर बँक खाते व युपीआय तपशील दाखवण्यासाठी टिक करा'
+                    : 'Tick to display Bank & UPI details on bill'
+                }
+              >
+                <input
+                  type="checkbox"
+                  id="toggle-bank-details-modal"
+                  checked={showBankDetails}
+                  onChange={(e) => handleToggleShowBankDetails(e.target.checked)}
+                  className="w-3.5 h-3.5 accent-primary rounded cursor-pointer text-primary focus:ring-primary"
+                />
+                <span className="flex items-center gap-1 text-slate-800">
+                  <Landmark className="w-3.5 h-3.5 text-primary" />
+                  <span>{selectedLanguage === 'marathi' ? 'बँक तपशील' : 'Bank Details'}</span>
+                </span>
+              </label>
 
-            {/* Edit Bank Details Button */}
-            <button
-              type="button"
-              onClick={handleOpenBankEdit}
-              className="flex items-center gap-1 bg-slate-200/90 hover:bg-white text-slate-800 hover:text-primary px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border border-slate-300/50 shadow-xs cursor-pointer"
-              title={
-                selectedLanguage === 'marathi'
-                  ? 'बँकेचे नाव, खाते क्र., आयएफएससी आणि युपीआय बदला'
-                  : 'Edit Bank Name, A/C No, IFSC and UPI'
-              }
-            >
-              <Edit2 className="w-3 h-3" />
-              <span>{selectedLanguage === 'marathi' ? 'बँक बदला' : 'Edit Bank'}</span>
-            </button>
+              {showBankDetails && (
+                <button
+                  type="button"
+                  onClick={handleOpenBankEdit}
+                  className="p-1 hover:bg-white text-slate-700 hover:text-primary rounded-lg transition-colors cursor-pointer border-l border-slate-300 pl-1.5 ml-0.5"
+                  title={
+                    selectedLanguage === 'marathi'
+                      ? 'बँकेचे नाव, खाते क्र., आयएफएससी आणि युपीआय बदला'
+                      : 'Edit Bank Name, A/C No, IFSC and UPI'
+                  }
+                >
+                  <Edit2 className="w-3 h-3" />
+                </button>
+              )}
+            </div>
 
             {/* Terms and Conditions Checkbox (Tick to select to print on all bills) */}
             <label
