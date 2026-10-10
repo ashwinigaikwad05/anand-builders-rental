@@ -20,7 +20,6 @@ import {
   AlertCircle,
   X,
   Upload,
-  Globe,
 } from 'lucide-react';
 import type { Party, PlateStock, Rental, Payment, ReturnLog, RentalCycle, RentalItem } from '../../../data/adminMockData';
 import {
@@ -37,7 +36,6 @@ import {
 } from '../../../utils/alertMessaging';
 import {
   getStoredAppLanguage,
-  setStoredAppLanguage,
   t,
   type AppLanguage,
 } from '../../../utils/appTranslations';
@@ -279,53 +277,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   return (
     <div className="space-y-8 text-left">
 
-      {/* Language Switcher Bar on Dashboard */}
-      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-primary/10 text-primary rounded-xl">
-            <Globe className="w-4 h-4" />
-          </div>
-          <div>
-            <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
-              {curT.langSection.title}
-            </h4>
-            <p className="text-[11px] text-slate-500 font-light">
-              {curT.langSection.subtitle}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
-          <button
-            type="button"
-            onClick={() => {
-              setStoredAppLanguage('marathi');
-              setCurrentLang('marathi');
-            }}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              currentLang === 'marathi'
-                ? 'bg-primary text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            {curT.langSection.marathiBtn}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setStoredAppLanguage('english');
-              setCurrentLang('english');
-            }}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              currentLang === 'english'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            {curT.langSection.englishBtn}
-          </button>
-        </div>
-      </div>
 
       {/* 40-Day Completion Top Notification Popup Alert */}
       {isAlertModalOpen && completed40Alerts.length > 0 && (
