@@ -28,7 +28,6 @@ import {
   PAPER_SIZE_OPTIONS,
   PAPER_ORIENTATION_OPTIONS,
   PAPER_MARGIN_OPTIONS,
-  BILL_COPY_TYPE_OPTIONS,
   type BillTemplateConfig,
   type BillTemplateStyle,
   type BillLanguage,
@@ -134,9 +133,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
       ? Boolean(templateConfig.fitToSinglePage)
       : config.fitToSinglePage !== false
   );
-  const [billCopyType, setBillCopyType] = useState<BillCopyType>(
-    templateConfig?.billCopyType || config.billCopyType || 'none'
-  );
+  const [billCopyType, setBillCopyType] = useState<BillCopyType>('none');
   const [twoBillsPerPage, setTwoBillsPerPage] = useState<boolean>(
     templateConfig?.twoBillsPerPage !== undefined
       ? Boolean(templateConfig.twoBillsPerPage)
@@ -1231,30 +1228,6 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
     );
   };
 
-  const getCopyTypeBadgeText = () => {
-    switch (billCopyType) {
-      case 'original':
-        return selectedLanguage === 'marathi' ? 'मूळ प्रत (ORIGINAL)' : 'ORIGINAL COPY';
-      case 'duplicate':
-        return selectedLanguage === 'marathi' ? 'दुसरी प्रत (DUPLICATE)' : 'DUPLICATE COPY';
-      case 'office':
-        return selectedLanguage === 'marathi' ? 'कार्यालयीन प्रत (OFFICE)' : 'OFFICE COPY';
-      case 'triplicate':
-        return selectedLanguage === 'marathi' ? 'तिसरी प्रत (TRIPLICATE)' : 'TRIPLICATE COPY';
-      default:
-        return selectedLanguage === 'marathi' ? 'मूळ प्रत' : 'ORIGINAL COPY';
-    }
-  };
-
-  const renderCopyTypeBadge = () => {
-    if (!billCopyType || billCopyType === 'none') return null;
-    const label = getCopyTypeBadgeText();
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded border border-slate-700 bg-slate-50 text-[10px] font-black tracking-wider uppercase text-slate-900 shadow-2xs">
-        {label}
-      </span>
-    );
-  };
 
   return createPortal(
     <div id="rental-bill-portal" className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static">
@@ -1731,25 +1704,6 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     </div>
                   )}
 
-                  {/* Copy Type Stamp (for standard single bill) */}
-                  {!isTwoBills && (
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-slate-500">
-                        {selectedLanguage === 'marathi' ? 'प्रत शिक्का (Copy Stamp):' : 'Copy Stamp:'}
-                      </label>
-                      <select
-                        value={billCopyType}
-                        onChange={(e) => setBillCopyType(e.target.value as BillCopyType)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-primary px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
-                      >
-                        {BILL_COPY_TYPE_OPTIONS.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {selectedLanguage === 'marathi' ? c.labelMr : c.labelEn}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
 
                   {/* Save as default button */}
                   <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
@@ -1964,11 +1918,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 <p className="text-[10px] font-bold text-slate-800">
                   {selectedLanguage === 'marathi' ? 'मो.:' : 'Mob:'} {phones.split(',')[0]?.trim()}
                 </p>
-                <div className="pt-1 flex items-center justify-center gap-1.5">
+                <div className="pt-1 flex items-center justify-center">
                   <span className="font-extrabold underline uppercase text-[11px] text-black">
                     {selectedLanguage === 'marathi' ? 'भाडे पावती व चालान' : 'RENTAL RECEIPT'}
                   </span>
-                  {renderCopyTypeBadge()}
                 </div>
               </div>
 
@@ -2135,11 +2088,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 </div>
 
                 <div className="text-right space-y-0.5">
-                  <div className="flex items-center justify-end gap-1.5">
+                  <div className="flex items-center justify-end">
                     <h2 className={`${isHalfPage ? 'text-sm sm:text-base' : 'text-xl sm:text-2xl'} font-black tracking-wider text-black uppercase`}>
                       {selectedLanguage === 'marathi' ? 'भाडे पावती' : 'INVOICE'}
                     </h2>
-                    {renderCopyTypeBadge()}
                   </div>
                   <div className="flex items-center justify-end gap-1.5 group">
                     <p className={`${isHalfPage ? 'text-[10px]' : 'text-xs'} font-mono font-bold text-slate-900`}>#{billNumber}</p>
@@ -2703,7 +2655,6 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                   <span className="text-xs font-black uppercase tracking-wider">
                     {currentT.billTitle}
                   </span>
-                  {renderCopyTypeBadge()}
                 </div>
                 <div className="text-xs font-bold tracking-wide flex items-center gap-1.5">
                   <span>{currentT.billNoLabel}</span>
