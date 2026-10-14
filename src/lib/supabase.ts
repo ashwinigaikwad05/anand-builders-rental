@@ -144,6 +144,7 @@ export interface PaymentRecord {
   cycle_id?: string | null;
   cycle_number?: number | null;
   amount: number;
+  penalty_amount?: number | null;
   payment_date: string;
   payment_mode: 'Account 1' | 'Account 2' | 'Cash' | 'Outstanding' | 'Udhari';
   reference?: string | null;
@@ -1695,6 +1696,7 @@ export async function insertPayment(payment: {
   cycle_id?: string;
   cycle_number?: number;
   amount: number;
+  penalty_amount?: number;
   payment_date: string;
   payment_mode: 'Account 1' | 'Account 2' | 'Cash' | 'Outstanding' | 'Udhari';
   reference?: string;
@@ -1710,6 +1712,7 @@ export async function insertPayment(payment: {
     cycle_id: payment.cycle_id || null,
     cycle_number: payment.cycle_number || null,
     amount: Number(payment.amount),
+    penalty_amount: payment.penalty_amount ? Number(payment.penalty_amount) : null,
     payment_date: payment.payment_date,
     payment_mode: payment.payment_mode,
     reference: payment.reference?.trim() || `PAY-${Date.now().toString().slice(-4)}`,

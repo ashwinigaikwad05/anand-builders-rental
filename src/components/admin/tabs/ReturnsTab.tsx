@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Search, RefreshCw, X, Check, Info, IndianRupee, Wallet, Calculator, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
-import type { Party, Rental, ReturnLog, RentalCycle } from '../../../data/adminMockData';
+import type { Party, Rental, ReturnLog, RentalCycle, Payment } from '../../../data/adminMockData';
 import {
   calculateCalendarDays,
   calculateCycleFinances,
@@ -26,6 +26,7 @@ interface ReturnsTabProps {
   returns: ReturnLog[];
   rentals: Rental[];
   parties: Party[];
+  payments?: Payment[];
   rentalCycles?: RentalCycle[];
   onAddReturn: (newReturn: ReturnInputPayload) => void;
   preselectedRentalId?: string | null;
@@ -37,6 +38,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
   returns,
   rentals,
   parties,
+  payments = [],
   rentalCycles = [],
   onAddReturn,
   preselectedRentalId,
@@ -187,15 +189,28 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
     : null;
 
   // Compute ALL-CYCLES aggregated totals for the selected rental
+  // Sum matched payments from payments table for selectedRental
+  const selectedRentalPaymentsTotal = React.useMemo(() => {
+    if (!selectedRental || !payments || payments.length === 0) return 0;
+    const matched = payments.filter((p) =>
+      (p.rentalId && p.rentalId === selectedRental.id) ||
+      (!p.rentalId && p.partyId === selectedRental.partyId) ||
+      (!p.rentalId && (p.partyName || '').trim().toLowerCase() === (selectedRental.partyName || '').trim().toLowerCase())
+    );
+    return matched.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  }, [selectedRental, payments]);
+
+  // Compute ALL-CYCLES aggregated totals for the selected rental
   const allCyclesFinancials = (() => {
     if (!selectedRental) return { totalAmount: 0, paidAmount: 0, pendingAmount: 0 };
     const allCycs = getAllCyclesForRental(selectedRental);
     if (allCycs.length === 0) {
       // Fallback to rental-level data
+      const effectivePaid = selectedRentalPaymentsTotal > 0 ? selectedRentalPaymentsTotal : selectedRental.paid;
       return {
         totalAmount: selectedRental.totalRent,
-        paidAmount: selectedRental.paid,
-        pendingAmount: selectedRental.pending,
+        paidAmount: effectivePaid,
+        pendingAmount: Math.max(0, selectedRental.totalRent - effectivePaid),
       };
     }
     let totalAmount = 0;
@@ -220,12 +235,17 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
       }
       totalPaid += cyc.paidAmount;
     }
+    const finalPaid = selectedRentalPaymentsTotal > 0 ? selectedRentalPaymentsTotal : totalPaid;
     return {
       totalAmount,
-      paidAmount: totalPaid,
-      pendingAmount: Math.max(0, totalAmount - totalPaid),
+      paidAmount: finalPaid,
+      pendingAmount: Math.max(0, totalAmount - finalPaid),
     };
   })();
+
+  const effectiveRentalPaid = selectedRentalPaymentsTotal > 0
+    ? selectedRentalPaymentsTotal
+    : (allCyclesFinancials.paidAmount > 0 ? allCyclesFinancials.paidAmount : (selectedRental?.paid || 0));
 
   // Live breakdown of partial returns, continuous remaining plates, and advance refunds
   const partialBreakdown: PartialReturnsBreakdownResult | null = React.useMemo(() => {
@@ -239,7 +259,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
       initialQuantity: selectedRental.quantity,
       dailyRate: selectedRental.dailyRate,
       cycleDays,
-      paidAmount: allCyclesFinancials.paidAmount,
+      paidAmount: effectiveRentalPaid,
       items: selectedRental.items,
       returns: rentalReturns,
       currentReturn: returnedQty > 0 ? {
@@ -249,7 +269,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
       } : undefined,
       asOfDate: returnDate,
     });
-  }, [selectedRental, selectedActiveCycle, returns, allCyclesFinancials.paidAmount, returnedQty, returnDate, penaltyAmount]);
+  }, [selectedRental, selectedActiveCycle, returns, effectiveRentalPaid, returnedQty, returnDate, penaltyAmount]);
 
   const currentBatch = partialBreakdown?.returnedBatches.find((b) => b.id === 'current-pending-return');
   const batchDays = currentBatch?.elapsedDays || (selectedRental ? Math.max(1, calculateCalendarDays(selectedActiveCycle?.startDate || selectedRental.issueDate, returnDate)) : 0);
@@ -257,7 +277,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
   const remainingQtyAfterThis = partialBreakdown?.remainingQuantity ?? (selectedRental ? Math.max(0, getRemainingToReturn(selectedRental) - returnedQty) : 0);
   const remainingPlatesRent = partialBreakdown?.remainingPlatesRent ?? 0;
   const totalAgreementRent = partialBreakdown?.totalRent ?? allCyclesFinancials.totalAmount;
-  const totalPaidAmount = allCyclesFinancials.paidAmount;
+  const totalPaidAmount = effectiveRentalPaid;
   const refundDueFromAdmin = partialBreakdown?.refundDue ?? 0;
   const pendingDueFromCustomer = partialBreakdown 
     ? partialBreakdown.pendingDue 

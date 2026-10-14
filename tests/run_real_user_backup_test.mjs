@@ -16,7 +16,7 @@ async function testRealUserBackup() {
     localStorage.setItem('anand_admin_authenticated', 'true');
   });
 
-  await page.goto('https://anand-builders-rental-zeta.vercel.app/admin/settings', { waitUntil: 'networkidle' });
+  await page.goto('https://anand-builders-rental.vercel.app/admin/settings', { waitUntil: 'networkidle' });
   console.log('Opened Settings. Now uploading tests/user_real_backup.json...');
 
   const fileInput = page.locator('input[type="file"][accept*=".json"]');
@@ -40,15 +40,15 @@ async function testRealUserBackup() {
 
   // Also navigate to other tabs to see if they open!
   console.log('Testing navigation to /admin/parties with this backup...');
-  await page.goto('https://anand-builders-rental-zeta.vercel.app/admin/parties', { waitUntil: 'networkidle' });
+  await page.goto('https://anand-builders-rental.vercel.app/admin/parties', { waitUntil: 'networkidle' });
   console.log('Parties page body length:', (await page.innerText('body')).length);
 
   console.log('Testing navigation to /admin/rentals with this backup...');
-  await page.goto('https://anand-builders-rental-zeta.vercel.app/admin/rentals', { waitUntil: 'networkidle' });
+  await page.goto('https://anand-builders-rental.vercel.app/admin/rentals', { waitUntil: 'networkidle' });
   console.log('Rentals page body length:', (await page.innerText('body')).length);
 
   console.log('Testing navigation to /admin/payments with this backup...');
-  await page.goto('https://anand-builders-rental-zeta.vercel.app/admin/payments', { waitUntil: 'networkidle' });
+  await page.goto('https://anand-builders-rental.vercel.app/admin/payments', { waitUntil: 'networkidle' });
   console.log('Payments page body length:', (await page.innerText('body')).length);
 
   await browser.close();

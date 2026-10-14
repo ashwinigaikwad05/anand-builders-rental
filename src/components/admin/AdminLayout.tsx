@@ -434,14 +434,28 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             return sum + (c.totalAmount || 0);
           }, 0);
 
-          const totalPaidSum = rCycles.reduce((sum, c) => sum + (c.paidAmount || 0), 0);
+          // Compute true payments received from payments table matching this rental/party
+          const rPartyId = r.party_id || (r as any).partyId || '';
+          const rPartyName = (r.party_name || (r as any).partyName || '').trim();
+          const rMatchedPayments = safePayments.filter((p: any) =>
+            (p.rental_id && p.rental_id === r.id) ||
+            (p.rentalId && p.rentalId === r.id) ||
+            (!p.rental_id && !p.rentalId && (
+              (p.party_id && p.party_id === rPartyId) ||
+              (p.partyId && p.partyId === rPartyId) ||
+              (p.party_name && (p.party_name || '').trim().toLowerCase() === rPartyName.toLowerCase())
+            ))
+          );
+          const rPaymentsPaid = rMatchedPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+          const totalPaidFromCycles = rCycles.reduce((sum, c) => sum + (c.paidAmount || 0), 0);
+          const effectivePaidSum = rPaymentsPaid > 0 ? rPaymentsPaid : (totalPaidFromCycles || r.paid_amount || (r as any).paid || 0);
+          const effectivePendingSum = Math.max(0, totalRentSum - effectivePaidSum);
 
-          const totalPendingSum = rCycles.reduce((sum, c) => {
-            if (c.status === 'active' && activeFinances && c.id === activeCycle?.id) {
-              return sum + (activeFinances.pendingAmount || 0);
-            }
-            return sum + (c.pendingAmount || 0);
-          }, 0);
+          // Update active cycle's paid/pending if payments table has more accurate amount
+          if (activeCycle && rPaymentsPaid > 0) {
+            activeCycle.paidAmount = effectivePaidSum;
+            activeCycle.pendingAmount = effectivePendingSum;
+          }
 
           // Auto-overdue detection:
           const isOverdue =
@@ -463,8 +477,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           const rentalBillNumber = customBillNum !== undefined
             ? customBillNum
             : chronologicalRentals.findIndex((x) => x.id === r.id) + 1 || 1;
-          const rPartyId = r.party_id || (r as any).partyId || '';
-          const rPartyName = (r.party_name || (r as any).partyName || '').trim();
           const rentalCustomerNumber =
             (rPartyId ? partyCustNumberMap.get(rPartyId) : undefined) ||
             (rPartyName ? partyNameToNumberMap.get(rPartyName.toLowerCase()) : undefined) ||
@@ -480,8 +492,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             issueDate: r.issue_date || (r as any).issueDate || todayStr,
             days: activeCycle ? (activeCycle.status === 'active' && activeFinances ? activeFinances.elapsedDays : activeCycle.days) : (r.days || 40),
             totalRent: totalRentSum || r.total_rent || (r as any).totalRent || 0,
-            paid: totalPaidSum || r.paid_amount || (r as any).paid || 0,
-            pending: totalPendingSum !== undefined ? totalPendingSum : ((r as any).pending || 0),
+            paid: effectivePaidSum,
+            pending: effectivePendingSum,
             paymentMode: r.payment_mode || (r as any).paymentMode || 'Cash',
             status: computedStatus,
             items: Array.isArray(r.items) ? r.items : [],
@@ -2195,6 +2207,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
   const handleAddPayment = async (newPayment: {
     partyId: string;
     amount: number;
+    penaltyAmount?: number;
     date: string;
     paymentMode: 'Account 1' | 'Account 2' | 'Cash';
     rentalId?: string;
@@ -2216,6 +2229,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         cycle_id: newPayment.cycleId,
         cycle_number: newPayment.cycleNumber,
         amount: newPayment.amount,
+        penalty_amount: newPayment.penaltyAmount,
         payment_date: newPayment.date,
         payment_mode: newPayment.paymentMode,
         reference: paymentRef,
@@ -2231,6 +2245,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         cycleId: newPayment.cycleId || null,
         cycleNumber: newPayment.cycleNumber || null,
         amount: newPayment.amount,
+        penaltyAmount: newPayment.penaltyAmount,
         date: newPayment.date,
         paymentMode: newPayment.paymentMode,
         reference: inserted.reference || paymentRef,
@@ -2239,6 +2254,33 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       };
 
       setPayments((prev) => [created, ...prev]);
+
+      // If penalty was charged, record ledger debit for penalty
+      if (newPayment.penaltyAmount && newPayment.penaltyAmount > 0) {
+        const partyPending = parties.find((p) => p.id === newPayment.partyId)?.pending || 0;
+        const ledPenalty = await insertLedgerEntry({
+          party_id: newPayment.partyId,
+          date: newPayment.date,
+          description: `दंड आकारणी (Damage / Late Penalty) [पावती: ${paymentRef}]`,
+          debit: newPayment.penaltyAmount,
+          credit: 0,
+          balance: partyPending + newPayment.penaltyAmount,
+          reference_type: 'payment_penalty',
+          reference_id: inserted.id,
+        });
+        setLedger((prev) => [
+          {
+            id: ledPenalty.id,
+            partyId: ledPenalty.party_id,
+            date: ledPenalty.date,
+            description: ledPenalty.description,
+            debit: ledPenalty.debit,
+            credit: ledPenalty.credit,
+            balance: ledPenalty.balance,
+          },
+          ...prev,
+        ]);
+      }
 
       // If payment targets a specific cycle, update that cycle in isolation
       if (newPayment.cycleId) {
@@ -2595,6 +2637,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             rentals={rentals}
             rentalCycles={rentalCycles}
             parties={parties}
+            payments={payments}
             onAddReturn={handleAddReturn}
             preselectedRentalId={preselectedRentalId}
             onClearPreselectedRental={() => setPreselectedRentalId(null)}

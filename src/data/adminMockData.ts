@@ -103,6 +103,7 @@ export interface Payment {
   cycleId?: string | null;
   cycleNumber?: number | null;
   amount: number;
+  penaltyAmount?: number;
   date: string;
   paymentMode: 'Account 1' | 'Account 2' | 'Cash' | 'Outstanding';
   reference: string;
