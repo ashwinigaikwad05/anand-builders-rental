@@ -137,7 +137,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@anandplates.com"
+                  placeholder="Enter your email"
                   className="w-full bg-slate-950 border border-slate-800 focus:border-primary focus:ring-primary focus:outline-none focus:ring-1 pl-11 pr-4 py-3 rounded-xl text-sm text-white font-medium"
                 />
               </div>
@@ -189,24 +189,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             </button>
           </form>
 
-          {/* Secure Admin Portal Notice & Credentials Hint */}
-          <div className="mt-6 pt-5 border-t border-slate-800/80 text-center space-y-2.5">
-            <div className="bg-slate-950/80 border border-slate-800/90 rounded-xl p-3 text-left">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                Admin Login Credentials:
-              </p>
-              <div className="text-xs text-slate-300 font-mono space-y-0.5">
-                <p>
-                  <span className="text-slate-500 font-sans">User ID / Email:</span>{' '}
-                  <strong className="text-primary font-bold">admin@anandplates.com</strong>
-                </p>
-                <p>
-                  <span className="text-slate-500 font-sans">Password:</span>{' '}
-                  <strong className="text-primary font-bold">anand@admin2026</strong>
-                </p>
-              </div>
-            </div>
+          {/* Secure Admin Portal Notice */}
+          <div className="mt-6 pt-5 border-t border-slate-800/80 text-center">
             <p className="text-[11px] text-slate-500 leading-relaxed font-light">
               Authorized Personnel Only • Anand Builders & Developers Management
             </p>
