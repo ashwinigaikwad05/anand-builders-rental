@@ -53,12 +53,19 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
   const [partyFilter, setPartyFilter] = useState<string>('All');
 
   const filteredPayments = payments.filter((p) => {
+    if (!p) return false;
+    const pPartyName = p.partyName || '';
+    const pRef = p.reference || '';
+    const pMode = p.paymentMode || '';
+    const q = (searchTerm || '').trim().toLowerCase();
+
     const matchesSearch =
-      p.partyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      formatPartyName(p.partyName, 'marathi').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      formatPartyName(p.partyName, 'english').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.paymentMode.toLowerCase().includes(searchTerm.toLowerCase());
+      !q ||
+      pPartyName.toLowerCase().includes(q) ||
+      formatPartyName(pPartyName, 'marathi').toLowerCase().includes(q) ||
+      formatPartyName(pPartyName, 'english').toLowerCase().includes(q) ||
+      pRef.toLowerCase().includes(q) ||
+      pMode.toLowerCase().includes(q);
 
     const matchesMode = modeFilter === 'All' || p.paymentMode === modeFilter;
     const matchesParty = partyFilter === 'All' || p.partyId === partyFilter;
@@ -66,9 +73,9 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
     return matchesSearch && matchesMode && matchesParty;
   });
 
-  // Fetch pending cycles for selected party
+  // Fetch pending cycles for selected party safely
   const partyPendingCycles = rentalCycles.filter(
-    (c) => c.partyId === selectedPartyId && c.pendingAmount > 0
+    (c) => c && c.partyId === selectedPartyId && (c.pendingAmount || 0) > 0
   );
 
   const handleOpenAdd = () => {
@@ -217,7 +224,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   </td>
                   <td className="px-6 py-4">
                     <span className={`font-black ${pay.type === 'refund' ? 'text-amber-600' : 'text-emerald-600'}`}>
-                      {pay.type === 'refund' ? `-₹${pay.amount.toLocaleString('en-IN')}` : `₹${pay.amount.toLocaleString('en-IN')}`}
+                      {pay.type === 'refund' ? `-₹${(Number(pay.amount) || 0).toLocaleString('en-IN')}` : `₹${(Number(pay.amount) || 0).toLocaleString('en-IN')}`}
                     </span>
                     {pay.type === 'refund' && (
                       <span className="block text-[10px] text-amber-700 font-bold uppercase tracking-wider">
@@ -297,8 +304,8 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   }`}
                 >
                   {pay.type === 'refund'
-                    ? `-₹${pay.amount.toLocaleString('en-IN')}`
-                    : `₹${pay.amount.toLocaleString('en-IN')}`}
+                    ? `-₹${(Number(pay.amount) || 0).toLocaleString('en-IN')}`
+                    : `₹${(Number(pay.amount) || 0).toLocaleString('en-IN')}`}
                 </span>
               </div>
 
@@ -391,8 +398,8 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   {parties.map((p, idx) => (
                     <option key={p.id} value={p.id}>
                       {isMarathi
-                        ? `ग्राहक #${p.customerNumber || idx + 1} — ${formatPartyName(p.name, 'marathi')} (बाकी: ₹${p.pending.toLocaleString('en-IN')})`
-                        : `Customer #${p.customerNumber || idx + 1} — ${formatPartyName(p.name, 'english')} (Outstanding: ₹${p.pending.toLocaleString('en-IN')})`}
+                        ? `ग्राहक #${p.customerNumber || idx + 1} — ${formatPartyName(p.name, 'marathi')} (बाकी: ₹${(Number(p.pending) || 0).toLocaleString('en-IN')})`
+                        : `Customer #${p.customerNumber || idx + 1} — ${formatPartyName(p.name, 'english')} (Outstanding: ₹${(Number(p.pending) || 0).toLocaleString('en-IN')})`}
                     </option>
                   ))}
                 </select>
@@ -420,7 +427,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                       const rent = rentals.find((r) => r.id === c.rentalId);
                       return (
                         <option key={c.id} value={c.id}>
-                          {rent ? `${rent.plateType} Width • ` : ''}{isMarathi ? 'सायकल' : 'Cycle'} {c.cycleNumber} ({formatMarathiDate(c.startDate)} - {formatMarathiDate(c.expectedEndDate)}) — {isMarathi ? 'बाकी:' : 'Pending:'} ₹${c.pendingAmount.toLocaleString('en-IN')}
+                          {rent ? `${rent.plateType} Width • ` : ''}{isMarathi ? 'सायकल' : 'Cycle'} {c.cycleNumber} ({formatMarathiDate(c.startDate)} - {formatMarathiDate(c.expectedEndDate)}) — {isMarathi ? 'बाकी:' : 'Pending:'} ₹${(Number(c.pendingAmount) || 0).toLocaleString('en-IN')}
                         </option>
                       );
                     })}
