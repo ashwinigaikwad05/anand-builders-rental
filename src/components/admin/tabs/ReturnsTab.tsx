@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Search, RefreshCw, X, Check, Info, IndianRupee, Wallet, Calculator, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import type { Party, Rental, ReturnLog, RentalCycle, Payment } from '../../../data/adminMockData';
-import { PENALTY_TYPES, getPenaltyTypeLabel } from '../../../data/adminMockData';
+import { getPenaltyTypeLabel } from '../../../data/adminMockData';
 import {
   calculateCalendarDays,
   calculateCycleFinances,
@@ -1017,45 +1017,6 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                           </span>
                         </div>
                       </div>
-
-                      {/* All Penalty Types Selector (दंडाचे सर्व प्रकार) */}
-                      {penaltyAmount > 0 && (
-                        <div className="bg-amber-50/80 border border-amber-200 p-2.5 rounded-xl space-y-1.5 shadow-2xs">
-                          <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-extrabold text-amber-950 uppercase">
-                              {isMarathi ? 'दंडाचा प्रकार निवडा (सर्व प्रकार):' : 'Select Penalty Reason (All Types):'}
-                            </span>
-                            <span className="text-[10px] text-amber-800 font-bold bg-amber-100/90 px-2 py-0.5 rounded border border-amber-300">
-                              {getPenaltyTypeLabel(penaltyType, isMarathi)}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
-                            {PENALTY_TYPES.map((pt) => {
-                              const isSelected = penaltyType === pt.id;
-                              return (
-                                <button
-                                  key={pt.id}
-                                  type="button"
-                                  onClick={() => setPenaltyType(pt.id)}
-                                  className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all text-left cursor-pointer ${
-                                    isSelected
-                                      ? 'bg-amber-600 text-white border-amber-700 shadow-2xs ring-1 ring-amber-400'
-                                      : 'bg-white text-slate-700 border-amber-200 hover:border-amber-400 hover:bg-amber-50/60'
-                                  }`}
-                                >
-                                  <span className="text-xs">{pt.icon}</span>
-                                  <span className="truncate">{isMarathi ? pt.labelMr : pt.labelEn}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {penaltyType && (
-                            <p className="text-[9.5px] text-amber-900 font-medium italic pt-0.5">
-                              • {isMarathi ? PENALTY_TYPES.find((p) => p.id === penaltyType)?.descMr : PENALTY_TYPES.find((p) => p.id === penaltyType)?.descEn}
-                            </p>
-                          )}
-                        </div>
-                      )}
 
                       {/* Payment Collection Inputs */}
                       <div className="space-y-1.5 text-xs">
