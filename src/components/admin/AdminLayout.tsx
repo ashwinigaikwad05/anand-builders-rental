@@ -176,7 +176,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
     }
   };
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [preselectedRentalId, setPreselectedRentalId] = useState<string | null>(null);
 
   // Display Language State (Marathi / English)
@@ -224,10 +224,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
   };
 
   // Load all records from Supabase on mount
-  const loadAllData = React.useCallback(async (showLoadingSpinner = true) => {
+  const loadAllData = React.useCallback(async (showLoadingSpinner = false) => {
+    let spinnerTimer: any = null;
     try {
       if (showLoadingSpinner) {
         setIsLoading(true);
+        spinnerTimer = setTimeout(() => {
+          setIsLoading(false);
+        }, 3500);
       }
 
       // Automatically scan and deduplicate stored data on load
@@ -555,6 +559,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         );
       }
     } finally {
+      if (spinnerTimer) {
+        clearTimeout(spinnerTimer);
+      }
       if (showLoadingSpinner) {
         setIsLoading(false);
       }
@@ -562,7 +569,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
   }, []);
 
   useEffect(() => {
-    loadAllData(true);
+    loadAllData(false);
   }, [loadAllData]);
 
   // Real-time Supabase database synchronization
@@ -2500,11 +2507,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
 
   // Render Page Content based on selected Active tab
   const renderTabContent = () => {
-    if (isLoading) {
+    if (isLoading && rawParties.length === 0 && rentals.length === 0 && payments.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
           <Loader2 className="w-10 h-10 text-primary animate-spin" />
-          <p className="text-sm text-slate-500 font-semibold">Loading data from Supabase...</p>
+          <p className="text-sm text-slate-500 font-semibold">{isMarathi ? 'माहिती लोड होत आहे...' : 'Loading data...'}</p>
         </div>
       );
     }

@@ -213,7 +213,7 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
 
 // Local fallback keys for graceful offline resilience
 const STORAGE_PREFIX = 'anand_';
-const getLocal = <T>(key: string): T[] => {
+export const getLocal = <T>(key: string): T[] => {
   try {
     const raw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_PREFIX + key) : null;
     if (!raw) return [];
@@ -223,13 +223,26 @@ const getLocal = <T>(key: string): T[] => {
     return [];
   }
 };
-const setLocal = <T>(key: string, data: T[]) => {
+export const setLocal = <T>(key: string, data: T[]) => {
   try {
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(data));
     }
   } catch {}
 };
+
+export async function safeSupabaseQuery<T>(queryPromise: Promise<T> | any, timeoutMs = 1500): Promise<T> {
+  let timer: any;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Supabase query timed out')), timeoutMs);
+  });
+  try {
+    return await Promise.race([queryPromise, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 
 // ------------------------------------------------------------------------------
 // 1. PARTIES API
@@ -238,10 +251,12 @@ const setLocal = <T>(key: string, data: T[]) => {
 export async function fetchParties(): Promise<PartyRecord[]> {
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('parties')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data, error }: any = await safeSupabaseQuery(
+        supabase
+          .from('parties')
+          .select('*')
+          .order('created_at', { ascending: false })
+      );
 
       if (error) {
         console.warn('Failed to fetch parties from Supabase:', error.message);
@@ -420,10 +435,12 @@ export async function deleteParty(id: string): Promise<boolean> {
 export async function fetchPlateTypes(): Promise<PlateTypeRecord[]> {
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('plate_types')
-        .select('*')
-        .order('plate_size', { ascending: false });
+      const { data, error }: any = await safeSupabaseQuery(
+        supabase
+          .from('plate_types')
+          .select('*')
+          .order('plate_size', { ascending: false })
+      );
 
       if (!error && data && data.length > 0) {
         setLocal('plate_types', data);
@@ -570,11 +587,13 @@ export function saveCustomPlateSizes(sizes: string[]): void {
 export async function fetchStockItems(): Promise<InventoryStockItem[]> {
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('inventory_stock')
-        .select('*')
-        .order('received_date', { ascending: false })
-        .order('created_at', { ascending: false });
+      const { data, error }: any = await safeSupabaseQuery(
+        supabase
+          .from('inventory_stock')
+          .select('*')
+          .order('received_date', { ascending: false })
+          .order('created_at', { ascending: false })
+      );
 
       if (error) {
         console.warn('Failed to fetch inventory stock from Supabase:', error.message);
@@ -1104,11 +1123,13 @@ export function determineRenewalStartDate(
 export async function fetchRentalCycles(): Promise<RentalCycleRecord[]> {
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('rental_cycles')
-        .select('*')
-        .order('start_date', { ascending: false })
-        .order('created_at', { ascending: false });
+      const { data, error }: any = await safeSupabaseQuery(
+        supabase
+          .from('rental_cycles')
+          .select('*')
+          .order('start_date', { ascending: false })
+          .order('created_at', { ascending: false })
+      );
 
       if (error) {
         console.warn('Failed to fetch rental cycles from Supabase:', error.message);
@@ -1248,11 +1269,13 @@ export async function updateRentalCycle(
 export async function fetchRentals(): Promise<RentalRecord[]> {
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('rentals')
-        .select('*')
-        .order('issue_date', { ascending: false })
-        .order('created_at', { ascending: false });
+      const { data, error }: any = await safeSupabaseQuery(
+        supabase
+          .from('rentals')
+          .select('*')
+          .order('issue_date', { ascending: false })
+          .order('created_at', { ascending: false })
+      );
 
       if (error) {
         console.warn('Failed to fetch rentals from Supabase:', error.message);
@@ -1539,11 +1562,13 @@ export async function updateRentalCyclePointerAndItems(
 export async function fetchReturns(): Promise<ReturnRecord[]> {
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('returns')
-        .select('*')
-        .order('return_date', { ascending: false })
-        .order('created_at', { ascending: false });
+      const { data, error }: any = await safeSupabaseQuery(
+        supabase
+          .from('returns')
+          .select('*')
+          .order('return_date', { ascending: false })
+          .order('created_at', { ascending: false })
+      );
 
       if (error) {
         console.warn('Failed to fetch returns from Supabase:', error.message);
@@ -1639,11 +1664,13 @@ export async function insertReturn(returnLog: {
 export async function fetchPayments(): Promise<PaymentRecord[]> {
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*')
-        .order('payment_date', { ascending: false })
-        .order('created_at', { ascending: false });
+      const { data, error }: any = await safeSupabaseQuery(
+        supabase
+          .from('payments')
+          .select('*')
+          .order('payment_date', { ascending: false })
+          .order('created_at', { ascending: false })
+      );
 
       if (error) {
         console.warn('Failed to fetch payments from Supabase:', error.message);
@@ -1732,11 +1759,13 @@ export async function insertPayment(payment: {
 export async function fetchLedgerEntries(): Promise<LedgerEntryRecord[]> {
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('ledger_entries')
-        .select('*')
-        .order('date', { ascending: false })
-        .order('created_at', { ascending: false });
+      const { data, error }: any = await safeSupabaseQuery(
+        supabase
+          .from('ledger_entries')
+          .select('*')
+          .order('date', { ascending: false })
+          .order('created_at', { ascending: false })
+      );
 
       if (error) {
         console.warn('Failed to fetch ledger entries from Supabase:', error.message);
@@ -1817,11 +1846,13 @@ export async function insertLedgerEntry(entry: {
 export async function fetchNotifications(): Promise<NotificationRecord[]> {
   if (supabase) {
     try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .order('date', { ascending: false })
-        .order('created_at', { ascending: false });
+      const { data, error }: any = await safeSupabaseQuery(
+        supabase
+          .from('notifications')
+          .select('*')
+          .order('date', { ascending: false })
+          .order('created_at', { ascending: false })
+      );
 
       if (error) {
         console.warn('Failed to fetch notifications from Supabase:', error.message);
@@ -2751,17 +2782,25 @@ export async function restoreBackupData(backupData: any): Promise<{ success: boo
     };
 
     try {
-      await batchUpsert('plate_types', plateTypes);
-      await batchUpsert('inventory_stock', stockItems);
-      await batchUpsert('parties', parties);
-      await batchUpsert('rentals', rentals);
-      await batchUpsert('rental_cycles', rentalCycles);
-      await batchUpsert('returns', returns);
-      await batchUpsert('payments', payments);
-      await batchUpsert('ledger_entries', ledgerEntries);
-      await batchUpsert('notifications', notifications);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Supabase batch upsert timed out')), 3500)
+      );
+      await Promise.race([
+        (async () => {
+          await batchUpsert('plate_types', plateTypes);
+          await batchUpsert('inventory_stock', stockItems);
+          await batchUpsert('parties', parties);
+          await batchUpsert('rentals', rentals);
+          await batchUpsert('rental_cycles', rentalCycles);
+          await batchUpsert('returns', returns);
+          await batchUpsert('payments', payments);
+          await batchUpsert('ledger_entries', ledgerEntries);
+          await batchUpsert('notifications', notifications);
+        })(),
+        timeoutPromise,
+      ]);
     } catch (err: any) {
-      console.warn('Failed syncing restored backup to Supabase:', err);
+      console.warn('Failed syncing restored backup to Supabase (offline fallback used):', err);
     }
   }
 
