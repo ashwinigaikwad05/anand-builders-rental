@@ -2533,42 +2533,11 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 </div>
               </div>
 
-              {/* FOOTER: Left Party Signature | Center Thank You | Right Authorized Signature */}
-              <div className={`${isHalfPage ? 'pt-2' : 'pt-6'}`}>
-                <div className={`flex justify-between items-end ${isHalfPage ? 'gap-2 sm:gap-3' : 'gap-3 sm:gap-6'}`}>
-                  {/* Left: Party / Customer Signature */}
-                  <div className={`text-center ${isHalfPage ? 'min-w-[100px] sm:min-w-[120px]' : 'min-w-[120px] sm:min-w-[140px]'}`}>
-                    <div className={`border-b border-black ${isHalfPage ? 'w-24 sm:w-28' : 'w-32 sm:w-36'} mb-1 mx-auto`} />
-                    <p className={`${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} font-bold uppercase text-black tracking-wider`}>
-                      {selectedLanguage === 'marathi' ? 'ग्राहकाची सही / अंगठा' : "Customer's Signature"}
-                    </p>
-                    <p className={`${isHalfPage ? 'text-[8px]' : 'text-[9px]'} text-slate-700 font-semibold truncate ${isHalfPage ? 'max-w-[130px]' : 'max-w-[160px]'} mx-auto`}>
-                      {partyDisplayName}
-                    </p>
-                  </div>
-
-                  {/* Center: Thank you */}
-                  <div className="text-center pb-0.5">
-                    <p className={`${isHalfPage ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'} font-black text-black tracking-wide`}>
-                      {selectedLanguage === 'marathi' ? '॥ धन्यवाद ॥' : 'Thank you!'}
-                    </p>
-                  </div>
-
-                  {/* Right: Authorized Signature */}
-                  <div className={`text-center ${isHalfPage ? 'min-w-[100px] sm:min-w-[120px]' : 'min-w-[120px] sm:min-w-[140px]'}`}>
-                    <div className={`border-b border-black ${isHalfPage ? 'w-24 sm:w-28' : 'w-32 sm:w-36'} mb-1 mx-auto`} />
-                    <p className={`${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} font-bold uppercase text-black tracking-wider`}>
-                      {selectedLanguage === 'marathi' ? 'अधिकृत स्वाक्षरी' : 'Authorized Signature'}
-                    </p>
-                    <p className={`${isHalfPage ? 'text-[8px]' : 'text-[9px]'} text-slate-700 font-semibold truncate ${isHalfPage ? 'max-w-[130px]' : 'max-w-[160px]'} mx-auto`}>
-                      {selectedLanguage === 'marathi' ? businessNameMr : businessName}
-                    </p>
-                  </div>
-                </div>
-
+              {/* FOOTER */}
+              <div className={`${isHalfPage ? 'pt-2' : 'pt-4'} space-y-3`}>
                 {/* Bank Details & Terms */}
                 {(showBankDetails || (printTerms && activeTerms && activeTerms.length > 0)) && (
-                  <div className={`${isHalfPage ? 'mt-2 pt-1 text-[8.5px]' : 'mt-6 pt-3 text-[10px]'} border-t border-slate-100 text-slate-500 space-y-0.5`}>
+                  <div className={`${isHalfPage ? 'pt-1 text-[8.5px]' : 'pt-2 text-[10px]'} border-t border-slate-100 text-slate-500 space-y-0.5`}>
                     {showBankDetails && (
                       <div className="flex items-center justify-between gap-2 flex-wrap group">
                         <p className="font-mono">
@@ -2603,7 +2572,39 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 {/* KYC / Customer Verification Documents (Aadhaar Front/Back, Face, Cheque) */}
                 {renderKycDocumentsSection(true)}
 
+                {/* FOOTER: Left Party Signature | Center Thank You | Right Authorized Signature (LAST ON BILL) */}
+                <div className={`${isHalfPage ? 'pt-2' : 'pt-4'}`}>
+                  <div className={`flex justify-between items-end ${isHalfPage ? 'gap-2 sm:gap-3' : 'gap-3 sm:gap-6'}`}>
+                    {/* Left: Party / Customer Signature */}
+                    <div className={`text-center ${isHalfPage ? 'min-w-[100px] sm:min-w-[120px]' : 'min-w-[120px] sm:min-w-[140px]'}`}>
+                      <div className={`border-b border-black ${isHalfPage ? 'w-24 sm:w-28' : 'w-32 sm:w-36'} mb-1 mx-auto`} />
+                      <p className={`${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} font-bold uppercase text-black tracking-wider`}>
+                        {selectedLanguage === 'marathi' ? 'ग्राहकाची सही / अंगठा' : "Customer's Signature"}
+                      </p>
+                      <p className={`${isHalfPage ? 'text-[8px]' : 'text-[9px]'} text-slate-700 font-semibold truncate ${isHalfPage ? 'max-w-[130px]' : 'max-w-[160px]'} mx-auto`}>
+                        {partyDisplayName}
+                      </p>
+                    </div>
 
+                    {/* Center: Thank you */}
+                    <div className="text-center pb-0.5">
+                      <p className={`${isHalfPage ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'} font-black text-black tracking-wide`}>
+                        {selectedLanguage === 'marathi' ? '॥ धन्यवाद ॥' : 'Thank you!'}
+                      </p>
+                    </div>
+
+                    {/* Right: Authorized Signature */}
+                    <div className={`text-center ${isHalfPage ? 'min-w-[100px] sm:min-w-[120px]' : 'min-w-[120px] sm:min-w-[140px]'}`}>
+                      <div className={`border-b border-black ${isHalfPage ? 'w-24 sm:w-28' : 'w-32 sm:w-36'} mb-1 mx-auto`} />
+                      <p className={`${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} font-bold uppercase text-black tracking-wider`}>
+                        {selectedLanguage === 'marathi' ? 'अधिकृत स्वाक्षरी' : 'Authorized Signature'}
+                      </p>
+                      <p className={`${isHalfPage ? 'text-[8px]' : 'text-[9px]'} text-slate-700 font-semibold truncate ${isHalfPage ? 'max-w-[130px]' : 'max-w-[160px]'} mx-auto`}>
+                        {selectedLanguage === 'marathi' ? businessNameMr : businessName}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
@@ -3133,7 +3134,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 </div>
               )}
 
-              {/* Signatures */}
+              {/* KYC / Customer Verification Documents (Aadhaar Front/Back, Face, Cheque) */}
+              {renderKycDocumentsSection(false)}
+
+              {/* Signatures (LAST ON BILL) */}
               <div className={`grid grid-cols-2 gap-8 ${isHalfPage ? 'pt-2' : (isCompact ? 'pt-4' : 'pt-6')} border-t border-slate-200 text-xs`}>
                 <div className={`text-center ${isHalfPage ? 'space-y-2' : 'space-y-6'}`}>
                   <div className={`border-b border-dashed border-slate-400 ${isHalfPage ? 'w-28' : 'w-44'} mx-auto`} />
@@ -3151,9 +3155,6 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                   </p>
                 </div>
               </div>
-
-              {/* KYC / Customer Verification Documents (Aadhaar Front/Back, Face, Cheque) */}
-              {renderKycDocumentsSection(false)}
 
 
             </div>
