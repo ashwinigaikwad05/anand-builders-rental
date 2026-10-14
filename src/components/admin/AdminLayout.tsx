@@ -116,6 +116,7 @@ import type {
   LedgerEntry,
   AdminNotification,
 } from '../../data/adminMockData';
+import { getPenaltyTypeLabel } from '../../data/adminMockData';
 
 export function getTabFromPath(path: string): string {
   const cleanPath = (path || (typeof window !== 'undefined' ? window.location.pathname : '')).toLowerCase().replace(/\/$/, '');
@@ -518,6 +519,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           returnedQuantity: ret.returned_quantity !== undefined ? ret.returned_quantity : (ret.returnedQuantity !== undefined ? ret.returnedQuantity : 0),
           remainingQuantity: ret.remaining_quantity !== undefined ? ret.remaining_quantity : (ret.remainingQuantity !== undefined ? ret.remainingQuantity : 0),
           returnDate: ret.return_date || ret.returnDate || todayStr,
+          penaltyAmount: ret.penalty_amount !== undefined ? Number(ret.penalty_amount) : (ret.penaltyAmount !== undefined ? Number(ret.penaltyAmount) : undefined),
+          penaltyType: ret.penalty_type || ret.penaltyType || undefined,
+          collectedAmount: ret.collected_amount !== undefined ? Number(ret.collected_amount) : (ret.collectedAmount !== undefined ? Number(ret.collectedAmount) : undefined),
+          refundAmount: ret.refund_amount !== undefined ? Number(ret.refund_amount) : (ret.refundAmount !== undefined ? Number(ret.refundAmount) : undefined),
+          paymentMode: ret.payment_mode || ret.paymentMode || undefined,
+          daysKept: ret.days_kept !== undefined ? Number(ret.days_kept) : (ret.daysKept !== undefined ? Number(ret.daysKept) : undefined),
+          batchRent: ret.batch_rent !== undefined ? Number(ret.batch_rent) : (ret.batchRent !== undefined ? Number(ret.batchRent) : undefined),
         }))
       );
 
@@ -530,6 +538,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           cycleId: p.cycle_id || p.cycleId || null,
           cycleNumber: p.cycle_number || p.cycleNumber || null,
           amount: Number(p.amount) || 0,
+          penaltyAmount: p.penalty_amount !== undefined ? Number(p.penalty_amount) : (p.penaltyAmount !== undefined ? Number(p.penaltyAmount) : undefined),
+          penaltyType: p.penalty_type || p.penaltyType || undefined,
           date: p.payment_date || p.date || p.paymentDate || todayStr,
           paymentMode: (p.payment_mode || p.paymentMode) === 'Udhari' ? 'Outstanding' : (p.payment_mode || p.paymentMode || 'Cash'),
           reference: p.reference || '',
@@ -1832,6 +1842,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         refund_amount: newReturn.refundAmount,
         payment_mode: newReturn.paymentMode,
         penalty_amount: newReturn.penaltyAmount,
+        penalty_type: newReturn.penaltyType,
         days_kept: newReturn.daysKept,
         batch_rent: newReturn.batchRent,
       });
@@ -1846,6 +1857,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         refundAmount: newReturn.refundAmount,
         paymentMode: newReturn.paymentMode,
         penaltyAmount: newReturn.penaltyAmount,
+        penaltyType: newReturn.penaltyType,
         daysKept: newReturn.daysKept,
         batchRent: newReturn.batchRent,
       };
@@ -1885,7 +1897,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         const ledPenalty = await insertLedgerEntry({
           party_id: newReturn.partyId,
           date: newReturn.returnDate,
-          description: `Late / Damage Penalty Fee on Material Return (${newReturn.returnedQuantity} Plates) [दंड]`,
+          description: `साहित्य वापसी दंड आकारणी (${getPenaltyTypeLabel(newReturn.penaltyType, true)}) [${newReturn.returnedQuantity} प्लेट्स] [पावती: ${inserted.id}]`,
           debit: returnPenalty,
           credit: 0,
           balance: partyPending + returnPenalty,
@@ -2208,6 +2220,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
     partyId: string;
     amount: number;
     penaltyAmount?: number;
+    penaltyType?: string;
     date: string;
     paymentMode: 'Account 1' | 'Account 2' | 'Cash';
     rentalId?: string;
@@ -2230,6 +2243,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         cycle_number: newPayment.cycleNumber,
         amount: newPayment.amount,
         penalty_amount: newPayment.penaltyAmount,
+        penalty_type: newPayment.penaltyType,
         payment_date: newPayment.date,
         payment_mode: newPayment.paymentMode,
         reference: paymentRef,
@@ -2246,6 +2260,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         cycleNumber: newPayment.cycleNumber || null,
         amount: newPayment.amount,
         penaltyAmount: newPayment.penaltyAmount,
+        penaltyType: newPayment.penaltyType,
         date: newPayment.date,
         paymentMode: newPayment.paymentMode,
         reference: inserted.reference || paymentRef,
@@ -2261,7 +2276,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         const ledPenalty = await insertLedgerEntry({
           party_id: newPayment.partyId,
           date: newPayment.date,
-          description: `दंड आकारणी (Damage / Late Penalty) [पावती: ${paymentRef}]`,
+          description: `दंड आकारणी (${getPenaltyTypeLabel(newPayment.penaltyType, true)}) [पावती: ${paymentRef}]`,
           debit: newPayment.penaltyAmount,
           credit: 0,
           balance: partyPending + newPayment.penaltyAmount,

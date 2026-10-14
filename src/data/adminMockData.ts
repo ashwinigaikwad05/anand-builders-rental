@@ -91,9 +91,87 @@ export interface ReturnLog {
   refundAmount?: number;
   paymentMode?: string;
   penaltyAmount?: number;
+  penaltyType?: string;
   daysKept?: number;
   batchRent?: number;
 }
+
+export interface PenaltyTypeOption {
+  id: string;
+  labelMr: string;
+  labelEn: string;
+  icon: string;
+  descMr: string;
+  descEn: string;
+}
+
+export const PENALTY_TYPES: PenaltyTypeOption[] = [
+  {
+    id: 'damage',
+    labelMr: 'तुटफूट / नुकसान',
+    labelEn: 'Damage / Broken',
+    icon: '🔨',
+    descMr: 'साहित्य तुटफूट किंवा नुकसान भरपाई',
+    descEn: 'Damaged or broken shuttering material',
+  },
+  {
+    id: 'lost',
+    labelMr: 'साहित्य गहाळ / हरवणे',
+    labelEn: 'Lost / Missing',
+    icon: '❌',
+    descMr: 'साईटवरून साहित्य चोरी किंवा हरवणे',
+    descEn: 'Missing or lost items from site',
+  },
+  {
+    id: 'late',
+    labelMr: 'लेट फी / विलंब दंड',
+    labelEn: 'Late Return Fee',
+    icon: '⏱️',
+    descMr: 'मुदतीपेक्षा जास्त दिवस विलंबाचा दंड',
+    descEn: 'Overdue return penalty fee',
+  },
+  {
+    id: 'bent',
+    labelMr: 'बेंडिंग / दुरुस्ती खर्च',
+    labelEn: 'Bent / Repair',
+    icon: '🔧',
+    descMr: 'प्लेट वाकणे किंवा सरळ करण्याचा दुरुस्ती खर्च',
+    descEn: 'Bent plates straightening repair charges',
+  },
+  {
+    id: 'cleaning',
+    labelMr: 'सिमेंट सफाई / स्क्रॅपिंग',
+    labelEn: 'Cleaning / Scraping',
+    icon: '🧹',
+    descMr: 'प्लेट्सवर सिमेंट साचल्यामुळे सफाई खर्च',
+    descEn: 'Concrete scraping and cleaning charges',
+  },
+  {
+    id: 'transport',
+    labelMr: 'वाहतूक / हमाली दंड',
+    labelEn: 'Transport / Labor',
+    icon: '🚚',
+    descMr: 'अतिरिक्त वाहतूक किंवा लेबर आकारणी',
+    descEn: 'Additional transport or handling charges',
+  },
+  {
+    id: 'other',
+    labelMr: 'इतर आकारणी',
+    labelEn: 'Other Penalty',
+    icon: '📝',
+    descMr: 'इतर कोणताही अतिरिक्त दंड किंवा शुल्क',
+    descEn: 'Other penalty or custom surcharge',
+  },
+];
+
+export const getPenaltyTypeLabel = (typeId?: string, isMarathi = true): string => {
+  if (!typeId) return isMarathi ? 'दंड आकारणी' : 'Penalty';
+  const found = PENALTY_TYPES.find((p) => p.id === typeId || p.labelMr === typeId || p.labelEn === typeId);
+  if (found) {
+    return isMarathi ? found.labelMr : found.labelEn;
+  }
+  return typeId;
+};
 
 export interface Payment {
   id: string;
@@ -104,6 +182,7 @@ export interface Payment {
   cycleNumber?: number | null;
   amount: number;
   penaltyAmount?: number;
+  penaltyType?: string;
   date: string;
   paymentMode: 'Account 1' | 'Account 2' | 'Cash' | 'Outstanding';
   reference: string;

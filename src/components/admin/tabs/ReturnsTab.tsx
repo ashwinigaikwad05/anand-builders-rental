@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Search, RefreshCw, X, Check, Info, IndianRupee, Wallet, Calculator, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import type { Party, Rental, ReturnLog, RentalCycle, Payment } from '../../../data/adminMockData';
+import { PENALTY_TYPES, getPenaltyTypeLabel } from '../../../data/adminMockData';
 import {
   calculateCalendarDays,
   calculateCycleFinances,
@@ -18,6 +19,7 @@ export interface ReturnInputPayload extends Omit<ReturnLog, 'id' | 'partyName' |
   paymentReference?: string;
   paymentNotes?: string;
   penaltyAmount?: number;
+  penaltyType?: string;
   daysKept?: number;
   batchRent?: number;
 }
@@ -60,6 +62,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
 
   // Payment, Refund & Penalty collection states
   const [penaltyAmount, setPenaltyAmount] = useState<number>(0);
+  const [penaltyType, setPenaltyType] = useState<string>('damage');
   const [collectedAmount, setCollectedAmount] = useState<number>(0);
   const [refundAmount, setRefundAmount] = useState<number>(0);
   const [settlementAction, setSettlementAction] = useState<'collect' | 'refund' | 'none'>('none');
@@ -394,8 +397,9 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
       refundAmount: settlementAction === 'refund' && refundAmount > 0 ? refundAmount : 0,
       paymentMode: (settlementAction === 'collect' && collectedAmount > 0) || (settlementAction === 'refund' && refundAmount > 0) ? paymentMode : undefined,
       paymentReference: paymentReference.trim() || undefined,
-      paymentNotes: (paymentNotes.trim() ? paymentNotes.trim() : (settlementAction === 'refund' ? `Advance excess refund returned to customer (${returnedQty} plates returned)` : `Material return settlement (${returnedQty} plates)`)) + (penaltyAmount > 0 ? ` (Incl. Penalty ₹${penaltyAmount})` : ''),
+      paymentNotes: (paymentNotes.trim() ? paymentNotes.trim() : (settlementAction === 'refund' ? `Advance excess refund returned to customer (${returnedQty} plates returned)` : `Material return settlement (${returnedQty} plates)`)) + (penaltyAmount > 0 ? ` (दंड: ${getPenaltyTypeLabel(penaltyType, isMarathi)} ₹${penaltyAmount})` : ''),
       penaltyAmount: penaltyAmount > 0 ? penaltyAmount : undefined,
+      penaltyType: penaltyAmount > 0 ? penaltyType : undefined,
       daysKept: batchDays,
       batchRent: batchRent,
     });
@@ -488,8 +492,8 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                             <span className="text-[10px] text-emerald-600 font-normal">({ret.paymentMode ? getMarathiPaymentMode(ret.paymentMode, isMarathi ? 'marathi' : 'english') : (isMarathi ? 'जमा' : 'Paid')})</span>
                           </span>
                           {ret.penaltyAmount && ret.penaltyAmount > 0 ? (
-                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                              {isMarathi ? 'दंड समावेश ₹' : 'Incl. Penalty ₹'}{ret.penaltyAmount.toLocaleString('en-IN')}
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                              +{isMarathi ? 'दंड' : 'Penalty'} ₹{ret.penaltyAmount.toLocaleString('en-IN')}{ret.penaltyType ? ` (${getPenaltyTypeLabel(ret.penaltyType, isMarathi)})` : ''}
                             </span>
                           ) : null}
                         </div>
@@ -497,8 +501,8 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                         <div className="flex flex-col items-end gap-0.5">
                           <span className="text-slate-400 text-xs italic">{isMarathi ? 'क्रेडिट (₹०)' : 'Credit (₹0)'}</span>
                           {ret.penaltyAmount && ret.penaltyAmount > 0 ? (
-                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                              {isMarathi ? 'दंड ₹' : 'Penalty ₹'}{ret.penaltyAmount.toLocaleString('en-IN')}
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                              +{isMarathi ? 'दंड' : 'Penalty'} ₹{ret.penaltyAmount.toLocaleString('en-IN')}{ret.penaltyType ? ` (${getPenaltyTypeLabel(ret.penaltyType, isMarathi)})` : ''}
                             </span>
                           ) : null}
                         </div>
@@ -962,7 +966,10 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                             {penaltyAmount > 0 && (
                               <button
                                 type="button"
-                                onClick={() => setPenaltyAmount(0)}
+                                onClick={() => {
+                                  setPenaltyAmount(0);
+                                  setPenaltyType('damage');
+                                }}
                                 className="text-[9px] text-amber-700 hover:text-amber-950 font-bold underline cursor-pointer"
                               >
                                 {isMarathi ? 'हटवा' : 'Clear'}
@@ -998,6 +1005,45 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                           </span>
                         </div>
                       </div>
+
+                      {/* All Penalty Types Selector (दंडाचे सर्व प्रकार) */}
+                      {penaltyAmount > 0 && (
+                        <div className="bg-amber-50/80 border border-amber-200 p-2.5 rounded-xl space-y-1.5 shadow-2xs">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-extrabold text-amber-950 uppercase">
+                              {isMarathi ? 'दंडाचा प्रकार निवडा (सर्व प्रकार):' : 'Select Penalty Reason (All Types):'}
+                            </span>
+                            <span className="text-[10px] text-amber-800 font-bold bg-amber-100/90 px-2 py-0.5 rounded border border-amber-300">
+                              {getPenaltyTypeLabel(penaltyType, isMarathi)}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
+                            {PENALTY_TYPES.map((pt) => {
+                              const isSelected = penaltyType === pt.id;
+                              return (
+                                <button
+                                  key={pt.id}
+                                  type="button"
+                                  onClick={() => setPenaltyType(pt.id)}
+                                  className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all text-left cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-amber-600 text-white border-amber-700 shadow-2xs ring-1 ring-amber-400'
+                                      : 'bg-white text-slate-700 border-amber-200 hover:border-amber-400 hover:bg-amber-50/60'
+                                  }`}
+                                >
+                                  <span className="text-xs">{pt.icon}</span>
+                                  <span className="truncate">{isMarathi ? pt.labelMr : pt.labelEn}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {penaltyType && (
+                            <p className="text-[9.5px] text-amber-900 font-medium italic pt-0.5">
+                              • {isMarathi ? PENALTY_TYPES.find((p) => p.id === penaltyType)?.descMr : PENALTY_TYPES.find((p) => p.id === penaltyType)?.descEn}
+                            </p>
+                          )}
+                        </div>
+                      )}
 
                       {/* Payment Collection Inputs */}
                       <div className="space-y-1.5 text-xs">

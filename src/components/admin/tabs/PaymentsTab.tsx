@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Search, Wallet, X, Check, Info } from 'lucide-react';
 import type { Party, Payment, Rental, RentalCycle } from '../../../data/adminMockData';
+import { PENALTY_TYPES, getPenaltyTypeLabel } from '../../../data/adminMockData';
 
 import { getStoredAppLanguage, type AppLanguage } from '../../../utils/appTranslations';
 import { formatMarathiDate, getMarathiPaymentMode, formatPartyName } from '../../../utils/marathiUtils';
@@ -15,6 +16,7 @@ interface PaymentsTabProps {
     partyId: string;
     amount: number;
     penaltyAmount?: number;
+    penaltyType?: string;
     date: string;
     paymentMode: 'Account 1' | 'Account 2' | 'Cash';
     rentalId?: string;
@@ -45,6 +47,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
   const [selectedCycleId, setSelectedCycleId] = useState('');
   const [amount, setAmount] = useState<number>(0);
   const [penaltyAmount, setPenaltyAmount] = useState<number>(0);
+  const [penaltyType, setPenaltyType] = useState<string>('damage');
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMode, setPaymentMode] = useState<'Account 1' | 'Account 2' | 'Cash'>('Cash');
   const [reference, setReference] = useState('');
@@ -106,6 +109,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
     setSelectedRentalId('');
     setSelectedCycleId('');
     setPenaltyAmount(0);
+    setPenaltyType('damage');
     const pRentals = rentals.filter((r) => r.partyId === initialPartyId);
     const pendingSum = pRentals.reduce((sum, r) => sum + (Number(r.pending) || 0), 0);
     setAmount(pendingSum > 0 ? pendingSum : 0);
@@ -121,6 +125,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
     setSelectedRentalId('');
     setSelectedCycleId('');
     setPenaltyAmount(0);
+    setPenaltyType('damage');
     const pRentals = rentals.filter(
       (r) =>
         r.partyId === partyId ||
@@ -159,6 +164,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
       partyId: selectedPartyId,
       amount,
       penaltyAmount: penaltyAmount > 0 ? penaltyAmount : undefined,
+      penaltyType: penaltyAmount > 0 ? penaltyType : undefined,
       date: payDate,
       paymentMode,
       rentalId: selectedRentalId || targetCycle?.rentalId,
@@ -166,7 +172,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
       cycleNumber: targetCycle?.cycleNumber,
       reference: reference.trim() || undefined,
       notes: penaltyAmount > 0
-        ? `${notes ? notes + ' | ' : ''}यात दंड आकारणी ₹${penaltyAmount} समाविष्ट`
+        ? `${notes ? notes + ' | ' : ''}यात दंड आकारणी [${getPenaltyTypeLabel(penaltyType, isMarathi)}] ₹${penaltyAmount} समाविष्ट`
         : (notes.trim() || undefined),
     });
 
@@ -269,7 +275,7 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                       </span>
                       {pay.penaltyAmount && pay.penaltyAmount > 0 ? (
                         <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-1.5 py-0.5 rounded border border-amber-300">
-                          +{isMarathi ? 'दंड' : 'Penalty'} ₹{pay.penaltyAmount.toLocaleString('en-IN')}
+                          +{isMarathi ? 'दंड' : 'Penalty'} ₹{pay.penaltyAmount.toLocaleString('en-IN')}{pay.penaltyType ? ` (${getPenaltyTypeLabel(pay.penaltyType, isMarathi)})` : ''}
                         </span>
                       ) : null}
                     </div>
@@ -606,8 +612,8 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                 </div>
               </div>
 
-              {/* Penalty / Damage Fee Option */}
-              <div className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-3.5 space-y-2">
+              {/* Penalty / Damage Fee Option with All Types */}
+              <div className="bg-amber-50/70 border border-amber-200/90 rounded-2xl p-3.5 space-y-2.5">
                 <div className="flex justify-between items-center">
                   <label className="text-xs font-bold text-amber-950 uppercase flex items-center gap-1.5">
                     <Info className="w-4 h-4 text-amber-600" />
@@ -616,22 +622,67 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
                   {penaltyAmount > 0 && (
                     <button
                       type="button"
-                      onClick={() => setPenaltyAmount(0)}
+                      onClick={() => {
+                        setPenaltyAmount(0);
+                        setPenaltyType('damage');
+                      }}
                       className="text-[10px] text-amber-700 hover:text-amber-950 font-bold underline cursor-pointer"
                     >
                       {isMarathi ? 'हटवा' : 'Clear'}
                     </button>
                   )}
                 </div>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={penaltyAmount || ''}
-                  onChange={(e) => setPenaltyAmount(Math.max(0, parseFloat(e.target.value) || 0))}
-                  placeholder={isMarathi ? 'उदा. नुकसान भरपाई / लेट फी (₹)' : 'e.g. Damage fee / Late fine (₹)'}
-                  className="w-full bg-white border border-amber-300 focus:border-amber-600 focus:outline-none focus:ring-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
-                />
+
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-amber-700 font-bold text-sm">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={penaltyAmount || ''}
+                    onChange={(e) => setPenaltyAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                    placeholder={isMarathi ? 'दंडाची रक्कम टाका (उदा. ₹५००)' : 'Enter penalty amount (e.g. ₹500)'}
+                    className="w-full bg-white border border-amber-300 focus:border-amber-600 focus:outline-none focus:ring-1 pl-7 pr-3 py-2 rounded-xl text-sm font-bold text-slate-800"
+                  />
+                </div>
+
+                {/* All Penalty Types Selector (सर्व दंडाचे प्रकार) */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] font-extrabold text-amber-950 block">
+                      {isMarathi ? 'दंडाचा प्रकार (सर्व प्रकार):' : 'Penalty Type (All Types):'}
+                    </span>
+                    <span className="text-[10px] text-amber-800 font-bold bg-amber-100/80 px-2 py-0.5 rounded border border-amber-300/80">
+                      {getPenaltyTypeLabel(penaltyType, isMarathi)}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                    {PENALTY_TYPES.map((pt) => {
+                      const isSelected = penaltyType === pt.id;
+                      return (
+                        <button
+                          key={pt.id}
+                          type="button"
+                          onClick={() => setPenaltyType(pt.id)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all text-left cursor-pointer ${
+                            isSelected
+                              ? 'bg-amber-600 text-white border-amber-700 shadow-xs ring-2 ring-amber-400'
+                              : 'bg-white text-slate-700 border-amber-200 hover:border-amber-400 hover:bg-amber-50'
+                          }`}
+                        >
+                          <span className="text-sm">{pt.icon}</span>
+                          <span className="truncate">{isMarathi ? pt.labelMr : pt.labelEn}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {penaltyType && (
+                    <p className="text-[10px] text-amber-900 font-medium italic pt-0.5">
+                      • {isMarathi ? PENALTY_TYPES.find((p) => p.id === penaltyType)?.descMr : PENALTY_TYPES.find((p) => p.id === penaltyType)?.descEn}
+                    </p>
+                  )}
+                </div>
+
                 {penaltyAmount > 0 && (
                   <div className="flex justify-between items-center pt-2 border-t border-amber-200 text-xs text-amber-950 font-bold">
                     <span>{isMarathi ? 'एकूण जमा (भाडे + दंड):' : 'Total Collection (Rent + Penalty):'}</span>

@@ -130,6 +130,7 @@ export interface ReturnRecord {
   refund_amount?: number | null;
   payment_mode?: string | null;
   penalty_amount?: number | null;
+  penalty_type?: string | null;
   days_kept?: number | null;
   batch_rent?: number | null;
   notes?: string | null;
@@ -145,6 +146,7 @@ export interface PaymentRecord {
   cycle_number?: number | null;
   amount: number;
   penalty_amount?: number | null;
+  penalty_type?: string | null;
   payment_date: string;
   payment_mode: 'Account 1' | 'Account 2' | 'Cash' | 'Outstanding' | 'Udhari';
   reference?: string | null;
@@ -1600,6 +1602,7 @@ export async function insertReturn(returnLog: {
   refund_amount?: number;
   payment_mode?: string;
   penalty_amount?: number;
+  penalty_type?: string;
   days_kept?: number;
   batch_rent?: number;
   notes?: string;
@@ -1618,6 +1621,7 @@ export async function insertReturn(returnLog: {
     refund_amount: returnLog.refund_amount !== undefined ? Number(returnLog.refund_amount) : null,
     payment_mode: returnLog.payment_mode || null,
     penalty_amount: returnLog.penalty_amount !== undefined ? Number(returnLog.penalty_amount) : null,
+    penalty_type: returnLog.penalty_type || null,
     days_kept: returnLog.days_kept !== undefined ? Number(returnLog.days_kept) : null,
     batch_rent: returnLog.batch_rent !== undefined ? Number(returnLog.batch_rent) : null,
     notes: returnLog.notes?.trim() || null,
@@ -1697,6 +1701,7 @@ export async function insertPayment(payment: {
   cycle_number?: number;
   amount: number;
   penalty_amount?: number;
+  penalty_type?: string;
   payment_date: string;
   payment_mode: 'Account 1' | 'Account 2' | 'Cash' | 'Outstanding' | 'Udhari';
   reference?: string;
@@ -1713,6 +1718,7 @@ export async function insertPayment(payment: {
     cycle_number: payment.cycle_number || null,
     amount: Number(payment.amount),
     penalty_amount: payment.penalty_amount ? Number(payment.penalty_amount) : null,
+    penalty_type: payment.penalty_type || null,
     payment_date: payment.payment_date,
     payment_mode: payment.payment_mode,
     reference: payment.reference?.trim() || `PAY-${Date.now().toString().slice(-4)}`,

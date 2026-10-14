@@ -11,6 +11,7 @@ import {
   IndianRupee,
 } from 'lucide-react';
 import type { Rental, RentalCycle, PlateStock, RentalItem, Party, ReturnLog } from '../../../data/adminMockData';
+import { PENALTY_TYPES, getPenaltyTypeLabel } from '../../../data/adminMockData';
 import {
   calculateCycleFinances,
   determineRenewalStartDate,
@@ -70,6 +71,7 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
   // Payment Collection States (Accept money on renewal)
   const [collectedPayment, setCollectedPayment] = useState<number>(0);
   const [penaltyAmount, setPenaltyAmount] = useState<number>(0);
+  const [penaltyType, setPenaltyType] = useState<string>('late');
   const [paymentMode, setPaymentMode] = useState<'Cash' | 'Account 1' | 'Account 2'>('Cash');
   const [paymentDate, setPaymentDate] = useState<string>(todayStr);
   const [paymentReference, setPaymentReference] = useState<string>('');
@@ -387,7 +389,7 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
               paymentMode,
               date: paymentDate || renewDate,
               reference: paymentReference.trim() || undefined,
-              notes: (paymentNotes.trim() ? `${paymentNotes.trim()}` : 'Renewal payment') + (penaltyAmount > 0 ? ` (Incl. Penalty ₹${penaltyAmount})` : ''),
+              notes: (paymentNotes.trim() ? `${paymentNotes.trim()}` : 'Renewal payment') + (penaltyAmount > 0 ? ` (दंड: ${getPenaltyTypeLabel(penaltyType, true)} ₹${penaltyAmount})` : ''),
             }
           : undefined,
         penaltyAmount > 0 ? penaltyAmount : undefined
@@ -1046,6 +1048,40 @@ export const RenewRentalModal: React.FC<RenewRentalModalProps> = ({
                 </span>
               </div>
             </div>
+
+            {/* Penalty Types Selector Chips */}
+            {penaltyAmount > 0 && (
+              <div className="bg-amber-50/80 border border-amber-200 p-2.5 rounded-xl space-y-1.5 shadow-2xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-extrabold text-amber-950 uppercase">
+                    दंडाचा प्रकार निवडा (Penalty Type):
+                  </span>
+                  <span className="text-[10px] text-amber-800 font-bold bg-amber-100/90 px-2 py-0.5 rounded border border-amber-300">
+                    {getPenaltyTypeLabel(penaltyType, true)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
+                  {PENALTY_TYPES.map((pt) => {
+                    const isSelected = penaltyType === pt.id;
+                    return (
+                      <button
+                        key={pt.id}
+                        type="button"
+                        onClick={() => setPenaltyType(pt.id)}
+                        className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all text-left cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-600 text-white border-amber-700 shadow-2xs ring-1 ring-amber-400'
+                            : 'bg-white text-slate-700 border-amber-200 hover:border-amber-400 hover:bg-amber-50/60'
+                        }`}
+                      >
+                        <span className="text-xs">{pt.icon}</span>
+                        <span className="truncate">{pt.labelMr}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Payment Input with Quick Fill Buttons */}
             <div className="space-y-1.5">

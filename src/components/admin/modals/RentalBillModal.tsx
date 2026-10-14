@@ -19,6 +19,7 @@ import {
   Save,
 } from 'lucide-react';
 import type { Rental, RentalCycle, Party, Payment, ReturnLog } from '../../../data/adminMockData';
+import { getPenaltyTypeLabel } from '../../../data/adminMockData';
 import { calculatePartialReturnsBreakdown } from '../../../lib/supabase';
 import {
   getBillTemplateConfig,
@@ -555,8 +556,30 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
         ? allCycles.reduce((sum, c) => sum + (c.paidAmount || 0), 0)
         : totalPaidAmount);
 
-  const allCyclesBalanceDue = Math.max(0, allCyclesTotalRent - allCyclesTotalPaid);
-  const allCyclesRefundDue = Math.max(0, allCyclesTotalPaid - allCyclesTotalRent);
+  // All penalties associated with this rental (from payments or returns)
+  const rentalPenalties = [
+    ...rentalPayments
+      .filter((p) => p.penaltyAmount && p.penaltyAmount > 0)
+      .map((p) => ({
+        amount: Number(p.penaltyAmount),
+        type: p.penaltyType || 'damage',
+        label: getPenaltyTypeLabel(p.penaltyType, selectedLanguage === 'marathi'),
+      })),
+    ...returns
+      .filter((r: ReturnLog) => r.rentalId === rental.id && r.penaltyAmount && r.penaltyAmount > 0)
+      .map((r: ReturnLog) => ({
+        amount: Number(r.penaltyAmount),
+        type: r.penaltyType || 'damage',
+        label: getPenaltyTypeLabel(r.penaltyType, selectedLanguage === 'marathi'),
+      })),
+  ];
+
+  const totalPenaltyAmount = rentalPenalties.reduce((sum, p) => sum + p.amount, 0);
+  const penaltyTypesSummary = Array.from(new Set(rentalPenalties.map((p) => p.label))).join(', ');
+  const grandTotalWithPenalties = allCyclesTotalRent + totalPenaltyAmount;
+
+  const allCyclesBalanceDue = Math.max(0, grandTotalWithPenalties - allCyclesTotalPaid);
+  const allCyclesRefundDue = Math.max(0, allCyclesTotalPaid - grandTotalWithPenalties);
   const currentActiveCycleNumber = activeCycle?.cycleNumber || rental.currentCycleNumber || 1;
 
   const isSimple = selectedStyle === 'simple';
@@ -1199,6 +1222,12 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               <span className="text-slate-600">{selectedLanguage === 'marathi' ? 'एकूण भाडे:' : 'Total Rent:'}</span>
               <span className="font-bold font-mono">₹{allCyclesTotalRent.toLocaleString('en-IN')}</span>
             </div>
+            {totalPenaltyAmount > 0 && (
+              <div className="flex items-center justify-between w-full max-w-[210px] text-[8.5px] text-amber-950 font-bold bg-amber-50 px-1 py-0.5 rounded border border-amber-200">
+                <span className="truncate">{selectedLanguage === 'marathi' ? `दंड (${penaltyTypesSummary}):` : `Penalty (${penaltyTypesSummary}):`}</span>
+                <span className="font-mono text-amber-950 flex-shrink-0">+₹{totalPenaltyAmount.toLocaleString('en-IN')}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between w-full max-w-[210px] text-[9px]">
               <span className="text-emerald-700 font-bold">{selectedLanguage === 'marathi' ? 'जमा रक्कम:' : 'Paid Amount:'}</span>
               <span className="font-bold font-mono text-emerald-800">₹{allCyclesTotalPaid.toLocaleString('en-IN')}</span>
@@ -2406,6 +2435,16 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                           ₹{allCyclesTotalRent.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
+                      {totalPenaltyAmount > 0 && (
+                        <div className="flex justify-between py-0.5 text-amber-950 bg-amber-50 px-1 rounded border border-amber-200">
+                          <span className="font-bold text-[11px]">
+                            {selectedLanguage === 'marathi' ? `दंड आकारणी (${penaltyTypesSummary}):` : `Penalty Charges (${penaltyTypesSummary}):`}
+                          </span>
+                          <span className="font-mono font-bold">
+                            + ₹{totalPenaltyAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between py-0.5">
                         <span className="font-semibold text-emerald-800">
                           {selectedLanguage === 'marathi' ? 'एकूण जमा पेमेंट्स:' : 'Total Paid Payments:'}
@@ -2919,6 +2958,11 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                                       {selectedLanguage === 'marathi' ? 'परतावा' : 'Refund'}
                                     </span>
                                   )}
+                                  {pay.penaltyAmount && pay.penaltyAmount > 0 && (
+                                    <span className={`ml-1 ${isHalfPage ? 'text-[7.5px] px-1' : 'text-[9px] px-1.5 py-0.5'} bg-amber-100 text-amber-950 font-bold rounded border border-amber-300`}>
+                                      +{selectedLanguage === 'marathi' ? 'दंड' : 'Penalty'} ₹{pay.penaltyAmount}{pay.penaltyType ? ` (${getPenaltyTypeLabel(pay.penaltyType, selectedLanguage === 'marathi')})` : ''}
+                                    </span>
+                                  )}
                                 </td>
                                 <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-slate-600`}>{pay.cycleNumber ? (selectedLanguage === 'marathi' ? `सायकल #${pay.cycleNumber}` : `Cycle #${pay.cycleNumber}`) : '-'}</td>
                                 <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-slate-600 max-w-xs truncate`}>{pay.reference || pay.notes || (isRefund ? (selectedLanguage === 'marathi' ? 'अतिरिक्त ऍडव्हान्स परतावा' : 'Excess advance refunded') : '-')}</td>
@@ -2991,6 +3035,15 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                           <span>{currentT.totalCyclesRentLabel} ({allCycles.length} {selectedLanguage === 'marathi' ? 'सायकल्स' : 'Cycles'})</span>
                           <span className={`${isHalfPage ? 'text-xs' : 'text-sm'}`}>₹{allCyclesTotalRent.toLocaleString('en-IN')}</span>
                         </div>
+                        {totalPenaltyAmount > 0 && (
+                          <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2.5' : 'py-2 px-4'} bg-amber-50 text-amber-950 font-bold border-t border-amber-200`}>
+                            <span>
+                              {selectedLanguage === 'marathi' ? 'दंड / अतिरिक्त आकारणी' : 'Damage / Penalty Charges'}{' '}
+                              <span className="text-[11px] font-semibold text-amber-800">({penaltyTypesSummary})</span>
+                            </span>
+                            <span className="font-mono">+ ₹{totalPenaltyAmount.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
                         <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2.5' : 'py-2 px-4'} font-bold text-emerald-700 bg-emerald-50/50`}>
                           <span>{currentT.totalPaidPaymentsLabel}</span>
                           <span>- ₹{allCyclesTotalPaid.toLocaleString('en-IN')}</span>
@@ -3028,6 +3081,15 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                           <span>{currentT.totalDueLabel}</span>
                           <span className={`${isHalfPage ? 'text-xs' : 'text-sm'}`}>₹{totalCycleAmount.toLocaleString('en-IN')}</span>
                         </div>
+                        {totalPenaltyAmount > 0 && (
+                          <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2.5' : 'py-2 px-4'} bg-amber-50 text-amber-950 font-bold border-t border-amber-200`}>
+                            <span>
+                              {selectedLanguage === 'marathi' ? 'दंड / अतिरिक्त आकारणी' : 'Damage / Penalty Charges'}{' '}
+                              <span className="text-[11px] font-semibold text-amber-800">({penaltyTypesSummary})</span>
+                            </span>
+                            <span className="font-mono">+ ₹{totalPenaltyAmount.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
                         <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2.5' : 'py-2 px-4'} font-bold text-emerald-700 bg-emerald-50/50`}>
                           <span>{currentT.paidLabel}</span>
                           <span>- ₹{allCyclesTotalPaid.toLocaleString('en-IN')}</span>
