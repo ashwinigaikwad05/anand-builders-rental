@@ -905,8 +905,8 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                         </span>
                       </div>
                     </div>
-                  ) : pendingDueFromCustomer > 0 ? (
-                    /* CASE B: CUSTOMER OWES PENDING BALANCE TO ADMIN */
+                  ) : (
+                    /* CASE B: CUSTOMER OWES PENDING BALANCE OR ZERO-BALANCE SETTLEMENT WITH PENALTY OPTION */
                     <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 space-y-3.5">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 border-b border-emerald-200/80 gap-1.5">
                         <div className="flex items-center gap-2">
@@ -928,6 +928,18 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                           {isMarathi ? 'एकूण देय:' : 'Total Payable:'} ₹{pendingDueFromCustomer.toLocaleString('en-IN')}
                         </span>
                       </div>
+
+                      {/* Balanced banner if dues and penalty are currently 0 */}
+                      {pendingDueFromCustomer === 0 && penaltyAmount === 0 && (
+                        <div className="flex items-center gap-2 bg-emerald-100/80 border border-emerald-300 px-3 py-2 rounded-xl text-emerald-900 font-bold text-xs">
+                          <Check className="w-4 h-4 text-emerald-700 flex-shrink-0" />
+                          <span>
+                            {isMarathi
+                              ? 'भाडे हिशोब समतोल आहे (₹० बाकी) — खाली हवे असल्यास दंड / नुकसान आकारणी जोडू शकता.'
+                              : 'Rent is balanced (₹0 Due) — add damage/penalty below if applicable.'}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Boxes Breakdown */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
@@ -1130,24 +1142,6 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                           {balanceAfterReturn === 0 ? (isMarathi ? '(पूर्ण हिशोब नील ✓)' : '(Fully Settled ✓)') : (isMarathi ? '(थकबाकी येणे बाकी)' : '(Pending as Outstanding)')}
                         </span>
                       </div>
-                    </div>
-                  ) : (
-                    /* CASE C: ACCOUNT IS PERFECTLY BALANCED */
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <Check className="w-5 h-5 text-emerald-600" />
-                        <div>
-                          <p className="font-bold text-emerald-950">
-                            {isMarathi ? 'खाते पूर्ण समतोल आहे (₹० बाकी)' : 'Account Perfectly Balanced (₹0 Due)'}
-                          </p>
-                          <p className="text-[10px] text-emerald-700 font-medium">
-                            {isMarathi ? 'कोणतीही बाकी किंवा रिफंड येणे/देणे शिल्लक नाही.' : 'No additional dues or refunds required.'}
-                          </p>
-                        </div>
-                      </div>
-                      <span className="font-mono font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-lg">
-                        ₹0
-                      </span>
                     </div>
                   )}
                 </div>
