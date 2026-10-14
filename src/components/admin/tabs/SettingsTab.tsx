@@ -131,6 +131,37 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     }
   }, []);
 
+  // Listen for background updates when a backup is restored
+  useEffect(() => {
+    const handleBillConfigUpdate = () => {
+      setBillConfig(getBillTemplateConfig());
+    };
+    const handleAccountsUpdate = () => {
+      const raw1 = localStorage.getItem('anand_acc1_name');
+      const raw2 = localStorage.getItem('anand_acc2_name');
+      const savedCash = localStorage.getItem('anand_cash_name');
+      const bName = localStorage.getItem('anand_business_name');
+      const bNameMr = localStorage.getItem('anand_business_name_mr');
+      const bAddr = localStorage.getItem('anand_business_address');
+      const bPhones = localStorage.getItem('anand_business_phones');
+
+      if (raw1) setAccount1Name(cleanAccountName(raw1, 'State Bank of India'));
+      if (raw2) setAccount2Name(cleanAccountName(raw2, 'PhonePe / UPI'));
+      if (savedCash) setCashAccountName(savedCash);
+      if (bName) setBusinessName(bName);
+      if (bNameMr) setBusinessNameMr(bNameMr);
+      if (bAddr) setAddress(bAddr);
+      if (bPhones) setPhones(bPhones);
+    };
+
+    window.addEventListener('anand_bill_config_updated', handleBillConfigUpdate);
+    window.addEventListener('anand_accounts_updated', handleAccountsUpdate);
+    return () => {
+      window.removeEventListener('anand_bill_config_updated', handleBillConfigUpdate);
+      window.removeEventListener('anand_accounts_updated', handleAccountsUpdate);
+    };
+  }, []);
+
   // Data deletion & maintenance states
   const isMarathi = appLanguage ? appLanguage === 'marathi' : getStoredAppLanguage() === 'marathi';
   const [selectedDeleteCategory, setSelectedDeleteCategory] = useState<DeleteDataCategory | null>(null);
@@ -144,31 +175,41 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setIsDeleteModalOpen(true);
   };
 
-  const getCurrentData = () => ({
-    appName: businessName,
-    appNameMarathi: businessNameMr,
-    exportTimestamp: new Date().toISOString(),
-    exportDateFormatted: new Date().toLocaleString(),
-    stats: {
-      totalRentals: rentals.length,
-      totalCycles: rentalCycles.length,
-      totalReturns: returns.length,
-      totalPayments: payments.length,
-      totalParties: parties.length,
-      totalStock: stockItems.length,
-    },
-    rentals,
-    rentalCycles,
-    returns,
-    payments,
-    parties,
-    stockItems,
-    plateSettings,
-    plateTypes: plateSettings,
-    ledgerEntries: ledger,
-    notifications,
-    billConfig,
-  });
+  const getCurrentData = () => {
+    let customBillNumbers = {};
+    try {
+      customBillNumbers = JSON.parse(localStorage.getItem('anand_custom_bill_numbers') || '{}');
+    } catch {}
+
+    return {
+      appName: businessName,
+      appNameMarathi: businessNameMr,
+      businessAddress: address,
+      businessPhones: phones,
+      customBillNumbers,
+      exportTimestamp: new Date().toISOString(),
+      exportDateFormatted: new Date().toLocaleString(),
+      stats: {
+        totalRentals: rentals.length,
+        totalCycles: rentalCycles.length,
+        totalReturns: returns.length,
+        totalPayments: payments.length,
+        totalParties: parties.length,
+        totalStock: stockItems.length,
+      },
+      rentals,
+      rentalCycles,
+      returns,
+      payments,
+      parties,
+      stockItems,
+      plateSettings,
+      plateTypes: plateSettings,
+      ledgerEntries: ledger,
+      notifications,
+      billConfig,
+    };
+  };
 
   const handleDownloadBackup = () => {
     const backupData = getCurrentData();
@@ -190,7 +231,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     try {
       setIsRestoring(true);
       const text = await file.text();
-      const parsed = JSON.parse(text);
+      let parsed = JSON.parse(text);
+      if (typeof parsed === 'string') {
+        try {
+          parsed = JSON.parse(parsed);
+        } catch {}
+      }
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error(isMarathi ? 'अवैध फाइल स्वरूप (डेटा सापडला नाही)' : 'Invalid file format (no JSON object found)');
+      }
       if (onRestoreBackup) {
         await onRestoreBackup(parsed);
       }
@@ -351,7 +400,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     if (!newTermText.trim()) return;
     const termToAdd = newTermText.trim();
     setBillConfig((prev) => {
-      const updatedTerms = [...prev.termsAndConditions, termToAdd];
+      const baseTerms = Array.isArray(prev.termsAndConditions) ? prev.termsAndConditions : [];
+      const updatedTerms = [...baseTerms, termToAdd];
       const updated = {
         ...prev,
         termsAndConditions: updatedTerms,
@@ -367,7 +417,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   const handleRemoveTerm = (index: number) => {
     setBillConfig((prev) => {
-      const updatedTerms = prev.termsAndConditions.filter((_, i) => i !== index);
+      const baseTerms = Array.isArray(prev.termsAndConditions) ? prev.termsAndConditions : [];
+      const updatedTerms = baseTerms.filter((_, i) => i !== index);
       const updated = {
         ...prev,
         termsAndConditions: updatedTerms,
@@ -381,7 +432,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   const handleUpdateTerm = (index: number, text: string) => {
     setBillConfig((prev) => {
-      const updated = [...prev.termsAndConditions];
+      const baseTerms = Array.isArray(prev.termsAndConditions) ? prev.termsAndConditions : [];
+      const updated = [...baseTerms];
       updated[index] = text;
       const updatedCfg = {
         ...prev,
@@ -1544,8 +1596,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           )}
 
+          {/* Terms & Conditions List */}
           <div className="space-y-2.5">
-            {billConfig.termsAndConditions.map((term, index) => (
+            {(Array.isArray(billConfig?.termsAndConditions) ? billConfig.termsAndConditions : []).map((term, index) => (
               <div key={index} className="flex items-center gap-2.5">
                 <span className="w-6 text-center text-xs font-black text-slate-400 shrink-0">
                   {index + 1}.
@@ -1568,7 +1621,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
             ))}
 
-            {billConfig.termsAndConditions.length === 0 && (
+            {(!Array.isArray(billConfig?.termsAndConditions) || billConfig.termsAndConditions.length === 0) && (
               <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-center text-xs text-amber-800 font-semibold">
                 {isMarathi
                   ? 'सध्या कोणतेही नियम जोडलेले नाहीत. खालील इनपुटमधून नवीन नियम जोडा किंवा डीफॉल्ट नियम लोड करा.'
@@ -1645,7 +1698,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
 
             <span className="text-[11px] text-slate-500 font-medium">
-              {billConfig.termsAndConditions.length} {isMarathi ? 'नियम सक्रिय' : 'Conditions Active'}
+              {(Array.isArray(billConfig?.termsAndConditions) ? billConfig.termsAndConditions : []).length} {isMarathi ? 'नियम सक्रिय' : 'Conditions Active'}
             </span>
           </div>
         </div>

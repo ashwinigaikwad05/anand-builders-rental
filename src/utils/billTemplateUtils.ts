@@ -167,7 +167,16 @@ export function getBillTemplateConfig(): BillTemplateConfig {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_BILL_TEMPLATE_CONFIG;
-    const parsed = JSON.parse(raw);
+    let parsed: any = JSON.parse(raw);
+    if (typeof parsed === 'string') {
+      try {
+        parsed = JSON.parse(parsed);
+      } catch {}
+    }
+    if (!parsed || typeof parsed !== 'object') {
+      return DEFAULT_BILL_TEMPLATE_CONFIG;
+    }
+
     const billLang: BillLanguage = parsed.billLanguage === 'english' ? 'english' : 'marathi';
     const printTermsAndConditions = parsed.printTermsAndConditions !== undefined
       ? Boolean(parsed.printTermsAndConditions)
@@ -176,14 +185,14 @@ export function getBillTemplateConfig(): BillTemplateConfig {
       ? Boolean(parsed.showKycDocuments)
       : false;
     const defaultTitle = billLang === 'english' ? 'RENTAL BILL & CHALLAN' : 'भाडे पावती व साहित्य चालान';
-    const rawTitle = parsed.billTitle || '';
+    const rawTitle = typeof parsed.billTitle === 'string' ? parsed.billTitle : '';
     const isBilingualTitle =
       rawTitle.includes('/') ||
       (/[a-zA-Z]/.test(rawTitle) && /[\u0900-\u097F]/.test(rawTitle));
     const billTitle = (!isBilingualTitle && rawTitle.trim()) ? rawTitle : defaultTitle;
 
     const defaultSignatory = billLang === 'english' ? 'Authorized Signatory' : 'अधिकृत स्वाक्षरी';
-    const rawSignatory = parsed.signatoryTitle || '';
+    const rawSignatory = typeof parsed.signatoryTitle === 'string' ? parsed.signatoryTitle : '';
     const isBilingualSignatory =
       rawSignatory.includes('/') ||
       rawSignatory === 'Authorized Signatory / अधिकृत स्वाक्षरी' ||
@@ -194,9 +203,9 @@ export function getBillTemplateConfig(): BillTemplateConfig {
     const rawTerms = Array.isArray(parsed.termsAndConditions)
       ? parsed.termsAndConditions.filter((t: any) => typeof t === 'string' && t.trim().length > 0)
       : [];
-    const termsAndConditions = rawTerms.length > 0
+    const termsAndConditions = (rawTerms.length > 0
       ? rawTerms
-      : (billLang === 'english' ? ENGLISH_TERMS : MARATHI_TERMS);
+      : (billLang === 'english' ? ENGLISH_TERMS : MARATHI_TERMS)) || MARATHI_TERMS;
 
     const showBankDetails = parsed.showBankDetails !== undefined
       ? Boolean(parsed.showBankDetails)

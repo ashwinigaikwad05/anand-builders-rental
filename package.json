@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test": "node tests/master_calculations.test.mjs && node tests/marathi_language_formats.test.mjs && node tests/bill_history_and_edit_bill_number.test.mjs && node tests/aadhaar_camera_and_back_side.test.mjs && node tests/bill_party_signature_and_kyc_docs.test.mjs && node tests/bill_whatsapp_pdf_share.test.mjs && node tests/bank_details_editable.test.mjs && node tests/bill_paper_format_settings.test.mjs",
+    "test": "node tests/master_calculations.test.mjs && node tests/marathi_language_formats.test.mjs && node tests/bill_history_and_edit_bill_number.test.mjs && node tests/aadhaar_camera_and_back_side.test.mjs && node tests/bill_party_signature_and_kyc_docs.test.mjs && node tests/bill_whatsapp_pdf_share.test.mjs && node tests/bank_details_editable.test.mjs && node tests/bill_paper_format_settings.test.mjs && node tests/backup_restore_resilience.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

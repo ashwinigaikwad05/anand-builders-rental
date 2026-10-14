@@ -181,9 +181,12 @@ export interface NotificationRecord {
 // SUPABASE CLIENT CONFIGURATION
 // ------------------------------------------------------------------------------
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey =
-  import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const env: Record<string, string | undefined> =
+  (typeof import.meta !== 'undefined' && (import.meta as any).env) ||
+  (typeof globalThis !== 'undefined' && (globalThis as any).process?.env) ||
+  {};
+const supabaseUrl: string = env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey: string = env.VITE_SUPABASE_ANON_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
 const isPlaceholderKey = (key?: string) =>
   !key ||
@@ -2374,35 +2377,318 @@ export async function seedSampleStarterData(): Promise<void> {
 }
 
 /**
- * Restores all database data from a JSON backup object.
+ * Restores all database data from a JSON backup object with complete
+ * schema normalization, UUID mapping, and foreign-key integrity.
  */
 export async function restoreBackupData(backupData: any): Promise<{ success: boolean; message: string }> {
   if (!backupData || typeof backupData !== 'object') {
     throw new Error('Invalid backup file format');
   }
 
-  const parties = Array.isArray(backupData.parties) ? backupData.parties : [];
-  const rentals = Array.isArray(backupData.rentals) ? backupData.rentals : [];
-  const rentalCycles = Array.isArray(backupData.rentalCycles) ? backupData.rentalCycles : [];
-  const returns = Array.isArray(backupData.returns) ? backupData.returns : [];
-  const payments = Array.isArray(backupData.payments) ? backupData.payments : [];
-  const stockItems = Array.isArray(backupData.stockItems)
-    ? backupData.stockItems
-    : Array.isArray(backupData.inventory_stock)
-    ? backupData.inventory_stock
-    : [];
-  const plateTypes = Array.isArray(backupData.plateTypes)
-    ? backupData.plateTypes
-    : Array.isArray(backupData.plate_types)
-    ? backupData.plate_types
-    : [];
-  const ledgerEntries = Array.isArray(backupData.ledgerEntries)
-    ? backupData.ledgerEntries
-    : Array.isArray(backupData.ledger_entries)
-    ? backupData.ledger_entries
-    : [];
-  const notifications = Array.isArray(backupData.notifications) ? backupData.notifications : [];
+  // Support root payload, or nested under .data or .backup
+  let data = backupData;
+  if (data && typeof data === 'object') {
+    if (data.data && typeof data.data === 'object' && !Array.isArray(data.data)) {
+      data = data.data;
+    } else if (data.backup && typeof data.backup === 'object' && !Array.isArray(data.backup)) {
+      data = data.backup;
+    }
+  }
 
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const isUuid = (id: any): boolean => typeof id === 'string' && UUID_REGEX.test(id);
+  const genUuid = (): string => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  };
+
+  const idMap = new Map<string, string>();
+  const toUuid = (rawId: any): string => {
+    if (!rawId) return genUuid();
+    const str = String(rawId).trim();
+    if (!str) return genUuid();
+    if (isUuid(str)) return str;
+    if (!idMap.has(str)) {
+      idMap.set(str, genUuid());
+    }
+    return idMap.get(str)!;
+  };
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // 1. Raw extraction supporting both UI camelCase and DB snake_case arrays
+  const rawParties = Array.isArray(data.parties) ? data.parties : (Array.isArray(data.party_list) ? data.party_list : []);
+  const rawRentals = Array.isArray(data.rentals) ? data.rentals : (Array.isArray(data.rental_records) ? data.rental_records : []);
+  const rawRentalCycles = Array.isArray(data.rentalCycles) ? data.rentalCycles : (Array.isArray(data.rental_cycles) ? data.rental_cycles : []);
+  const rawReturns = Array.isArray(data.returns) ? data.returns : (Array.isArray(data.return_records) ? data.return_records : (Array.isArray(data.return_logs) ? data.return_logs : []));
+  const rawPayments = Array.isArray(data.payments) ? data.payments : (Array.isArray(data.payment_records) ? data.payment_records : []);
+  const rawStockItems = Array.isArray(data.stockItems) ? data.stockItems : (Array.isArray(data.inventory_stock) ? data.inventory_stock : (Array.isArray(data.stock_items) ? data.stock_items : []));
+  const rawPlateTypes = Array.isArray(data.plateTypes) ? data.plateTypes : (Array.isArray(data.plate_types) ? data.plate_types : (Array.isArray(data.plateSettings) ? data.plateSettings : []));
+  const rawLedgerEntries = Array.isArray(data.ledgerEntries) ? data.ledgerEntries : (Array.isArray(data.ledger_entries) ? data.ledger_entries : (Array.isArray(data.ledger) ? data.ledger : []));
+  const rawNotifications = Array.isArray(data.notifications) ? data.notifications : (Array.isArray(data.admin_notifications) ? data.admin_notifications : []);
+
+  // 2. Normalize Plate Types
+  const plateTypes: PlateTypeRecord[] = rawPlateTypes.map((pt: any) => ({
+    id: toUuid(pt.id),
+    plate_size: String(pt.plate_size || pt.plateSize || '24×3').trim() as any,
+    daily_rate: Number(pt.daily_rate !== undefined ? pt.daily_rate : (pt.dailyRate !== undefined ? pt.dailyRate : 1.5)),
+    active: pt.active !== undefined ? Boolean(pt.active) : true,
+    status: (['available', 'low_stock', 'out_of_stock'].includes(pt.status) ? pt.status : 'available') as any,
+    created_at: pt.created_at || pt.createdAt || new Date().toISOString(),
+    updated_at: pt.updated_at || pt.updatedAt || new Date().toISOString(),
+  }));
+
+  // 3. Normalize Stock Items
+  const stockItems: InventoryStockItem[] = rawStockItems.map((st: any) => ({
+    id: toUuid(st.id),
+    plate_size: String(st.plate_size || st.plateSize || '24×3').trim() as any,
+    quantity: Math.max(1, Number(st.quantity) || 1),
+    received_date: st.received_date || st.receivedDate || todayStr,
+    notes: st.notes ? String(st.notes) : null,
+    created_at: st.created_at || st.createdAt || new Date().toISOString(),
+    updated_at: st.updated_at || st.updatedAt || new Date().toISOString(),
+  }));
+
+  // 4. Normalize Parties (stripping derived UI fields like platesWithParty, totalRent, etc.)
+  const parties: PartyRecord[] = rawParties.map((p: any) => ({
+    id: toUuid(p.id),
+    name: String(p.name || '').trim() || 'ग्राहक',
+    mobile: String(p.mobile || '').trim() || '',
+    address: p.address ? String(p.address) : null,
+    notes: p.notes ? String(p.notes) : null,
+    status: (p.status === 'inactive' ? 'inactive' : 'active') as any,
+    photo_url: p.photo_url || p.photoUrl || null,
+    aadhaar_url: p.aadhaar_url || p.aadhaarUrl || null,
+    aadhaar_back_url: p.aadhaar_back_url || p.aadhaarBackUrl || null,
+    cheque_url: p.cheque_url || p.chequeUrl || null,
+    created_at: p.created_at || p.createdAt || new Date().toISOString(),
+    updated_at: p.updated_at || p.updatedAt || new Date().toISOString(),
+  }));
+
+  const partyIdSet = new Set(parties.map((p) => p.id));
+
+  // 5. Normalize Rentals (guaranteeing valid party_id foreign key)
+  const rentals: RentalRecord[] = rawRentals.map((r: any) => {
+    const rawPartyId = r.party_id || r.partyId;
+    let mappedPartyId = rawPartyId ? toUuid(rawPartyId) : '';
+    const partyName = String(r.party_name || r.partyName || '').trim() || 'ग्राहक';
+
+    if (!mappedPartyId || !partyIdSet.has(mappedPartyId)) {
+      const matchingParty = parties.find((p) => p.name.trim().toLowerCase() === partyName.toLowerCase());
+      if (matchingParty) {
+        mappedPartyId = matchingParty.id;
+      } else {
+        mappedPartyId = toUuid(rawPartyId || `synth-party-${partyName}`);
+        parties.push({
+          id: mappedPartyId,
+          name: partyName,
+          mobile: '',
+          address: null,
+          notes: null,
+          status: 'active',
+          created_at: r.created_at || todayStr,
+          updated_at: r.updated_at || todayStr,
+        });
+        partyIdSet.add(mappedPartyId);
+      }
+    }
+
+    const issueDate = r.issue_date || r.issueDate || todayStr;
+    const days = Math.max(1, Number(r.days) || 40);
+    const quantity = Math.max(1, Number(r.quantity) || 1);
+    const dailyRate = Number(r.daily_rate !== undefined ? r.daily_rate : (r.dailyRate !== undefined ? r.dailyRate : 1.5));
+    const totalRent = Number(r.total_rent !== undefined ? r.total_rent : (r.totalRent !== undefined ? r.totalRent : quantity * dailyRate * days));
+    const paidAmount = Number(r.paid_amount !== undefined ? r.paid_amount : (r.paid !== undefined ? r.paid : 0));
+    const pendingAmount = Number(r.pending_amount !== undefined ? r.pending_amount : (r.pending !== undefined ? r.pending : Math.max(0, totalRent - paidAmount)));
+    const paymentMode = ['Account 1', 'Account 2', 'Cash', 'Udhari'].includes(r.payment_mode || r.paymentMode)
+      ? (r.payment_mode || r.paymentMode)
+      : (r.payment_mode === 'Outstanding' || r.paymentMode === 'Outstanding' ? 'Udhari' : 'Cash');
+    const paymentStatus = ['pending', 'partial', 'paid'].includes(r.payment_status || r.paymentStatus)
+      ? (r.payment_status || r.paymentStatus)
+      : (pendingAmount <= 0 ? 'paid' : (paidAmount > 0 ? 'partial' : 'pending'));
+    const status = ['active', 'returned', 'overdue'].includes(r.status) ? r.status : 'active';
+    const plateType = String(r.plate_type || r.plateType || '24×3').trim();
+    const items = Array.isArray(r.items) ? r.items : [];
+    const currentCycleNumber = Number(r.current_cycle_number || r.currentCycleNumber) || 1;
+    const currentCycleStartDate = r.current_cycle_start_date || r.currentCycleStartDate || issueDate;
+    const currentCycleEndDate = r.current_cycle_end_date || r.currentCycleEndDate || calculateExpectedCycleEndDate(currentCycleStartDate, days);
+
+    return {
+      id: toUuid(r.id),
+      party_id: mappedPartyId,
+      party_name: partyName,
+      plate_type: plateType,
+      quantity,
+      daily_rate: dailyRate,
+      issue_date: issueDate,
+      expected_return_date: r.expected_return_date || r.expectedReturnDate || currentCycleEndDate,
+      actual_return_date: r.actual_return_date || r.actualReturnDate || null,
+      days,
+      total_rent: totalRent,
+      paid_amount: paidAmount,
+      pending_amount: pendingAmount,
+      payment_mode: paymentMode as any,
+      payment_status: paymentStatus as any,
+      status: status as any,
+      notes: r.notes ? String(r.notes) : null,
+      items,
+      current_cycle_number: currentCycleNumber,
+      current_cycle_start_date: currentCycleStartDate,
+      current_cycle_end_date: currentCycleEndDate,
+      created_at: r.created_at || r.createdAt || new Date().toISOString(),
+      updated_at: r.updated_at || r.updatedAt || new Date().toISOString(),
+    };
+  });
+
+  const rentalIdSet = new Set(rentals.map((r) => r.id));
+
+  // 6. Normalize Rental Cycles (ensuring parent rental exists)
+  const rentalCycles: RentalCycleRecord[] = rawRentalCycles
+    .map((c: any) => {
+      const rawRentalId = c.rental_id || c.rentalId;
+      const rawPartyId = c.party_id || c.partyId;
+      const mappedRentalId = rawRentalId ? toUuid(rawRentalId) : '';
+      let mappedPartyId = rawPartyId ? toUuid(rawPartyId) : '';
+
+      if (!mappedRentalId || !rentalIdSet.has(mappedRentalId)) return null;
+
+      const parentRental = rentals.find((r) => r.id === mappedRentalId);
+      if (!mappedPartyId || !partyIdSet.has(mappedPartyId)) {
+        mappedPartyId = parentRental?.party_id || '';
+      }
+      if (!mappedPartyId || !partyIdSet.has(mappedPartyId)) return null;
+
+      const startDate = c.start_date || c.startDate || todayStr;
+      const days = Math.max(1, Number(c.days) || 40);
+      const expectedEndDate = c.expected_end_date || c.expectedEndDate || calculateExpectedCycleEndDate(startDate, days);
+      const cycleNumber = Math.max(1, Number(c.cycle_number || c.cycleNumber) || 1);
+      const extraDays = Math.max(0, Number(c.extra_days !== undefined ? c.extra_days : (c.extraDays !== undefined ? c.extraDays : 0)));
+      const dailyRate = Number(c.daily_rate !== undefined ? c.daily_rate : (c.dailyRate !== undefined ? c.dailyRate : parentRental?.daily_rate || 1.5));
+      const quantity = Math.max(1, Number(c.quantity !== undefined ? c.quantity : parentRental?.quantity || 1));
+      const baseRent = Number(c.base_rent !== undefined ? c.base_rent : (c.baseRent !== undefined ? c.baseRent : quantity * dailyRate * days));
+      const extraAmount = Number(c.extra_amount !== undefined ? c.extra_amount : (c.extraAmount !== undefined ? c.extraAmount : 0));
+      const totalAmount = Number(c.total_amount !== undefined ? c.total_amount : (c.totalAmount !== undefined ? c.totalAmount : baseRent + extraAmount));
+      const paidAmount = Number(c.paid_amount !== undefined ? c.paid_amount : (c.paidAmount !== undefined ? c.paidAmount : 0));
+      const pendingAmount = Number(c.pending_amount !== undefined ? c.pending_amount : (c.pendingAmount !== undefined ? c.pendingAmount : Math.max(0, totalAmount - paidAmount)));
+      const status = (c.status === 'completed' ? 'completed' : 'active') as any;
+
+      return {
+        id: toUuid(c.id),
+        rental_id: mappedRentalId,
+        party_id: mappedPartyId,
+        cycle_number: cycleNumber,
+        start_date: startDate,
+        expected_end_date: expectedEndDate,
+        actual_end_date: c.actual_end_date || c.actualEndDate || null,
+        days,
+        extra_days: extraDays,
+        daily_rate: dailyRate,
+        quantity,
+        base_rent: baseRent,
+        extra_amount: extraAmount,
+        total_amount: totalAmount,
+        paid_amount: paidAmount,
+        pending_amount: pendingAmount,
+        status,
+        notes: c.notes ? String(c.notes) : null,
+        items: Array.isArray(c.items) ? c.items : (parentRental?.items || []),
+        created_at: c.created_at || c.createdAt || new Date().toISOString(),
+        updated_at: c.updated_at || c.updatedAt || new Date().toISOString(),
+      };
+    })
+    .filter(Boolean) as RentalCycleRecord[];
+
+  // 7. Normalize Returns
+  const returns: ReturnRecord[] = rawReturns.map((ret: any) => {
+    const rawRentalId = ret.rental_id || ret.rentalId;
+    const rawPartyId = ret.party_id || ret.partyId;
+    const mappedRentalId = rawRentalId && rentalIdSet.has(toUuid(rawRentalId)) ? toUuid(rawRentalId) : null;
+    let mappedPartyId = rawPartyId ? toUuid(rawPartyId) : '';
+    if (!mappedPartyId || !partyIdSet.has(mappedPartyId)) {
+      if (mappedRentalId) {
+        const parentRent = rentals.find((r) => r.id === mappedRentalId);
+        mappedPartyId = parentRent?.party_id || parties[0]?.id || '';
+      } else {
+        mappedPartyId = parties[0]?.id || toUuid('synth-party');
+      }
+    }
+    return {
+      id: toUuid(ret.id),
+      rental_id: mappedRentalId,
+      party_id: mappedPartyId,
+      party_name: String(ret.party_name || ret.partyName || 'ग्राहक').trim(),
+      plate_type: String(ret.plate_type || ret.plateType || '24×3').trim(),
+      issued_quantity: Number(ret.issued_quantity !== undefined ? ret.issued_quantity : (ret.issuedQuantity !== undefined ? ret.issuedQuantity : 0)),
+      returned_quantity: Math.max(1, Number(ret.returned_quantity !== undefined ? ret.returned_quantity : (ret.returnedQuantity !== undefined ? ret.returnedQuantity : 1))),
+      remaining_quantity: Math.max(0, Number(ret.remaining_quantity !== undefined ? ret.remaining_quantity : (ret.remainingQuantity !== undefined ? ret.remainingQuantity : 0))),
+      return_date: ret.return_date || ret.returnDate || todayStr,
+      notes: ret.notes ? String(ret.notes) : null,
+      created_at: ret.created_at || ret.createdAt || new Date().toISOString(),
+    };
+  });
+
+  // 8. Normalize Payments
+  const payments: PaymentRecord[] = rawPayments.map((p: any) => {
+    const rawRentalId = p.rental_id || p.rentalId;
+    const rawPartyId = p.party_id || p.partyId;
+    const mappedRentalId = rawRentalId && rentalIdSet.has(toUuid(rawRentalId)) ? toUuid(rawRentalId) : null;
+    let mappedPartyId = rawPartyId ? toUuid(rawPartyId) : '';
+    if (!mappedPartyId || !partyIdSet.has(mappedPartyId)) {
+      if (mappedRentalId) {
+        const parentRent = rentals.find((r) => r.id === mappedRentalId);
+        mappedPartyId = parentRent?.party_id || parties[0]?.id || '';
+      } else {
+        mappedPartyId = parties[0]?.id || toUuid('synth-party');
+      }
+    }
+    const paymentMode = ['Account 1', 'Account 2', 'Cash', 'Udhari'].includes(p.payment_mode || p.paymentMode)
+      ? (p.payment_mode || p.paymentMode)
+      : (p.payment_mode === 'Outstanding' || p.paymentMode === 'Outstanding' ? 'Udhari' : 'Cash');
+    return {
+      id: toUuid(p.id),
+      party_id: mappedPartyId,
+      party_name: String(p.party_name || p.partyName || 'ग्राहक').trim(),
+      rental_id: mappedRentalId,
+      amount: Math.max(0, Number(p.amount) || 0),
+      payment_date: p.payment_date || p.date || p.paymentDate || todayStr,
+      payment_mode: paymentMode as any,
+      reference: p.reference ? String(p.reference) : null,
+      notes: p.notes ? String(p.notes) : null,
+      status: (p.status === 'pending' ? 'pending' : 'verified') as any,
+      created_at: p.created_at || p.createdAt || new Date().toISOString(),
+    };
+  });
+
+  // 9. Normalize Ledger Entries
+  const ledgerEntries: LedgerEntryRecord[] = rawLedgerEntries.map((l: any) => ({
+    id: toUuid(l.id),
+    party_id: toUuid(l.party_id || l.partyId),
+    date: l.date || todayStr,
+    description: String(l.description || ''),
+    debit: Number(l.debit) || 0,
+    credit: Number(l.credit) || 0,
+    balance: Number(l.balance) || 0,
+    created_at: l.created_at || l.createdAt || new Date().toISOString(),
+  }));
+
+  // 10. Normalize Notifications
+  const notifications: NotificationRecord[] = rawNotifications.map((n: any) => ({
+    id: toUuid(n.id),
+    type: (['due', 'return', 'stock', 'general'].includes(n.type) ? n.type : 'general') as any,
+    title: String(n.title || ''),
+    message: String(n.message || ''),
+    date: n.date || todayStr,
+    is_read: n.is_read !== undefined ? Boolean(n.is_read) : (n.isRead !== undefined ? Boolean(n.isRead) : false),
+    created_at: n.created_at || n.createdAt || new Date().toISOString(),
+  }));
+
+  // 11. Write Normalized Data to Offline LocalStorage
   if (parties.length > 0) setLocal('parties', parties);
   if (rentals.length > 0) setLocal('rentals', rentals);
   if (rentalCycles.length > 0) setLocal('rental_cycles', rentalCycles);
@@ -2413,27 +2699,75 @@ export async function restoreBackupData(backupData: any): Promise<{ success: boo
   if (ledgerEntries.length > 0) setLocal('ledger_entries', ledgerEntries);
   if (notifications.length > 0) setLocal('notifications', notifications);
 
-  if (backupData.billConfig) {
+  // 12. Restore Template Configurations & Branding
+  if (data.billConfig) {
     try {
-      localStorage.setItem('anand_bill_template_config', JSON.stringify(backupData.billConfig));
-    } catch {}
+      let rawConfig = data.billConfig;
+      if (typeof rawConfig === 'string') {
+        try { rawConfig = JSON.parse(rawConfig); } catch {}
+      }
+      if (rawConfig && typeof rawConfig === 'object') {
+        const current = typeof localStorage !== 'undefined' ? localStorage.getItem('anand_bill_template_config') : null;
+        let baseConfig = {};
+        if (current) {
+          try { baseConfig = JSON.parse(current); } catch {}
+        }
+        const merged = { ...baseConfig, ...rawConfig };
+        localStorage.setItem('anand_bill_template_config', JSON.stringify(merged));
+      }
+    } catch (e) {
+      console.warn('Failed restoring bill config:', e);
+    }
   }
 
-  // If Supabase client is connected, upsert records to remote database
+  if (data.appName || data.businessName) {
+    try { localStorage.setItem('anand_business_name', String(data.appName || data.businessName)); } catch {}
+  }
+  if (data.appNameMarathi || data.businessNameMr) {
+    try { localStorage.setItem('anand_business_name_mr', String(data.appNameMarathi || data.businessNameMr)); } catch {}
+  }
+  if (data.businessAddress) {
+    try { localStorage.setItem('anand_business_address', String(data.businessAddress)); } catch {}
+  }
+  if (data.businessPhones) {
+    try { localStorage.setItem('anand_business_phones', String(data.businessPhones)); } catch {}
+  }
+  if (data.customBillNumbers && typeof data.customBillNumbers === 'object') {
+    try { localStorage.setItem('anand_custom_bill_numbers', JSON.stringify(data.customBillNumbers)); } catch {}
+  }
+
+  // 13. Sync Normalized Records to Remote Supabase in batches & proper FK order
   if (supabase) {
+    const batchUpsert = async (table: string, records: any[]) => {
+      if (records.length === 0) return;
+      const CHUNK = 50;
+      for (let i = 0; i < records.length; i += CHUNK) {
+        const chunk = records.slice(i, i + CHUNK);
+        const { error } = await supabase.from(table).upsert(chunk);
+        if (error) {
+          console.warn(`Supabase upsert on '${table}' warning:`, error.message);
+        }
+      }
+    };
+
     try {
-      if (plateTypes.length > 0) await supabase.from('plate_types').upsert(plateTypes);
-      if (stockItems.length > 0) await supabase.from('inventory_stock').upsert(stockItems);
-      if (parties.length > 0) await supabase.from('parties').upsert(parties);
-      if (rentals.length > 0) await supabase.from('rentals').upsert(rentals);
-      if (rentalCycles.length > 0) await supabase.from('rental_cycles').upsert(rentalCycles);
-      if (returns.length > 0) await supabase.from('returns').upsert(returns);
-      if (payments.length > 0) await supabase.from('payments').upsert(payments);
-      if (ledgerEntries.length > 0) await supabase.from('ledger_entries').upsert(ledgerEntries);
-      if (notifications.length > 0) await supabase.from('notifications').upsert(notifications);
+      await batchUpsert('plate_types', plateTypes);
+      await batchUpsert('inventory_stock', stockItems);
+      await batchUpsert('parties', parties);
+      await batchUpsert('rentals', rentals);
+      await batchUpsert('rental_cycles', rentalCycles);
+      await batchUpsert('returns', returns);
+      await batchUpsert('payments', payments);
+      await batchUpsert('ledger_entries', ledgerEntries);
+      await batchUpsert('notifications', notifications);
     } catch (err: any) {
       console.warn('Failed syncing restored backup to Supabase:', err);
     }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('anand_bill_config_updated'));
+    window.dispatchEvent(new Event('anand_accounts_updated'));
   }
 
   return {
@@ -2443,5 +2777,5 @@ export async function restoreBackupData(backupData: any): Promise<{ success: boo
 }
 
 // Re-export deduplication engine
-export * from './deduplication';
+export * from './deduplication.ts';
 

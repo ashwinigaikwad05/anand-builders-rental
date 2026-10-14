@@ -9,7 +9,7 @@ import {
   type PaymentRecord,
   type LedgerEntryRecord,
   type NotificationRecord,
-} from './supabase';
+} from './supabase.ts';
 
 const STORAGE_PREFIX = 'anand_';
 

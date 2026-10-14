@@ -275,23 +275,23 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       setStockItems(safeStock);
 
       // Map loaded cycles
-      const allCycles: RentalCycle[] = safeCycles.filter(Boolean).map((c) => ({
+      const allCycles: RentalCycle[] = safeCycles.filter(Boolean).map((c: any) => ({
         id: c.id || `cyc-${Math.random()}`,
-        rentalId: c.rental_id || '',
-        partyId: c.party_id || '',
-        cycleNumber: c.cycle_number || 1,
-        startDate: c.start_date || todayStr,
-        expectedEndDate: c.expected_end_date || calculateExpectedCycleEndDate(c.start_date || todayStr, c.days || 40),
-        actualEndDate: c.actual_end_date,
+        rentalId: c.rental_id || c.rentalId || '',
+        partyId: c.party_id || c.partyId || '',
+        cycleNumber: c.cycle_number || c.cycleNumber || 1,
+        startDate: c.start_date || c.startDate || todayStr,
+        expectedEndDate: c.expected_end_date || c.expectedEndDate || calculateExpectedCycleEndDate(c.start_date || c.startDate || todayStr, c.days || 40),
+        actualEndDate: c.actual_end_date || c.actualEndDate,
         days: c.days || 40,
-        extraDays: c.extra_days || 0,
-        dailyRate: c.daily_rate || 0,
+        extraDays: c.extra_days !== undefined ? c.extra_days : (c.extraDays !== undefined ? c.extraDays : 0),
+        dailyRate: c.daily_rate !== undefined ? c.daily_rate : (c.dailyRate !== undefined ? c.dailyRate : 0),
         quantity: c.quantity || 0,
-        baseRent: c.base_rent || 0,
-        extraAmount: c.extra_amount || 0,
-        totalAmount: c.total_amount || 0,
-        paidAmount: c.paid_amount || 0,
-        pendingAmount: c.pending_amount || 0,
+        baseRent: c.base_rent !== undefined ? c.base_rent : (c.baseRent !== undefined ? c.baseRent : 0),
+        extraAmount: c.extra_amount !== undefined ? c.extra_amount : (c.extraAmount !== undefined ? c.extraAmount : 0),
+        totalAmount: c.total_amount !== undefined ? c.total_amount : (c.totalAmount !== undefined ? c.totalAmount : 0),
+        paidAmount: c.paid_amount !== undefined ? c.paid_amount : (c.paidAmount !== undefined ? c.paidAmount : 0),
+        pendingAmount: c.pending_amount !== undefined ? c.pending_amount : (c.pendingAmount !== undefined ? c.pendingAmount : 0),
         status: c.status || 'active',
         notes: c.notes,
         items: Array.isArray(c.items) ? (c.items as any) : [],
@@ -300,26 +300,36 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       // Ensure every existing rental has at least a Cycle 1
       for (const r of safeRentals) {
         if (!r) continue;
-        if (!allCycles.some((c) => c.rentalId === r.id)) {
-          const issueDate = r.issue_date || (r.created_at ? r.created_at.split('T')[0] : todayStr);
-          const expectedEnd = r.current_cycle_end_date || calculateExpectedCycleEndDate(issueDate, r.days || 40);
+        const rId = r.id;
+        const rPartyId = r.party_id || (r as any).partyId || '';
+        const rIssueDate = r.issue_date || (r as any).issueDate || (r.created_at ? r.created_at.split('T')[0] : todayStr);
+        const rCycleEndDate = r.current_cycle_end_date || (r as any).currentCycleEndDate;
+        const rDays = r.days || 40;
+        const rDailyRate = r.daily_rate !== undefined ? r.daily_rate : ((r as any).dailyRate !== undefined ? (r as any).dailyRate : 0);
+        const rQuantity = r.quantity || 0;
+        const rTotalRent = r.total_rent !== undefined ? r.total_rent : ((r as any).totalRent !== undefined ? (r as any).totalRent : 0);
+        const rPaid = r.paid_amount !== undefined ? r.paid_amount : ((r as any).paid !== undefined ? (r as any).paid : 0);
+        const rPending = r.pending_amount !== undefined ? r.pending_amount : ((r as any).pending !== undefined ? (r as any).pending : 0);
+
+        if (!allCycles.some((c) => c.rentalId === rId)) {
+          const expectedEnd = rCycleEndDate || calculateExpectedCycleEndDate(rIssueDate, rDays);
           allCycles.push({
-            id: `cyc-synth-${r.id}`,
-            rentalId: r.id,
-            partyId: r.party_id || '',
+            id: `cyc-synth-${rId}`,
+            rentalId: rId,
+            partyId: rPartyId,
             cycleNumber: 1,
-            startDate: issueDate,
+            startDate: rIssueDate,
             expectedEndDate: expectedEnd,
-            actualEndDate: r.actual_return_date,
-            days: r.days || 40,
+            actualEndDate: r.actual_return_date || (r as any).actualReturnDate,
+            days: rDays,
             extraDays: 0,
-            dailyRate: r.daily_rate || 0,
-            quantity: r.quantity || 0,
-            baseRent: r.total_rent || 0,
+            dailyRate: rDailyRate,
+            quantity: rQuantity,
+            baseRent: rTotalRent,
             extraAmount: 0,
-            totalAmount: r.total_rent || 0,
-            paidAmount: r.paid_amount || 0,
-            pendingAmount: r.pending_amount || 0,
+            totalAmount: rTotalRent,
+            paidAmount: rPaid,
+            pendingAmount: rPending,
             status: r.status === 'returned' ? 'completed' : 'active',
             items: Array.isArray(r.items) ? r.items : [],
           });
@@ -449,29 +459,31 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           const rentalBillNumber = customBillNum !== undefined
             ? customBillNum
             : chronologicalRentals.findIndex((x) => x.id === r.id) + 1 || 1;
+          const rPartyId = r.party_id || (r as any).partyId || '';
+          const rPartyName = (r.party_name || (r as any).partyName || '').trim();
           const rentalCustomerNumber =
-            (r.party_id ? partyCustNumberMap.get(r.party_id) : undefined) ||
-            (r.party_name ? partyNameToNumberMap.get((r.party_name || '').trim().toLowerCase()) : undefined) ||
+            (rPartyId ? partyCustNumberMap.get(rPartyId) : undefined) ||
+            (rPartyName ? partyNameToNumberMap.get(rPartyName.toLowerCase()) : undefined) ||
             1;
 
           return {
             id: r.id,
-            partyId: r.party_id,
-            partyName: r.party_name,
-            plateType: r.plate_type,
-            quantity: r.quantity,
-            dailyRate: r.daily_rate,
-            issueDate: r.issue_date,
-            days: activeCycle ? (activeCycle.status === 'active' && activeFinances ? activeFinances.elapsedDays : activeCycle.days) : r.days,
-            totalRent: totalRentSum || r.total_rent,
-            paid: totalPaidSum || r.paid_amount,
-            pending: totalPendingSum,
-            paymentMode: r.payment_mode,
+            partyId: rPartyId,
+            partyName: rPartyName || 'ग्राहक',
+            plateType: r.plate_type || (r as any).plateType || '24×3',
+            quantity: r.quantity || 0,
+            dailyRate: r.daily_rate !== undefined ? r.daily_rate : ((r as any).dailyRate !== undefined ? (r as any).dailyRate : 1.5),
+            issueDate: r.issue_date || (r as any).issueDate || todayStr,
+            days: activeCycle ? (activeCycle.status === 'active' && activeFinances ? activeFinances.elapsedDays : activeCycle.days) : (r.days || 40),
+            totalRent: totalRentSum || r.total_rent || (r as any).totalRent || 0,
+            paid: totalPaidSum || r.paid_amount || (r as any).paid || 0,
+            pending: totalPendingSum !== undefined ? totalPendingSum : ((r as any).pending || 0),
+            paymentMode: r.payment_mode || (r as any).paymentMode || 'Cash',
             status: computedStatus,
             items: Array.isArray(r.items) ? r.items : [],
-            currentCycleNumber: activeCycle?.cycleNumber || r.current_cycle_number || 1,
-            currentCycleStartDate: activeCycle?.startDate || r.current_cycle_start_date || r.issue_date,
-            currentCycleEndDate: activeCycle?.expectedEndDate || r.current_cycle_end_date,
+            currentCycleNumber: activeCycle?.cycleNumber || r.current_cycle_number || (r as any).currentCycleNumber || 1,
+            currentCycleStartDate: activeCycle?.startDate || r.current_cycle_start_date || (r as any).currentCycleStartDate || r.issue_date || (r as any).issueDate || todayStr,
+            currentCycleEndDate: activeCycle?.expectedEndDate || r.current_cycle_end_date || (r as any).currentCycleEndDate,
             cycles: rCycles,
             billNumber: rentalBillNumber,
             customerNumber: rentalCustomerNumber,
@@ -480,56 +492,56 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       );
 
       setReturns(
-        safeReturns.filter(Boolean).map((ret) => ({
+        safeReturns.filter(Boolean).map((ret: any) => ({
           id: ret.id,
-          rentalId: ret.rental_id || '',
-          partyId: ret.party_id,
-          partyName: ret.party_name,
-          plateType: ret.plate_type,
-          issuedQuantity: ret.issued_quantity,
-          returnedQuantity: ret.returned_quantity,
-          remainingQuantity: ret.remaining_quantity,
-          returnDate: ret.return_date,
+          rentalId: ret.rental_id || ret.rentalId || '',
+          partyId: ret.party_id || ret.partyId || '',
+          partyName: ret.party_name || ret.partyName || 'ग्राहक',
+          plateType: ret.plate_type || ret.plateType || '24×3',
+          issuedQuantity: ret.issued_quantity !== undefined ? ret.issued_quantity : (ret.issuedQuantity !== undefined ? ret.issuedQuantity : 0),
+          returnedQuantity: ret.returned_quantity !== undefined ? ret.returned_quantity : (ret.returnedQuantity !== undefined ? ret.returnedQuantity : 0),
+          remainingQuantity: ret.remaining_quantity !== undefined ? ret.remaining_quantity : (ret.remainingQuantity !== undefined ? ret.remainingQuantity : 0),
+          returnDate: ret.return_date || ret.returnDate || todayStr,
         }))
       );
 
       setPayments(
-        safePayments.filter(Boolean).map((p) => ({
+        safePayments.filter(Boolean).map((p: any) => ({
           id: p.id,
-          partyId: p.party_id,
-          partyName: p.party_name,
-          rentalId: p.rental_id || null,
-          cycleId: p.cycle_id || null,
-          cycleNumber: p.cycle_number || null,
-          amount: p.amount,
-          date: p.payment_date,
-          paymentMode: p.payment_mode === 'Udhari' ? 'Outstanding' : p.payment_mode,
+          partyId: p.party_id || p.partyId || '',
+          partyName: p.party_name || p.partyName || 'ग्राहक',
+          rentalId: p.rental_id || p.rentalId || null,
+          cycleId: p.cycle_id || p.cycleId || null,
+          cycleNumber: p.cycle_number || p.cycleNumber || null,
+          amount: Number(p.amount) || 0,
+          date: p.payment_date || p.date || p.paymentDate || todayStr,
+          paymentMode: (p.payment_mode || p.paymentMode) === 'Udhari' ? 'Outstanding' : (p.payment_mode || p.paymentMode || 'Cash'),
           reference: p.reference || '',
           notes: p.notes || '',
-          status: p.status,
+          status: p.status || 'verified',
         }))
       );
 
       setLedger(
-        safeLedger.filter(Boolean).map((l) => ({
+        safeLedger.filter(Boolean).map((l: any) => ({
           id: l.id,
-          partyId: l.party_id,
-          date: l.date,
-          description: l.description,
-          debit: l.debit,
-          credit: l.credit,
-          balance: l.balance,
+          partyId: l.party_id || l.partyId || '',
+          date: l.date || todayStr,
+          description: l.description || '',
+          debit: Number(l.debit) || 0,
+          credit: Number(l.credit) || 0,
+          balance: Number(l.balance) || 0,
         }))
       );
 
       setNotifications(
-        safeNotifications.filter(Boolean).map((n) => ({
+        safeNotifications.filter(Boolean).map((n: any) => ({
           id: n.id,
-          type: n.type,
-          title: n.title,
-          message: n.message,
-          date: n.date,
-          isRead: n.is_read,
+          type: n.type || 'general',
+          title: n.title || '',
+          message: n.message || '',
+          date: n.date || todayStr,
+          isRead: n.is_read !== undefined ? n.is_read : (n.isRead !== undefined ? n.isRead : false),
         }))
       );
     } catch (err: any) {
@@ -732,7 +744,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       aadhaarUrl: p.aadhaar_url || null,
       aadhaarBackUrl: p.aadhaar_back_url || null,
       chequeUrl: p.cheque_url || null,
-      customerNumber: customerNumberMap.get(p.id) || customerNameNumberMap.get(p.name.toLowerCase()) || 1,
+      customerNumber: customerNumberMap.get(p.id) || (p.name ? customerNameNumberMap.get(p.name.trim().toLowerCase()) : undefined) || 1,
     };
   });
 
