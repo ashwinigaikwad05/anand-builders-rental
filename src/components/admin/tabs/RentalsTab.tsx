@@ -14,6 +14,9 @@ import {
   ArrowUpDown,
   Edit2,
   MessageSquare,
+  AlertTriangle,
+  CheckCircle2,
+  Layers,
 } from 'lucide-react';
 import type { Party, PlateStock, Rental, RentalItem, RentalCycle, Payment, ReturnLog } from '../../../data/adminMockData';
 import {
@@ -298,6 +301,83 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
     });
   }, [filteredRentals, sortBy, parties]);
 
+  // Executive KPI summary calculations
+  const stats = useMemo(() => {
+    let activeCount = 0;
+    let overdueCount = 0;
+    let returnedCount = 0;
+    let totalPlatesOut = 0;
+    let totalDueAmount = 0;
+
+    rentals.forEach((rent) => {
+      const { activeCycle, finances } = getLiveCycleData(rent);
+      const hasExtra = finances.extraDays > 0;
+      const isOverdue =
+        rent.status !== 'returned' &&
+        (rent.status === 'overdue' ||
+          hasExtra ||
+          Boolean(activeCycle.expectedEndDate && todayStr > activeCycle.expectedEndDate));
+
+      if (rent.status === 'returned') {
+        returnedCount++;
+      } else if (isOverdue) {
+        overdueCount++;
+        totalPlatesOut += rent.quantity || 0;
+      } else {
+        activeCount++;
+        totalPlatesOut += rent.quantity || 0;
+      }
+
+      const allCycles = getCyclesForRental(rent);
+      let rentalTotal = 0;
+      let rentalPaid = 0;
+      for (const cyc of allCycles) {
+        if (cyc.status === 'active' && rent.status !== 'returned') {
+          const cycFin = calculateCycleFinances(
+            {
+              startDate: cyc.startDate,
+              quantity: cyc.quantity,
+              dailyRate: cyc.dailyRate,
+              baseRent: cyc.baseRent,
+              paidAmount: cyc.paidAmount,
+              items: rent.items,
+            },
+            todayStr
+          );
+          rentalTotal += cycFin.totalAmount;
+        } else {
+          rentalTotal += cyc.totalAmount;
+        }
+        rentalPaid += cyc.paidAmount;
+      }
+      totalDueAmount += Math.max(0, rentalTotal - rentalPaid);
+    });
+
+    return {
+      total: rentals.length,
+      active: activeCount,
+      overdue: overdueCount,
+      returned: returnedCount,
+      totalPlatesOut,
+      totalDueAmount,
+    };
+  }, [rentals, rentalCycles, todayStr]);
+
+  const hasActiveFilters =
+    Boolean(searchTerm) ||
+    statusFilter !== 'All' ||
+    partyFilter !== 'All' ||
+    plateFilter !== 'All' ||
+    sortBy !== 'customer-serial';
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('All');
+    setPartyFilter('All');
+    setPlateFilter('All');
+    setSortBy('customer-serial');
+  };
+
   const handleOpenAdd = () => {
     setSelectedPartyId(parties[0]?.id || '');
     setIssueDate(todayStr);
@@ -497,12 +577,97 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
 
 
   return (
-    <div className="space-y-6 text-left">
+    <div className="space-y-5 text-left">
+      {/* Quick Status KPI Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Active Rentals */}
+        <div
+          onClick={() => setStatusFilter(statusFilter === 'active' ? 'All' : 'active')}
+          className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer ${
+            statusFilter === 'active'
+              ? 'bg-emerald-500/10 border-emerald-500 text-emerald-950 shadow-sm ring-2 ring-emerald-500/20'
+              : 'bg-white border-slate-200/80 hover:border-emerald-300 shadow-2xs'
+          }`}
+          title={isMarathi ? 'सक्रिय नोंदी फिल्टर करा' : 'Filter active records'}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              {isMarathi ? 'सक्रिय वाटप' : 'Active Rentals'}
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-xl sm:text-2xl font-black text-slate-900">{stats.active}</span>
+            <span className="text-[11px] text-emerald-600 font-bold">{isMarathi ? 'चालू भाडे' : 'Running'}</span>
+          </div>
+        </div>
+
+        {/* Overdue Rentals */}
+        <div
+          onClick={() => setStatusFilter(statusFilter === 'overdue' ? 'All' : 'overdue')}
+          className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer ${
+            statusFilter === 'overdue'
+              ? 'bg-rose-500/10 border-rose-500 text-rose-950 shadow-sm ring-2 ring-rose-500/20'
+              : 'bg-white border-slate-200/80 hover:border-rose-300 shadow-2xs'
+          }`}
+          title={isMarathi ? 'मुदत संपलेल्या नोंदी फिल्टर करा' : 'Filter overdue records'}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              {isMarathi ? 'मुदत संपली' : 'Overdue'}
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+              <AlertTriangle className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-xl sm:text-2xl font-black text-rose-600">{stats.overdue}</span>
+            <span className="text-[11px] text-rose-600 font-bold">{isMarathi ? 'जादा दिवस' : 'Past 40d'}</span>
+          </div>
+        </div>
+
+        {/* Plates On Site */}
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              {isMarathi ? 'साइटवर प्लेट्स' : 'Plates on Site'}
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+              <Layers className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-xl sm:text-2xl font-black text-slate-900">{stats.totalPlatesOut}</span>
+            <span className="text-[11px] text-slate-400 font-semibold">{isMarathi ? 'नग वाटप' : 'Plates'}</span>
+          </div>
+        </div>
+
+        {/* Total Outstanding Dues */}
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              {isMarathi ? 'येणे बाकी रक्कम' : 'Total Pending Due'}
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-orange-50 text-primary flex items-center justify-center">
+              <span className="text-xs font-black">₹</span>
+            </div>
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className={`text-xl sm:text-2xl font-black ${stats.totalDueAmount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+              ₹{stats.totalDueAmount.toLocaleString('en-IN')}
+            </span>
+            <span className="text-[11px] text-slate-400 font-semibold">{isMarathi ? 'शिल्लक' : 'Balance'}</span>
+          </div>
+        </div>
+      </div>
+
       {/* Search and Filters Bar */}
-      <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4">
-        {/* Search & Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 flex-grow max-w-3xl">
-          <div className="relative flex-grow">
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+        {/* Row 1: Search Input + New Rental Button */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="relative flex-grow max-w-xl">
             <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
               <Search className="w-4 h-4" />
             </span>
@@ -512,10 +677,10 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder={
                 isMarathi
-                  ? 'बिल नं., ग्राहक नाव किंवा साइटने शोधा...'
+                  ? 'बिल नं., ग्राहक नाव किंवा साइट पत्त्याने शोधा...'
                   : 'Search by bill #, customer name, site...'
               }
-              className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none pl-10 pr-9 py-2.5 rounded-xl text-xs sm:text-sm font-medium"
+              className="w-full bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/10 focus:outline-none pl-10 pr-9 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all"
             />
             {searchTerm && (
               <button
@@ -529,92 +694,123 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
             )}
           </div>
 
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="bg-white border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700"
+          {/* Trigger Button - Clean Single Plus */}
+          <button
+            onClick={handleOpenAdd}
+            className="bg-primary hover:bg-primary-dark text-white font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-orange-500/20 flex items-center justify-center gap-2 text-xs sm:text-sm transition-all flex-shrink-0 cursor-pointer"
           >
-            <option value="All">{isMarathi ? 'सर्व स्थिती' : 'All Statuses'}</option>
-            <option value="active">{isMarathi ? 'सक्रिय' : 'Active'}</option>
-            <option value="overdue">{isMarathi ? 'मुदत संपली' : 'Overdue'}</option>
-            <option value="returned">{isMarathi ? 'जमा' : 'Returned'}</option>
-          </select>
-
-          {/* Party Filter */}
-          <select
-            value={partyFilter}
-            onChange={(e) => setPartyFilter(e.target.value)}
-            className="bg-white border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 max-w-[180px]"
-          >
-            <option value="All">{isMarathi ? 'सर्व ग्राहक' : 'All Parties'}</option>
-            {parties.map((p) => (
-              <option key={p.id} value={p.id}>
-                {formatPartyName(p.name, isMarathi ? 'marathi' : 'english')}
-              </option>
-            ))}
-          </select>
-
-          {/* Plate Size Filter */}
-          <select
-            value={plateFilter}
-            onChange={(e) => setPlateFilter(e.target.value)}
-            className="bg-white border border-slate-200 focus:border-primary focus:outline-none px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700"
-          >
-            <option value="All">{isMarathi ? 'सर्व मापे' : 'All Sizes'}</option>
-            {plates.map((p) => (
-              <option key={p.plateType} value={p.plateType}>
-                {p.plateType}
-              </option>
-            ))}
-          </select>
-
-          {/* Sort By Filter: Serial Customers & Bills */}
-          <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-3 py-1.5 rounded-xl">
-            <ArrowUpDown className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-transparent focus:outline-none text-xs sm:text-sm font-semibold text-slate-700 cursor-pointer"
-              title="Sort Rentals"
-            >
-              <option value="customer-serial">{isMarathi ? '👥 ग्राहक क्र. व सर्व बिले' : '👥 Customer Serial (Cust #1, #2... All Bills)'}</option>
-              <option value="bill-asc">{isMarathi ? '🧾 बिल क्र. (१, २, ३... क्रमाने)' : '🧾 Bill # (Ascending 1, 2, 3...)'}</option>
-              <option value="bill-desc">{isMarathi ? '🧾 नवीन बिले प्रथम' : '🧾 Bill # (Newest First)'}</option>
-              <option value="date-desc">{isMarathi ? '📅 वाटप दिनांक (नवीन प्रथम)' : '📅 Issue Date (Newest First)'}</option>
-            </select>
-          </div>
+            <Plus className="w-4 h-4" />
+            <span>{isMarathi ? 'नवीन भाडे वाटप' : 'New Rental Dispatch'}</span>
+          </button>
         </div>
 
-        {/* Trigger Button */}
-        <button
-          onClick={handleOpenAdd}
-          className="bg-primary hover:bg-primary-dark text-white font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-orange-500/10 flex items-center justify-center gap-2 text-sm transition-all flex-shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{isMarathi ? '+ नवीन भाडे वाटप' : 'New Rental Dispatch'}</span>
-        </button>
+        {/* Row 2: Filter Dropdowns, Sorter & Clear filter */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-slate-100">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Status Filter */}
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/90 px-3 py-1.5 rounded-xl">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{isMarathi ? 'स्थिती:' : 'Status:'}</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="bg-transparent focus:outline-none text-xs sm:text-sm font-semibold text-slate-700 cursor-pointer"
+              >
+                <option value="All">{isMarathi ? 'सर्व स्थिती' : 'All Statuses'}</option>
+                <option value="active">{isMarathi ? 'सक्रिय' : 'Active'}</option>
+                <option value="overdue">{isMarathi ? 'मुदत संपली' : 'Overdue'}</option>
+                <option value="returned">{isMarathi ? 'जमा' : 'Returned'}</option>
+              </select>
+            </div>
+
+            {/* Party Filter */}
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/90 px-3 py-1.5 rounded-xl max-w-[200px]">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{isMarathi ? 'ग्राहक:' : 'Party:'}</span>
+              <select
+                value={partyFilter}
+                onChange={(e) => setPartyFilter(e.target.value)}
+                className="bg-transparent focus:outline-none text-xs sm:text-sm font-semibold text-slate-700 cursor-pointer truncate"
+              >
+                <option value="All">{isMarathi ? 'सर्व ग्राहक' : 'All Parties'}</option>
+                {parties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {formatPartyName(p.name, isMarathi ? 'marathi' : 'english')}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Plate Size Filter */}
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/90 px-3 py-1.5 rounded-xl">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{isMarathi ? 'माप:' : 'Size:'}</span>
+              <select
+                value={plateFilter}
+                onChange={(e) => setPlateFilter(e.target.value)}
+                className="bg-transparent focus:outline-none text-xs sm:text-sm font-semibold text-slate-700 cursor-pointer"
+              >
+                <option value="All">{isMarathi ? 'सर्व मापे' : 'All Sizes'}</option>
+                {plates.map((p) => (
+                  <option key={p.plateType} value={p.plateType}>
+                    {p.plateType}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sort Filter */}
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/90 px-3 py-1.5 rounded-xl">
+              <ArrowUpDown className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="bg-transparent focus:outline-none text-xs sm:text-sm font-semibold text-slate-700 cursor-pointer"
+                title="Sort Rentals"
+              >
+                <option value="customer-serial">{isMarathi ? '👥 ग्राहक क्र. व सर्व बिले' : '👥 Customer Serial (Cust #1, #2... All Bills)'}</option>
+                <option value="bill-asc">{isMarathi ? '🧾 बिल क्र. (१, २, ३... क्रमाने)' : '🧾 Bill # (Ascending 1, 2, 3...)'}</option>
+                <option value="bill-desc">{isMarathi ? '🧾 नवीन बिले प्रथम' : '🧾 Bill # (Newest First)'}</option>
+                <option value="date-desc">{isMarathi ? '📅 वाटप दिनांक (नवीन प्रथम)' : '📅 Issue Date (Newest First)'}</option>
+              </select>
+            </div>
+
+            {/* Reset / Clear Filters button */}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>{isMarathi ? 'फिल्टर काढा' : 'Reset'}</span>
+              </button>
+            )}
+          </div>
+
+          {/* Records Counter Badge */}
+          <div className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-lg">
+            {isMarathi
+              ? `${sortedRentals.length} / ${rentals.length} नोंदी`
+              : `${sortedRentals.length} of ${rentals.length} records`}
+          </div>
+        </div>
       </div>
 
       {/* Rentals Table */}
-      <div className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="bg-slate-50 text-slate-400 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                <th className="px-5 py-4 min-w-[160px]">{isMarathi ? 'ग्राहक व भाडे करार' : 'Party & Agreement'}</th>
-                <th className="px-4 py-4 min-w-[100px]">{isMarathi ? 'माप व नग' : 'Size & Qty'}</th>
-                <th className="px-4 py-4 min-w-[90px]">{isMarathi ? 'सायकल' : 'Cycle'}</th>
-                <th className="px-4 py-4 min-w-[140px]">{isMarathi ? 'सायकल कालावधी' : 'Cycle Dates'}</th>
-                <th className="px-4 py-4 min-w-[110px]">{isMarathi ? 'कालावधी' : 'Duration'}</th>
-                <th className="px-4 py-4 min-w-[90px]">{isMarathi ? 'एकूण भाडे' : 'Total'}</th>
-                <th className="px-4 py-4 min-w-[80px]">{isMarathi ? 'जमा रक्कम' : 'Paid'}</th>
-                <th className="px-4 py-4 min-w-[100px]">{isMarathi ? 'येणे बाकी' : 'Due'}</th>
-                <th className="px-4 py-4 min-w-[100px]">{isMarathi ? 'स्थिती' : 'Status'}</th>
-                <th className="px-5 py-4 min-w-[270px] text-right">{isMarathi ? 'कृती' : 'Actions'}</th>
+              <tr className="bg-slate-50/80 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-200/80">
+                <th className="px-4 py-3.5 min-w-[190px]">{isMarathi ? 'ग्राहक व भाडे करार' : 'Party & Agreement'}</th>
+                <th className="px-3 py-3.5 min-w-[105px]">{isMarathi ? 'माप व नग' : 'Size & Qty'}</th>
+                <th className="px-3 py-3.5 min-w-[160px]">{isMarathi ? 'सायकल व कालावधी' : 'Cycle & Dates'}</th>
+                <th className="px-3 py-3.5 min-w-[90px]">{isMarathi ? 'एकूण भाडे' : 'Total Rent'}</th>
+                <th className="px-3 py-3.5 min-w-[85px]">{isMarathi ? 'जमा रक्कम' : 'Paid'}</th>
+                <th className="px-3 py-3.5 min-w-[90px]">{isMarathi ? 'येणे बाकी' : 'Due'}</th>
+                <th className="px-3 py-3.5 min-w-[95px]">{isMarathi ? 'स्थिती' : 'Status'}</th>
+                <th className="px-4 py-3.5 min-w-[210px] text-right">{isMarathi ? 'कृती' : 'Actions'}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 font-light">
+            <tbody className="divide-y divide-slate-100">
               {sortedRentals.map((rent, idx) => {
                 const { activeCycle, finances } = getLiveCycleData(rent);
                 const allCycles = getCyclesForRental(rent);
@@ -636,28 +832,33 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                 return (
                   <React.Fragment key={rent.id}>
                     {isNewCustomerGroup && (
-                      <tr className="bg-slate-50/90 border-t-2 border-slate-200">
-                        <td colSpan={10} className="px-5 py-2 text-xs font-bold text-slate-700 font-mono tracking-wide">
-                          <span className="inline-flex items-center gap-2 bg-white border border-slate-200/90 px-3 py-1 rounded-lg shadow-2xs">
-                            <span className="font-black text-primary">{isMarathi ? 'ग्राहक' : 'Customer'} #{currentCustNum}</span>
-                            <span className="text-slate-300">•</span>
-                            <span className="text-slate-800 font-bold uppercase">{formatPartyName(rent.partyName, isMarathi ? 'marathi' : 'english')}</span>
-                            {partyAddress && (
-                              <>
-                                <span className="text-slate-300">•</span>
-                                <span className="text-slate-500 font-normal font-sans text-[11px] inline-flex items-center gap-1" title={partyAddress}>
+                      <tr className="bg-gradient-to-r from-orange-50/90 via-slate-50 to-slate-50/50 border-t-2 border-orange-200/70 border-b border-slate-200/60">
+                        <td colSpan={8} className="px-4 py-2.5 text-xs font-bold text-slate-700">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-black text-xs px-2.5 py-0.5 rounded-lg bg-primary text-white shadow-2xs">
+                                {isMarathi ? 'ग्राहक' : 'Customer'} #{currentCustNum}
+                              </span>
+                              <span className="text-slate-900 font-extrabold text-sm uppercase">
+                                {formatPartyName(rent.partyName, isMarathi ? 'marathi' : 'english')}
+                              </span>
+                              {partyAddress && (
+                                <span className="text-slate-500 font-normal font-sans text-xs inline-flex items-center gap-1 bg-white border border-slate-200/80 px-2 py-0.5 rounded-md" title={partyAddress}>
                                   <span className="text-slate-400">📍</span>
-                                  <span className="max-w-[280px] truncate">{partyAddress}</span>
+                                  <span className="max-w-[260px] truncate">{partyAddress}</span>
                                 </span>
-                              </>
-                            )}
-                          </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] font-semibold text-slate-500 bg-white px-2.5 py-0.5 rounded-md border border-slate-200 font-mono">
+                              {sortedRentals.filter((r) => getCustomerNumberForRental(r) === currentCustNum).length} {isMarathi ? 'करार नोंदी' : 'Agreements'}
+                            </span>
+                          </div>
                         </td>
                       </tr>
                     )}
-                    <tr className="hover:bg-slate-50/50 transition-colors">
+                    <tr className="hover:bg-slate-50/70 transition-colors">
                       {/* Party & Agreement */}
-                      <td className="px-5 py-4 whitespace-nowrap">
+                      <td className="px-4 py-3.5 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           {editingBillRentalId === rent.id ? (
                             <div className="flex items-center gap-1">
@@ -712,17 +913,17 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                           )}
                           <span className="font-bold text-slate-900 text-sm">{formatPartyName(rent.partyName, isMarathi ? 'marathi' : 'english')}</span>
                         </div>
-                        <div className="text-[11px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5 flex-wrap">
-                          <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded text-[10px]">
+                        <div className="text-[11px] text-slate-500 font-mono mt-1 flex items-center gap-1.5 flex-wrap">
+                          <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">
                             {isMarathi ? 'ग्राहक' : 'Cust'} #{currentCustNum}
                           </span>
                           <span>•</span>
                           <span>{isMarathi ? 'वाटप' : 'Disp'}: {formatMarathiDate(rent.issueDate)}</span>
                           {partyAddress && (
                             <>
-                              <span className="text-slate-300">•</span>
+                              <span>•</span>
                               <span
-                                className="inline-flex items-center gap-1 text-[11px] font-sans font-medium text-slate-600 bg-slate-100/90 hover:bg-slate-200/70 transition-colors px-1.5 py-0.5 rounded max-w-[220px] truncate"
+                                className="inline-flex items-center gap-1 text-[11px] font-sans font-medium text-slate-600 bg-slate-100/90 hover:bg-slate-200/70 transition-colors px-1.5 py-0.5 rounded max-w-[200px] truncate"
                                 title={`${isMarathi ? 'कामाचे ठिकाण' : 'Delivery Address'}: ${partyAddress}`}
                               >
                                 <span className="text-slate-400 text-[10px]">📍</span>
@@ -733,217 +934,202 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                         </div>
                       </td>
 
-                    {/* Size & Qty */}
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
-                        {rent.plateType}
-                      </span>
-                      <div className="text-xs font-bold text-slate-700 mt-1">
-                        {rent.quantity} Plates
-                      </div>
-                    </td>
-
-                    {/* Active Cycle Badge */}
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded-lg">
-                        <span>{isMarathi ? 'सायकल' : 'Cycle'} {activeCycle.cycleNumber}</span>
-                        {activeCycle.status === 'active' && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
-                        )}
-                      </span>
-                      {allCycles.length > 1 && (
-                        <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
-                          {allCycles.length} {isMarathi ? 'सायकल्स' : 'cyc total'}
+                      {/* Size & Qty */}
+                      <td className="px-3 py-3.5 whitespace-nowrap">
+                        <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/60">
+                          {rent.plateType}
+                        </span>
+                        <div className="text-xs font-bold text-slate-800 mt-1">
+                          {rent.quantity} {isMarathi ? 'प्लेट्स' : 'Plates'}
                         </div>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Cycle Dates */}
-                    <td className="px-4 py-4 text-xs font-mono text-slate-700 whitespace-nowrap">
-                      <div className="font-semibold text-slate-800">{formatMarathiDate(activeCycle.startDate)}</div>
-                      <div className="text-slate-400 text-[11px]">
-                        → {formatMarathiDate(activeCycle.actualEndDate || activeCycle.expectedEndDate)}
-                      </div>
-                    </td>
-
-                    {/* Duration & Extra */}
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="font-bold text-slate-800 text-xs">
-                        {finances.elapsedDays} {isMarathi ? 'दिवस' : 'Days'}
-                      </div>
-                      <div className="text-[11px] text-slate-400 font-mono">
-                        {finances.standardDays} / {activeCycle.days || 40}d
-                      </div>
-                      {hasExtra && (
-                        <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold rounded">
-                          +{finances.extraDays} {isMarathi ? 'दिवस जादा' : 'd Overdue'}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Cycle Total */}
-                    {(() => {
-                      // Compute all-cycles aggregate figures
-                      let allCyclesTotalAmount = 0;
-                      let allCyclesPaidAmount = 0;
-                      for (const cyc of allCycles) {
-                        if (cyc.status === 'active' && rent.status !== 'returned') {
-                          const cycFin = calculateCycleFinances(
-                            {
-                              startDate: cyc.startDate,
-                              quantity: cyc.quantity,
-                              dailyRate: cyc.dailyRate,
-                              baseRent: cyc.baseRent,
-                              paidAmount: cyc.paidAmount,
-                              items: rent.items,
-                            },
-                            todayStr
-                          );
-                          allCyclesTotalAmount += cycFin.totalAmount;
-                        } else {
-                          allCyclesTotalAmount += cyc.totalAmount;
-                        }
-                        allCyclesPaidAmount += cyc.paidAmount;
-                      }
-                      const allCyclesPendingAmount = Math.max(0, allCyclesTotalAmount - allCyclesPaidAmount);
-                      const hasMultipleCycles = allCycles.length > 1;
-
-                      return (
-                        <>
-                          {/* Total */}
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="font-bold text-slate-900 text-sm">
-                              ₹{allCyclesTotalAmount.toLocaleString('en-IN')}
-                            </div>
-                            {hasExtra && (
-                              <div className="text-[10px] text-amber-700 font-medium">
-                                +₹{finances.extraAmount.toLocaleString('en-IN')} extra
-                              </div>
+                      {/* Cycle & Duration Consolidated */}
+                      <td className="px-3 py-3.5 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2 py-0.5 rounded-lg">
+                            <span>{isMarathi ? 'सायकल' : 'Cycle'} {activeCycle.cycleNumber}</span>
+                            {activeCycle.status === 'active' && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
                             )}
-                            {hasMultipleCycles && (
-                              <div className="text-[10px] text-slate-400 font-mono">
-                                {allCycles.length} cycles
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Paid */}
-                          <td className="px-4 py-4 whitespace-nowrap text-emerald-600 font-bold text-sm">
-                            ₹{allCyclesPaidAmount.toLocaleString('en-IN')}
-                          </td>
-
-                          {/* Due (All Cycles Pending) */}
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <div className={`font-black text-sm ${allCyclesPendingAmount > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
-                              ₹{allCyclesPendingAmount.toLocaleString('en-IN')}
-                            </div>
-                            {allCyclesPendingAmount === 0 && (
-                              <span className="text-[10px] font-bold text-emerald-600">Settled ✓</span>
-                            )}
-                          </td>
-                        </>
-                      );
-                    })()}
-
-                    {/* Status */}
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider ${
-                            effectiveStatus === 'returned'
-                              ? 'bg-slate-100 text-slate-500 border border-slate-200'
-                              : effectiveStatus === 'overdue'
-                              ? 'bg-rose-100 text-rose-700 border border-rose-300 font-black'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          }`}
-                        >
-                          {isMarathi
-                            ? effectiveStatus === 'overdue'
-                              ? 'मुदत संपली'
-                              : effectiveStatus === 'returned'
-                              ? 'जमा'
-                              : 'सक्रिय'
-                            : effectiveStatus === 'overdue'
-                            ? 'OVERDUE'
-                            : effectiveStatus.toUpperCase()}
-                        </span>
-                        {effectiveStatus === 'overdue' && finances.extraDays > 0 && (
-                          <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
-                            +{finances.extraDays}d
                           </span>
-                        )}
-                      </div>
-                    </td>
+                          <span className="font-bold text-slate-800 text-xs">
+                            {finances.elapsedDays} {isMarathi ? 'दिवस' : 'Days'}
+                          </span>
+                          {hasExtra && (
+                            <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold rounded">
+                              +{finances.extraDays}d
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-mono mt-1">
+                          {formatMarathiDate(activeCycle.startDate)} → {formatMarathiDate(activeCycle.actualEndDate || activeCycle.expectedEndDate)}
+                          <span className="text-slate-400 ml-1">({finances.standardDays}/{activeCycle.days || 40}d)</span>
+                        </div>
+                      </td>
 
-                    {/* Actions */}
-                    <td className="px-5 py-4 whitespace-nowrap text-right">
-                      <div className="inline-flex items-center justify-end gap-1.5">
-                        {/* View & Print Rental Bill */}
-                        <button
-                          onClick={() => {
-                            setBillTarget(rent);
-                            setAutoShareBillId(null);
-                          }}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs transition-all cursor-pointer"
-                          title={`Generate / Print Rental Bill #${rent.billNumber || 1}`}
-                        >
-                          <FileText className="w-3.5 h-3.5 text-orange-400" />
-                          <span>{isMarathi ? 'बिल' : 'Bill'} #{rent.billNumber || 1}</span>
-                        </button>
+                      {/* Cycle Total, Paid, Due */}
+                      {(() => {
+                        let allCyclesTotalAmount = 0;
+                        let allCyclesPaidAmount = 0;
+                        for (const cyc of allCycles) {
+                          if (cyc.status === 'active' && rent.status !== 'returned') {
+                            const cycFin = calculateCycleFinances(
+                              {
+                                startDate: cyc.startDate,
+                                quantity: cyc.quantity,
+                                dailyRate: cyc.dailyRate,
+                                baseRent: cyc.baseRent,
+                                paidAmount: cyc.paidAmount,
+                                items: rent.items,
+                              },
+                              todayStr
+                            );
+                            allCyclesTotalAmount += cycFin.totalAmount;
+                          } else {
+                            allCyclesTotalAmount += cyc.totalAmount;
+                          }
+                          allCyclesPaidAmount += cyc.paidAmount;
+                        }
+                        const allCyclesPendingAmount = Math.max(0, allCyclesTotalAmount - allCyclesPaidAmount);
+                        const hasMultipleCycles = allCycles.length > 1;
 
-                        {/* Quick WhatsApp Bill Share - opens WhatsApp directly */}
-                        <a
-                          href={getDirectWhatsAppUrl(rent)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-all cursor-pointer"
-                          title={isMarathi ? 'ग्राहकाचे व्हॉट्सॲप चॅट थेट उघडा' : 'Open WhatsApp chat directly'}
-                        >
-                          <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>{isMarathi ? 'व्हॉट्सॲप' : 'WhatsApp'}</span>
-                        </a>
+                        return (
+                          <>
+                            {/* Total Rent */}
+                            <td className="px-3 py-3.5 whitespace-nowrap">
+                              <div className="font-bold text-slate-900 text-sm">
+                                ₹{allCyclesTotalAmount.toLocaleString('en-IN')}
+                              </div>
+                              {hasExtra && (
+                                <div className="text-[10px] text-amber-700 font-medium">
+                                  +₹{finances.extraAmount.toLocaleString('en-IN')} extra
+                                </div>
+                              )}
+                              {hasMultipleCycles && (
+                                <div className="text-[10px] text-slate-400 font-mono">
+                                  {allCycles.length} {isMarathi ? 'सायकल्स' : 'cycles'}
+                                </div>
+                              )}
+                            </td>
 
-                        {/* Return Action */}
-                        {(effectiveStatus === 'active' || effectiveStatus === 'overdue') && onInitiateReturn && (
-                          <button
-                            onClick={() => onInitiateReturn(rent)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-orange-50 hover:bg-orange-100 text-primary border border-orange-200 transition-all cursor-pointer"
-                            title="Record plate return and collect remaining balance"
+                            {/* Paid */}
+                            <td className="px-3 py-3.5 whitespace-nowrap text-emerald-600 font-bold text-sm">
+                              ₹{allCyclesPaidAmount.toLocaleString('en-IN')}
+                            </td>
+
+                            {/* Due */}
+                            <td className="px-3 py-3.5 whitespace-nowrap">
+                              <div className={`font-black text-sm ${allCyclesPendingAmount > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                                ₹{allCyclesPendingAmount.toLocaleString('en-IN')}
+                              </div>
+                              {allCyclesPendingAmount === 0 && (
+                                <span className="text-[10px] font-bold text-emerald-600">Settled ✓</span>
+                              )}
+                            </td>
+                          </>
+                        );
+                      })()}
+
+                      {/* Status */}
+                      <td className="px-3 py-3.5 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                              effectiveStatus === 'returned'
+                                ? 'bg-slate-100 text-slate-500 border border-slate-200'
+                                : effectiveStatus === 'overdue'
+                                ? 'bg-rose-100 text-rose-700 border border-rose-300 font-black'
+                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            }`}
                           >
-                            <RefreshCw className="w-3.5 h-3.5" />
-                            <span>{isMarathi ? 'जमा' : 'Return'}</span>
-                          </button>
-                        )}
+                            {isMarathi
+                              ? effectiveStatus === 'overdue'
+                                ? 'मुदत संपली'
+                                : effectiveStatus === 'returned'
+                                ? 'जमा'
+                                : 'सक्रिय'
+                              : effectiveStatus === 'overdue'
+                              ? 'OVERDUE'
+                              : effectiveStatus.toUpperCase()}
+                          </span>
+                          {effectiveStatus === 'overdue' && finances.extraDays > 0 && (
+                            <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+                              +{finances.extraDays}d
+                            </span>
+                          )}
+                        </div>
+                      </td>
 
-                        {/* Renew Cycle Button */}
-                        {(effectiveStatus === 'active' || effectiveStatus === 'overdue') && onRenewRental && (
+                      {/* Actions */}
+                      <td className="px-4 py-3.5 whitespace-nowrap text-right">
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          {/* View & Print Rental Bill */}
                           <button
-                            onClick={() => handleOpenRenewModal(rent)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-all cursor-pointer"
-                            title="Renew rental for another 40-day cycle"
+                            onClick={() => {
+                              setBillTarget(rent);
+                              setAutoShareBillId(null);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs transition-all cursor-pointer"
+                            title={`Generate / Print Rental Bill #${rent.billNumber || 1}`}
                           >
-                            <RotateCw className="w-3.5 h-3.5" />
-                            <span>{isMarathi ? 'नूतनीकरण' : 'Renew'}</span>
+                            <FileText className="w-3.5 h-3.5 text-orange-400" />
+                            <span>{isMarathi ? 'बिल' : 'Bill'} #{rent.billNumber || 1}</span>
                           </button>
-                        )}
 
-                        {/* View Cycle History Modal Trigger */}
-                        <button
-                          onClick={() => setHistoryTarget(rent)}
-                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
-                          title="View Cycle Financial History"
-                        >
-                          <History className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                          {/* Quick WhatsApp Bill Share */}
+                          <a
+                            href={getDirectWhatsAppUrl(rent)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-all cursor-pointer"
+                            title={isMarathi ? 'ग्राहकाचे व्हॉट्सॲप चॅट थेट उघडा' : 'Open WhatsApp chat directly'}
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>{isMarathi ? 'व्हॉट्सॲप' : 'WhatsApp'}</span>
+                          </a>
+
+                          {/* Return Action */}
+                          {(effectiveStatus === 'active' || effectiveStatus === 'overdue') && onInitiateReturn && (
+                            <button
+                              onClick={() => onInitiateReturn(rent)}
+                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold bg-orange-50 hover:bg-orange-100 text-primary border border-orange-200 transition-all cursor-pointer"
+                              title="Record plate return and collect remaining balance"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                              <span>{isMarathi ? 'जमा' : 'Return'}</span>
+                            </button>
+                          )}
+
+                          {/* Renew Cycle Button */}
+                          {(effectiveStatus === 'active' || effectiveStatus === 'overdue') && onRenewRental && (
+                            <button
+                              onClick={() => handleOpenRenewModal(rent)}
+                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-all cursor-pointer"
+                              title="Renew rental for another 40-day cycle"
+                            >
+                              <RotateCw className="w-3.5 h-3.5" />
+                              <span>{isMarathi ? 'रिन्यू' : 'Renew'}</span>
+                            </button>
+                          )}
+
+                          {/* View Cycle History Modal Trigger */}
+                          <button
+                            onClick={() => setHistoryTarget(rent)}
+                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
+                            title="View Cycle Financial History"
+                          >
+                            <History className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   </React.Fragment>
                 );
               })}
               {rentals.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-14 text-center">
+                  <td colSpan={8} className="px-6 py-14 text-center">
                     <div className="flex flex-col items-center justify-center max-w-md mx-auto">
                       <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-3 text-amber-500 shadow-sm">
                         <ClipboardList className="w-7 h-7" />
@@ -971,7 +1157,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                 </tr>
               ) : filteredRentals.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-10 text-center text-slate-400 font-light italic">
+                  <td colSpan={8} className="px-6 py-10 text-center text-slate-400 font-light italic">
                     {isMarathi
                       ? 'शोध निकषांनुसार कोणतेही भाडे वाटप आढळले नाही (बिल क्र., ग्राहक नाव, किंवा साइट पत्ता तपासा).'
                       : 'No dispatches found matching query (check bill #, customer name, or site address).'}

@@ -2922,7 +2922,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         </header>
 
         {/* Tab Content Display Area */}
-        <main className="flex-grow p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto overflow-y-auto">
+        <main className="flex-grow p-3 sm:p-5 lg:p-6 max-w-[1600px] w-full mx-auto overflow-y-auto">
           {renderTabContent()}
         </main>
       </div>
