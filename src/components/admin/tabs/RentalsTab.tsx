@@ -743,17 +743,27 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                             </div>
                           ) : (
                             <div className="flex items-center gap-1 group/bill">
-                              <span className="font-mono font-black text-xs px-2 py-0.5 rounded-lg bg-orange-100 text-primary border border-orange-200 shadow-2xs">
-                                {isMarathi ? 'बिल' : 'Bill'} #{rent.billNumber || 1}
-                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBillTarget(rent);
+                                  setAutoShareBillId(null);
+                                }}
+                                className="font-mono font-black text-xs px-2.5 py-1 rounded-lg bg-orange-100 hover:bg-primary text-primary hover:text-white border border-orange-200/90 shadow-2xs transition-all cursor-pointer flex items-center gap-1 active:scale-95 group/btn"
+                                title={isMarathi ? `बिल #${rent.billNumber || 1} पावती उघडा` : `Open Bill #${rent.billNumber || 1}`}
+                              >
+                                <FileText className="w-3 h-3 opacity-70 group-hover/btn:opacity-100 transition-opacity" />
+                                <span>{isMarathi ? 'बिल' : 'Bill'} #{rent.billNumber || 1}</span>
+                              </button>
                               {onUpdateBillNumber && (
                                 <button
                                   type="button"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setInlineBillNo(String(rent.billNumber || 1));
                                     setEditingBillRentalId(rent.id);
                                   }}
-                                  className="opacity-0 group-hover/bill:opacity-100 p-0.5 hover:bg-slate-100 rounded text-slate-400 hover:text-primary transition-opacity cursor-pointer"
+                                  className="opacity-0 group-hover/bill:opacity-100 p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-primary transition-opacity cursor-pointer"
                                   title={isMarathi ? 'बिल नंबर बदला' : 'Edit Bill Number'}
                                 >
                                   <Edit2 className="w-3 h-3" />
@@ -761,7 +771,17 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                               )}
                             </div>
                           )}
-                          <span className="font-bold text-slate-900 text-sm">{formatPartyName(rent.partyName, isMarathi ? 'marathi' : 'english')}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBillTarget(rent);
+                              setAutoShareBillId(null);
+                            }}
+                            className="font-bold text-slate-900 hover:text-primary text-sm transition-colors cursor-pointer text-left"
+                            title={isMarathi ? `बिल #${rent.billNumber || 1} उघडा` : `Open Bill #${rent.billNumber || 1}`}
+                          >
+                            {formatPartyName(rent.partyName, isMarathi ? 'marathi' : 'english')}
+                          </button>
                         </div>
                         <div className="text-[11px] text-slate-500 font-mono mt-1 flex items-center gap-1.5 flex-wrap">
                           <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">
