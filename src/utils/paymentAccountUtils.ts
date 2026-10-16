@@ -14,8 +14,9 @@ export interface StoredAccountNames {
  * so custom names like "Account 1 Ravi" or "Ravi" display cleanly as "Ravi" everywhere.
  */
 export function cleanAccountName(name: string, fallback: string): string {
-  if (!name || !name.trim()) return fallback;
+  if (!name) return fallback;
   const trimmed = name.trim();
+  if (!trimmed) return fallback;
   // Legacy system default placeholders
   if (
     trimmed === 'Account 1 (Main Bank)' ||
@@ -42,11 +43,10 @@ export function cleanAccountName(name: string, fallback: string): string {
   if (trimmed === 'Cash (Yard Drawer)' || trimmed === 'Yard Drawer Cash') return 'Cash';
 
   // Strip prefix e.g. "Account 1 Ravi" -> "Ravi", "Account 2 Nilesh" -> "Nilesh", "खाते १ रवी" -> "रवी"
-  const stripped = trimmed
-    .replace(/^(Account\s*[12]\s*[:\-–]?\s*|खाते\s*[१२]\s*[:\-–]?\s*|acc\s*[12]\s*[:\-–]?\s*)/i, '')
-    .trim();
+  const stripped = name
+    .replace(/^(Account\s*[12]\s*[:\-–]?\s*|खाते\s*[१२]\s*[:\-–]?\s*|acc\s*[12]\s*[:\-–]?\s*)/i, '');
 
-  if (stripped.length > 0) {
+  if (stripped.trim().length > 0) {
     return stripped;
   }
   return fallback;

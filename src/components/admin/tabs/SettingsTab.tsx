@@ -137,6 +137,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       setBillConfig(getBillTemplateConfig());
     };
     const handleAccountsUpdate = () => {
+      const active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+        return;
+      }
       const raw1 = localStorage.getItem('anand_acc1_name');
       const raw2 = localStorage.getItem('anand_acc2_name');
       const savedCash = localStorage.getItem('anand_cash_name');
@@ -493,18 +497,48 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     };
     setBillConfig(updated);
     saveBillTemplateConfig(updated);
-    window.dispatchEvent(new Event('anand_accounts_updated'));
   };
 
   const handleAccount2Change = (val: string) => {
     setAccount2Name(val);
     localStorage.setItem('anand_acc2_name', val);
-    window.dispatchEvent(new Event('anand_accounts_updated'));
   };
 
   const handleCashAccountChange = (val: string) => {
     setCashAccountName(val);
     localStorage.setItem('anand_cash_name', val);
+  };
+
+  const handleAccount1Blur = () => {
+    const cleaned = cleanAccountName(account1Name.trim(), account1Name.trim());
+    if (cleaned !== account1Name) {
+      setAccount1Name(cleaned);
+      localStorage.setItem('anand_acc1_name', cleaned);
+      const updated = {
+        ...billConfig,
+        bankName: cleaned,
+      };
+      setBillConfig(updated);
+      saveBillTemplateConfig(updated);
+    }
+    window.dispatchEvent(new Event('anand_accounts_updated'));
+  };
+
+  const handleAccount2Blur = () => {
+    const cleaned = cleanAccountName(account2Name.trim(), account2Name.trim());
+    if (cleaned !== account2Name) {
+      setAccount2Name(cleaned);
+      localStorage.setItem('anand_acc2_name', cleaned);
+    }
+    window.dispatchEvent(new Event('anand_accounts_updated'));
+  };
+
+  const handleCashAccountBlur = () => {
+    const trimmed = cashAccountName.trim();
+    if (trimmed !== cashAccountName) {
+      setCashAccountName(trimmed);
+      localStorage.setItem('anand_cash_name', trimmed);
+    }
     window.dispatchEvent(new Event('anand_accounts_updated'));
   };
 
@@ -521,7 +555,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     if (field === 'bankName') {
       setAccount1Name(value);
       localStorage.setItem('anand_acc1_name', value);
-      window.dispatchEvent(new Event('anand_accounts_updated'));
     }
   };
 
@@ -757,10 +790,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 type="text"
                 value={account1Name}
                 onChange={(e) => handleAccount1Change(e.target.value)}
-                onBlur={() => {
-                  const cleaned = cleanAccountName(account1Name, account1Name);
-                  if (cleaned !== account1Name) handleAccount1Change(cleaned);
-                }}
+                onBlur={handleAccount1Blur}
                 placeholder={isMarathi ? 'उदा. Ravi किंवा SBI बँक' : 'e.g. Ravi or SBI Bank'}
                 className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:bg-white focus:outline-none px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 transition-all"
               />
@@ -776,10 +806,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 type="text"
                 value={account2Name}
                 onChange={(e) => handleAccount2Change(e.target.value)}
-                onBlur={() => {
-                  const cleaned = cleanAccountName(account2Name, account2Name);
-                  if (cleaned !== account2Name) handleAccount2Change(cleaned);
-                }}
+                onBlur={handleAccount2Blur}
                 placeholder={isMarathi ? 'उदा. Nilesh किंवा PhonePe' : 'e.g. Nilesh or PhonePe'}
                 className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:bg-white focus:outline-none px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 transition-all"
               />
@@ -795,6 +822,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 type="text"
                 value={cashAccountName}
                 onChange={(e) => handleCashAccountChange(e.target.value)}
+                onBlur={handleCashAccountBlur}
                 placeholder="Cash"
                 className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:bg-white focus:outline-none px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 transition-all"
               />
