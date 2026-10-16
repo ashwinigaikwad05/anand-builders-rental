@@ -23,6 +23,8 @@ export interface OutstandingDuesTabProps {
   parties: Party[];
   payments: Payment[];
   appLanguage?: AppLanguage;
+  searchTerm?: string;
+  onSearchChange?: (term: string) => void;
 }
 
 type DuesFilterType = 'all' | 'pending' | 'critical' | 'settled';
@@ -31,9 +33,16 @@ export const OutstandingDuesTab: React.FC<OutstandingDuesTabProps> = ({
   parties,
   payments,
   appLanguage,
+  searchTerm: externalSearchTerm,
+  onSearchChange,
 }) => {
   const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
-  const [searchTerm, setSearchTerm] = useState('');
+  const [internalSearchTerm, setInternalSearchTerm] = useState('');
+  const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
+  const setSearchTerm = (val: string) => {
+    setInternalSearchTerm(val);
+    onSearchChange?.(val);
+  };
   const [filterType, setFilterType] = useState<DuesFilterType>('all');
 
   // Calculate sum of outstanding dues and stats

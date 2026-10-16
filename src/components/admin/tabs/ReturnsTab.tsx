@@ -34,6 +34,8 @@ interface ReturnsTabProps {
   preselectedRentalId?: string | null;
   onClearPreselectedRental?: () => void;
   appLanguage?: AppLanguage;
+  searchTerm?: string;
+  onSearchChange?: (term: string) => void;
 }
 
 export const ReturnsTab: React.FC<ReturnsTabProps> = ({
@@ -46,11 +48,18 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
   preselectedRentalId,
   onClearPreselectedRental,
   appLanguage,
+  searchTerm: externalSearchTerm,
+  onSearchChange,
 }) => {
   const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
   const accountNames = useAccountNames();
   const todayStr = new Date().toISOString().split('T')[0];
-  const [searchTerm, setSearchTerm] = useState('');
+  const [internalSearchTerm, setInternalSearchTerm] = useState('');
+  const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
+  const setSearchTerm = (val: string) => {
+    setInternalSearchTerm(val);
+    onSearchChange?.(val);
+  };
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isConfirmReturnOpen, setIsConfirmReturnOpen] = useState(false);
 

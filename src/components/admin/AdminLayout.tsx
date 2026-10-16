@@ -42,7 +42,6 @@ import { LedgerTab } from './tabs/LedgerTab';
 import { NotificationsTab } from './tabs/NotificationsTab';
 import { ReportsTab } from './tabs/ReportsTab';
 import { SettingsTab } from './tabs/SettingsTab';
-import { RentalBillModal } from './modals/RentalBillModal';
 import { Toast } from './Toast';
 import type { ToastMessage } from './Toast';
 
@@ -169,8 +168,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
     }
   }, [currentPath]);
 
+  const [pageSearchTerm, setPageSearchTerm] = useState('');
+
+  // Clear search on tab switch or navigation
   const handleTabChange = (tabName: string) => {
     setActiveTab(tabName);
+    setPageSearchTerm('');
     const targetPath = getPathFromTab(tabName);
     if (onNavigate) {
       onNavigate(targetPath);
@@ -2604,6 +2607,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             onEditParty={handleEditParty}
             onDeleteParty={handleDeleteParty}
             appLanguage={appLanguage}
+            searchTerm={pageSearchTerm}
+            onSearchChange={setPageSearchTerm}
           />
         );
       case 'Plate Types':
@@ -2628,6 +2633,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             onUpdateStock={handleUpdateStock}
             onDeleteStock={handleDeleteStock}
             appLanguage={appLanguage}
+            searchTerm={pageSearchTerm}
+            onSearchChange={setPageSearchTerm}
           />
         );
       case 'Rentals':
@@ -2645,6 +2652,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             onUpdateBillNumber={handleUpdateBillNumber}
             onInitiateReturn={handleInitiateReturn}
             appLanguage={appLanguage}
+            searchTerm={pageSearchTerm}
+            onSearchChange={setPageSearchTerm}
           />
         );
       case 'Returns':
@@ -2659,6 +2668,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             preselectedRentalId={preselectedRentalId}
             onClearPreselectedRental={() => setPreselectedRentalId(null)}
             appLanguage={appLanguage}
+            searchTerm={pageSearchTerm}
+            onSearchChange={setPageSearchTerm}
           />
         );
       case 'Payments':
@@ -2670,11 +2681,21 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             rentalCycles={rentalCycles}
             onAddPayment={handleAddPayment}
             appLanguage={appLanguage}
+            searchTerm={pageSearchTerm}
+            onSearchChange={setPageSearchTerm}
           />
         );
       case 'Outstanding Dues':
       case 'Udhari':
-        return <OutstandingDuesTab parties={parties} payments={payments} appLanguage={appLanguage} />;
+        return (
+          <OutstandingDuesTab
+            parties={parties}
+            payments={payments}
+            appLanguage={appLanguage}
+            searchTerm={pageSearchTerm}
+            onSearchChange={setPageSearchTerm}
+          />
+        );
       case 'Ledger':
         return <LedgerTab parties={parties} ledger={ledger} appLanguage={appLanguage} />;
       case 'Notifications':
@@ -2697,6 +2718,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
             payments={payments}
             rentalCycles={rentalCycles}
             appLanguage={appLanguage}
+            searchTerm={pageSearchTerm}
+            onSearchChange={setPageSearchTerm}
           />
         );
       case 'Settings':
@@ -2738,104 +2761,46 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
   ];
 
   // =========================================================
-  // GLOBAL OMNISEARCH SYSTEM (Search Bills, Parties, Payments, Tabs)
+  // DIRECT PAGE-FILTER SEARCH (Directly filters active tab table)
   // =========================================================
-  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
-  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
-  const [globalSelectedBillRental, setGlobalSelectedBillRental] = useState<Rental | null>(null);
-  const globalSearchRef = React.useRef<HTMLDivElement>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Keyboard shortcut Ctrl+K to focus search, and Escape to close
+  // Keyboard shortcut Ctrl+K to focus search, and Escape to clear
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         searchInputRef.current?.focus();
-        setIsGlobalSearchOpen(true);
       }
       if (e.key === 'Escape') {
-        setIsGlobalSearchOpen(false);
+        setPageSearchTerm('');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Click outside to dismiss search results dropdown
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (globalSearchRef.current && !globalSearchRef.current.contains(e.target as Node)) {
-        setIsGlobalSearchOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Filter matching records across all system entities
-  const trimmedSearch = globalSearchQuery.trim().toLowerCase();
-  const cleanSearchDigits = trimmedSearch.replace(/^[#№\s]+/, '');
-
-  const matchingTabs = React.useMemo(() => {
-    if (!trimmedSearch) return [];
-    return navItems.filter((item) => {
-      const name = item.name.toLowerCase();
-      const label = (item.label || '').toLowerCase();
-      return name.includes(trimmedSearch) || label.includes(trimmedSearch);
-    });
-  }, [trimmedSearch, navItems]);
-
-  const matchingRentals = React.useMemo(() => {
-    if (!trimmedSearch) return [];
-    return rentals.filter((r) => {
-      const billNumStr = String(r.billNumber || '').toLowerCase();
-      const party = (r.partyName || '').toLowerCase();
-      const partyAddr = (parties.find((p) => p.id === r.partyId)?.address || '').toLowerCase();
-      const custNumStr = String(r.customerNumber || '');
-      return (
-        billNumStr === cleanSearchDigits ||
-        billNumStr.includes(cleanSearchDigits) ||
-        party.includes(trimmedSearch) ||
-        partyAddr.includes(trimmedSearch) ||
-        custNumStr === cleanSearchDigits
-      );
-    }).slice(0, 5);
-  }, [trimmedSearch, cleanSearchDigits, rentals, parties]);
-
-  const matchingParties = React.useMemo(() => {
-    if (!trimmedSearch) return [];
-    return parties.filter((p) => {
-      const name = (p.name || '').toLowerCase();
-      const mobile = (p.mobile || '').toLowerCase();
-      const addr = (p.address || '').toLowerCase();
-      const custNum = String(p.customerNumber || '');
-      return (
-        name.includes(trimmedSearch) ||
-        mobile.includes(trimmedSearch) ||
-        addr.includes(trimmedSearch) ||
-        custNum === cleanSearchDigits
-      );
-    }).slice(0, 4);
-  }, [trimmedSearch, cleanSearchDigits, parties]);
-
-  const matchingPayments = React.useMemo(() => {
-    if (!trimmedSearch) return [];
-    return payments.filter((pay) => {
-      const ref = (pay.reference || '').toLowerCase();
-      const party = (pay.partyName || '').toLowerCase();
-      const mode = (pay.paymentMode || '').toLowerCase();
-      const amtStr = String(pay.amount || '');
-      return (
-        ref.includes(trimmedSearch) ||
-        party.includes(trimmedSearch) ||
-        mode.includes(trimmedSearch) ||
-        amtStr === cleanSearchDigits
-      );
-    }).slice(0, 4);
-  }, [trimmedSearch, cleanSearchDigits, payments]);
-
-  const totalResultsCount = matchingTabs.length + matchingRentals.length + matchingParties.length + matchingPayments.length;
+  const getSearchPlaceholder = () => {
+    switch (activeTab) {
+      case 'Payments':
+        return isMarathi ? 'पेमेंट्स शोधा (ग्राहक, पावती, खाते...)' : 'Search payments (party, voucher, mode...)';
+      case 'Rentals':
+        return isMarathi ? 'भाडे करार शोधा (बिल #, ग्राहक, पत्ता...)' : 'Search rentals (Bill #, party, address...)';
+      case 'Returns':
+        return isMarathi ? 'माघारी नोंदी शोधा (ग्राहक, साईझ...)' : 'Search returns (party, size...)';
+      case 'Plate Stock':
+        return isMarathi ? 'स्टॉक शोधा (माप, नोट्स...)' : 'Search stock (size, notes...)';
+      case 'Parties':
+        return isMarathi ? 'ग्राहक शोधा (नाव, फोन, पत्ता...)' : 'Search customers (name, phone, address...)';
+      case 'Outstanding Dues':
+      case 'Udhari':
+        return isMarathi ? 'बाकीदार शोधा (नाव, फोन...)' : 'Search outstanding dues...';
+      case 'Reports':
+        return isMarathi ? 'अहवाल किंवा बिल नंबर शोधा...' : 'Search reports or bill number...';
+      default:
+        return isMarathi ? 'या पेजवर शोधा...' : 'Search on this page...';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row w-full font-sans text-slate-800">
@@ -2991,33 +2956,24 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
               </select>
             </div>
 
-            {/* Global Omnisearch input */}
-            <div ref={globalSearchRef} className="relative w-64 sm:w-80 lg:w-96">
+            {/* Direct Page Filter Search input */}
+            <div className="relative w-64 sm:w-80 lg:w-96">
               <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                 <Search className="w-4 h-4" />
               </span>
               <input
                 ref={searchInputRef}
                 type="text"
-                value={globalSearchQuery}
-                onChange={(e) => {
-                  setGlobalSearchQuery(e.target.value);
-                  setIsGlobalSearchOpen(true);
-                }}
-                onFocus={() => {
-                  if (globalSearchQuery.trim()) setIsGlobalSearchOpen(true);
-                }}
-                placeholder={isMarathi ? "बिल क्र., ग्राहक, व्हाऊचर, पेजेस शोधा..." : "Search Bill #, party, voucher, pages..."}
+                value={pageSearchTerm}
+                onChange={(e) => setPageSearchTerm(e.target.value)}
+                placeholder={getSearchPlaceholder()}
                 className="w-full bg-slate-50 hover:bg-white border border-slate-250/70 focus:border-primary focus:bg-white focus:outline-none pl-9 pr-14 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-2xs"
               />
               <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center gap-1">
-                {globalSearchQuery ? (
+                {pageSearchTerm ? (
                   <button
                     type="button"
-                    onClick={() => {
-                      setGlobalSearchQuery('');
-                      setIsGlobalSearchOpen(false);
-                    }}
+                    onClick={() => setPageSearchTerm('')}
                     className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
                     title={isMarathi ? "साफ करा" : "Clear"}
                   >
@@ -3029,234 +2985,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
                   </kbd>
                 )}
               </div>
-
-              {/* LIVE SEARCH RESULTS DROPDOWN */}
-              {isGlobalSearchOpen && globalSearchQuery.trim().length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 overflow-hidden max-h-[500px] flex flex-col animate-in fade-in zoom-in-95 duration-150">
-                  {/* Results Header */}
-                  <div className="px-3.5 py-2 bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Search className="w-3 h-3 text-primary" />
-                      <span>{isMarathi ? 'सर्वव्यापी शोध निकाल' : 'Global Search Results'}</span>
-                    </span>
-                    <span className="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full">
-                      {totalResultsCount} {isMarathi ? 'सापडले' : 'found'}
-                    </span>
-                  </div>
-
-                  {/* Results Body */}
-                  <div className="overflow-y-auto divide-y divide-slate-100 p-1.5 space-y-1.5 max-h-[420px] custom-scrollbar">
-                    {totalResultsCount === 0 ? (
-                      <div className="py-8 text-center text-slate-400 space-y-2">
-                        <Search className="w-8 h-8 mx-auto text-slate-300" />
-                        <p className="text-xs font-semibold text-slate-600">
-                          {isMarathi
-                            ? `"${globalSearchQuery}" शी जुळणारे कोणतेही रेकॉर्ड सापडले नाही.`
-                            : `No records found matching "${globalSearchQuery}".`}
-                        </p>
-                        <p className="text-[10px] text-slate-400">
-                          {isMarathi
-                            ? 'बिल नंबर (उदा. 1 किंवा #1), पार्टीचे नाव, किंवा व्हाऊचर नंबर शोधून पहा.'
-                            : 'Try searching by Bill Number (e.g. 1 or #1), Customer Name, or Voucher Number.'}
-                        </p>
-                      </div>
-                    ) : (
-                      <>
-                        {/* 1. Quick Navigation / Tabs */}
-                        {matchingTabs.length > 0 && (
-                          <div className="space-y-1 pb-1">
-                            <span className="text-[9px] font-black uppercase text-slate-400 px-2 tracking-wider block">
-                              {isMarathi ? 'नेव्हिगेशन पेजेस' : 'Pages / Tabs'}
-                            </span>
-                            {matchingTabs.map((item) => {
-                              const TabIcon = item.icon;
-                              return (
-                                <button
-                                  key={`tab-${item.name}`}
-                                  type="button"
-                                  onClick={() => {
-                                    handleTabChange(item.name);
-                                    setIsGlobalSearchOpen(false);
-                                    setGlobalSearchQuery('');
-                                  }}
-                                  className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-orange-50 text-slate-700 hover:text-primary flex items-center justify-between transition-colors cursor-pointer group"
-                                >
-                                  <span className="flex items-center gap-2 text-xs font-bold">
-                                    <TabIcon className="w-4 h-4 text-slate-400 group-hover:text-primary transition-colors" />
-                                    <span>{item.label || item.name}</span>
-                                  </span>
-                                  <span className="text-[10px] font-semibold text-slate-400 group-hover:text-primary flex items-center gap-0.5">
-                                    <span>{isMarathi ? 'उघडा' : 'Go'}</span>
-                                    <ChevronRight className="w-3 h-3" />
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {/* 2. Bills & Rentals */}
-                        {matchingRentals.length > 0 && (
-                          <div className="space-y-1 pt-1">
-                            <span className="text-[9px] font-black uppercase text-slate-400 px-2 tracking-wider block">
-                              {isMarathi ? 'बिले व भाडे करार' : 'Bills & Rentals'}
-                            </span>
-                            {matchingRentals.map((r) => (
-                              <div
-                                key={`rent-${r.id}`}
-                                className="w-full px-2.5 py-2 rounded-xl hover:bg-orange-50/70 border border-transparent hover:border-orange-200/60 transition-all flex items-center justify-between gap-2"
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setGlobalSelectedBillRental(r);
-                                    setIsGlobalSearchOpen(false);
-                                    setGlobalSearchQuery('');
-                                  }}
-                                  className="flex-1 text-left flex items-start gap-2.5 min-w-0 cursor-pointer"
-                                >
-                                  <div className="p-1.5 rounded-lg bg-orange-100 text-primary flex-shrink-0 mt-0.5">
-                                    <FileText className="w-3.5 h-3.5" />
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="px-1.5 py-0.2 bg-primary text-white rounded text-[10px] font-extrabold shadow-2xs">
-                                        बिल #{r.billNumber || '-'}
-                                      </span>
-                                      <span className="text-xs font-bold text-slate-900 truncate">
-                                        {r.partyName}
-                                      </span>
-                                    </div>
-                                    <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                                      {parties.find((p) => p.id === r.partyId)?.address ? `📍 ${parties.find((p) => p.id === r.partyId)?.address} • ` : ''}
-                                      {r.quantity} प्लेट्स • ₹{(r.totalRent || 0).toLocaleString('en-IN')}
-                                    </p>
-                                  </div>
-                                </button>
-
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setGlobalSelectedBillRental(r);
-                                      setIsGlobalSearchOpen(false);
-                                      setGlobalSearchQuery('');
-                                    }}
-                                    className="px-2 py-1 bg-primary hover:bg-orange-600 text-white rounded-lg text-[10px] font-bold shadow-2xs transition-colors cursor-pointer"
-                                  >
-                                    {isMarathi ? 'बिल उघडा' : 'View Bill'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      handleTabChange('Rentals');
-                                      setIsGlobalSearchOpen(false);
-                                      setGlobalSearchQuery('');
-                                    }}
-                                    className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer"
-                                    title={isMarathi ? 'भाडे यादीत जा' : 'Go to Rentals list'}
-                                  >
-                                    {isMarathi ? 'यादी' : 'List'}
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* 3. Customers / Parties */}
-                        {matchingParties.length > 0 && (
-                          <div className="space-y-1 pt-1">
-                            <span className="text-[9px] font-black uppercase text-slate-400 px-2 tracking-wider block">
-                              {isMarathi ? 'ग्राहक व पार्ट्या' : 'Customers / Parties'}
-                            </span>
-                            {matchingParties.map((p) => (
-                              <button
-                                key={`party-${p.id}`}
-                                type="button"
-                                onClick={() => {
-                                  handleTabChange('Parties');
-                                  setIsGlobalSearchOpen(false);
-                                  setGlobalSearchQuery('');
-                                }}
-                                className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-slate-50 flex items-center justify-between gap-2 transition-colors cursor-pointer group"
-                              >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div className="p-1 rounded-lg bg-blue-50 text-blue-600 flex-shrink-0">
-                                    <Users className="w-3.5 h-3.5" />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-bold text-slate-800 group-hover:text-primary transition-colors truncate">
-                                      {p.name}
-                                    </p>
-                                    <p className="text-[10px] text-slate-400 truncate">
-                                      {p.mobile || '-'} {p.address ? `• ${p.address}` : ''}
-                                    </p>
-                                  </div>
-                                </div>
-                                <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded flex-shrink-0">
-                                  {p.platesWithParty || 0} {isMarathi ? 'प्लेट्स' : 'plates'}
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* 4. Payments */}
-                        {matchingPayments.length > 0 && (
-                          <div className="space-y-1 pt-1">
-                            <span className="text-[9px] font-black uppercase text-slate-400 px-2 tracking-wider block">
-                              {isMarathi ? 'पेमेंट्स व पावती' : 'Payments'}
-                            </span>
-                            {matchingPayments.map((pay) => (
-                              <button
-                                key={`pay-${pay.id}`}
-                                type="button"
-                                onClick={() => {
-                                  handleTabChange('Payments');
-                                  setIsGlobalSearchOpen(false);
-                                  setGlobalSearchQuery('');
-                                }}
-                                className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-slate-50 flex items-center justify-between gap-2 transition-colors cursor-pointer group"
-                              >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div className="p-1 rounded-lg bg-emerald-50 text-emerald-600 flex-shrink-0">
-                                    <DollarSign className="w-3.5 h-3.5" />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-xs font-bold text-slate-800 group-hover:text-primary truncate">
-                                        {pay.partyName}
-                                      </span>
-                                      {pay.reference && (
-                                        <span className="text-[9px] font-mono bg-slate-100 text-slate-600 px-1 rounded">
-                                          {pay.reference}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="text-[10px] text-slate-400 truncate">
-                                      {pay.date} • {pay.paymentMode}
-                                    </p>
-                                  </div>
-                                </div>
-                                <span className="text-xs font-extrabold text-emerald-600 flex-shrink-0">
-                                  ₹{(pay.amount || 0).toLocaleString('en-IN')}
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Dropdown Footer */}
-                  <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-200/80 text-[10px] text-slate-400 flex items-center justify-between select-none">
-                    <span>{isMarathi ? 'Esc दाबा किंवा बाहेर क्लिक करा' : 'Press ESC or click outside to close'}</span>
-                    <span className="font-mono text-[9px] bg-slate-200/80 px-1.5 py-0.2 rounded">ESC</span>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Quick Notifications bell icon button */}
@@ -3278,18 +3006,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         </main>
       </div>
 
-      {/* Global Bill Modal opened directly from Omnisearch */}
-      {globalSelectedBillRental && (
-        <RentalBillModal
-          rental={globalSelectedBillRental}
-          rentalCycles={rentalCycles.filter((c) => c.rentalId === globalSelectedBillRental.id)}
-          party={parties.find((p) => p.id === globalSelectedBillRental.partyId)}
-          payments={payments.filter((p) => p.rentalId === globalSelectedBillRental.id)}
-          returns={returns.filter((r) => r.rentalId === globalSelectedBillRental.id)}
-          onUpdateBillNumber={handleUpdateBillNumber}
-          onClose={() => setGlobalSelectedBillRental(null)}
-        />
-      )}
 
       {/* Toast notifications container */}
       <Toast toasts={toasts} onDismiss={removeToast} />

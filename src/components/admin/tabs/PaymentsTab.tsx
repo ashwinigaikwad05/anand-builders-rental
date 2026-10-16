@@ -26,6 +26,8 @@ interface PaymentsTabProps {
     notes?: string;
   }) => void;
   appLanguage?: AppLanguage;
+  searchTerm?: string;
+  onSearchChange?: (term: string) => void;
 }
 
 export const PaymentsTab: React.FC<PaymentsTabProps> = ({
@@ -35,10 +37,17 @@ export const PaymentsTab: React.FC<PaymentsTabProps> = ({
   rentalCycles = [],
   onAddPayment,
   appLanguage,
+  searchTerm: externalSearchTerm,
+  onSearchChange,
 }) => {
   const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
   const accountNames = useAccountNames();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [internalSearchTerm, setInternalSearchTerm] = useState('');
+  const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
+  const setSearchTerm = (val: string) => {
+    setInternalSearchTerm(val);
+    onSearchChange?.(val);
+  };
   const [isAddOpen, setIsAddOpen] = useState(false);
 
   // Form states

@@ -71,6 +71,8 @@ interface RentalsTabProps {
     penalty?: number
   ) => Promise<void>;
   appLanguage?: AppLanguage;
+  searchTerm?: string;
+  onSearchChange?: (term: string) => void;
 }
 
 export const RentalsTab: React.FC<RentalsTabProps> = ({
@@ -86,10 +88,17 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
   onInitiateReturn,
   onRenewRental,
   appLanguage,
+  searchTerm: externalSearchTerm,
+  onSearchChange,
 }) => {
   const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
   const todayStr = new Date().toISOString().split('T')[0];
-  const [searchTerm, setSearchTerm] = useState('');
+  const [internalSearchTerm, setInternalSearchTerm] = useState('');
+  const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
+  const setSearchTerm = (val: string) => {
+    setInternalSearchTerm(val);
+    onSearchChange?.(val);
+  };
   const [editingBillRentalId, setEditingBillRentalId] = useState<string | null>(null);
   const [inlineBillNo, setInlineBillNo] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'active' | 'returned' | 'overdue'>('All');

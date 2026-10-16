@@ -49,6 +49,8 @@ interface StockTabProps {
   ) => Promise<void>;
   onDeleteStock: (id: string) => Promise<void>;
   appLanguage?: AppLanguage;
+  searchTerm?: string;
+  onSearchChange?: (term: string) => void;
 }
 
 export const StockTab: React.FC<StockTabProps> = ({
@@ -60,9 +62,16 @@ export const StockTab: React.FC<StockTabProps> = ({
   onUpdateStock,
   onDeleteStock,
   appLanguage,
+  searchTerm: externalSearchTerm,
+  onSearchChange,
 }) => {
   const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
-  const [searchTerm, setSearchTerm] = useState('');
+  const [internalSearchTerm, setInternalSearchTerm] = useState('');
+  const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
+  const setSearchTerm = (val: string) => {
+    setInternalSearchTerm(val);
+    onSearchChange?.(val);
+  };
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryStockItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<InventoryStockItem | null>(null);

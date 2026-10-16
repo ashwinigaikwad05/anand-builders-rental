@@ -31,6 +31,8 @@ interface ReportsTabProps {
   payments: Payment[];
   rentalCycles?: RentalCycle[];
   appLanguage?: AppLanguage;
+  searchTerm?: string;
+  onSearchChange?: (term: string) => void;
 }
 
 export const ReportsTab: React.FC<ReportsTabProps> = ({
@@ -41,6 +43,8 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
   payments,
   rentalCycles = [],
   appLanguage: propLanguage,
+  searchTerm: externalSearchTerm,
+  onSearchChange,
 }) => {
   const [lang, setLang] = useState<AppLanguage>(() => propLanguage || getStoredAppLanguage());
 
@@ -67,7 +71,12 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
   const [reportType, setReportType] = useState<ReportType>('all');
   const [selectedPartyId, setSelectedPartyId] = useState('');
   const [selectedPlateType, setSelectedPlateType] = useState('');
-  const [searchBillNumber, setSearchBillNumber] = useState('');
+  const [internalSearchBillNumber, setInternalSearchBillNumber] = useState('');
+  const searchBillNumber = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchBillNumber;
+  const setSearchBillNumber = (val: string) => {
+    setInternalSearchBillNumber(val);
+    onSearchChange?.(val);
+  };
   const [selectedRentalIdForHistory, setSelectedRentalIdForHistory] = useState<string | null>(null);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');

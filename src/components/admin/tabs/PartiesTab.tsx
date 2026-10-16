@@ -41,6 +41,8 @@ interface PartiesTabProps {
   onEditParty: (party: Party) => void;
   onDeleteParty: (partyId: string) => void;
   appLanguage?: AppLanguage;
+  searchTerm?: string;
+  onSearchChange?: (term: string) => void;
 }
 
 export const PartiesTab: React.FC<PartiesTabProps> = ({
@@ -54,9 +56,16 @@ export const PartiesTab: React.FC<PartiesTabProps> = ({
   onEditParty,
   onDeleteParty,
   appLanguage,
+  searchTerm: externalSearchTerm,
+  onSearchChange,
 }) => {
   const isMarathi = (appLanguage || getStoredAppLanguage()) === 'marathi';
-  const [searchTerm, setSearchTerm] = useState('');
+  const [internalSearchTerm, setInternalSearchTerm] = useState('');
+  const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
+  const setSearchTerm = (val: string) => {
+    setInternalSearchTerm(val);
+    onSearchChange?.(val);
+  };
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
