@@ -1352,8 +1352,8 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
           }
 
           #rental-bill-sheet.is-half-page-sheet {
-            max-height: 138mm !important;
-            overflow: hidden !important;
+            max-height: none !important;
+            overflow: visible !important;
             box-sizing: border-box !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
@@ -2190,35 +2190,37 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               {/* TABLE: Clean Divider lines above and below headers, and at bottom of rows */}
               <table className="w-full text-left my-1 border-collapse">
                 <thead>
-                  <tr className={`border-t-2 border-b-2 border-slate-900 ${isHalfPage ? 'text-[9px]' : 'text-xs'} font-bold text-black`}>
-                    <th className={`${isHalfPage ? 'py-1 pr-2' : 'py-2 pr-4'} text-left`}>{selectedLanguage === 'marathi' ? 'साहित्य' : 'Item'}</th>
-                    <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center`}>{selectedLanguage === 'marathi' ? 'नग' : 'Qty'}</th>
-                    <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right`}>{selectedLanguage === 'marathi' ? 'दर' : 'Rate'}</th>
-                    <th className={`${isHalfPage ? 'py-1 pl-2' : 'py-2 pl-4'} text-right`}>{selectedLanguage === 'marathi' ? 'रक्कम' : 'Amt'}</th>
+                  <tr className={`border-t-2 border-b-2 border-slate-900 ${isHalfPage ? 'text-[8.5px]' : 'text-xs'} font-bold text-black`}>
+                    <th className={`${isHalfPage ? 'py-0.5 pr-2' : 'py-2 pr-4'} text-left`}>{selectedLanguage === 'marathi' ? 'साहित्य' : 'Item'}</th>
+                    <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-2 px-3'} text-center`}>{selectedLanguage === 'marathi' ? 'नग' : 'Qty'}</th>
+                    <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-2 px-3'} text-right`}>{selectedLanguage === 'marathi' ? 'दर' : 'Rate'}</th>
+                    <th className={`${isHalfPage ? 'py-0.5 pl-2' : 'py-2 pl-4'} text-right`}>{selectedLanguage === 'marathi' ? 'रक्कम' : 'Amt'}</th>
                   </tr>
                 </thead>
-                <tbody className={`${isHalfPage ? 'text-[9.5px]' : 'text-xs'} border-b-2 border-slate-900`}>
+                <tbody className={`${isHalfPage ? 'text-[9px]' : 'text-xs'} border-b-2 border-slate-900`}>
                   {plateItems.map((item, index) => {
                     const itemDays = item.days || cycleDays;
                     const rowRent = item.quantity * item.dailyRate * itemDays;
                     return (
                       <tr key={index}>
-                        <td className={`${isHalfPage ? 'py-1 pr-2' : 'py-2.5 pr-4'} text-black`}>
-                          <div className={`font-bold uppercase ${isHalfPage ? 'text-[10px]' : 'text-[12px]'}`}>
-                            {formatPlateType(item.plateType, selectedLanguage)}
-                          </div>
-                          {/* Explicit Day-Wise Calculation Formula */}
-                          <div className={`${isHalfPage ? 'text-[8.5px] px-1.5 py-0' : 'text-[11px] px-2 py-0.5'} font-mono font-medium text-slate-700 bg-slate-100/90 border border-slate-300 rounded mt-0.5 inline-block`}>
-                            {item.quantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'plates'} × ₹{Number(item.dailyRate).toFixed(2)}/{selectedLanguage === 'marathi' ? 'दिवस' : 'day'} × {itemDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'days'}
+                        <td className={`${isHalfPage ? 'py-0.5 pr-2' : 'py-2.5 pr-4'} text-black`}>
+                          <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5">
+                            <span className={`font-bold uppercase ${isHalfPage ? 'text-[9.5px]' : 'text-[12px]'}`}>
+                              {formatPlateType(item.plateType, selectedLanguage)}
+                            </span>
+                            {/* Explicit Day-Wise Calculation Formula */}
+                            <span className={`${isHalfPage ? 'text-[7.5px] px-1 py-0' : 'text-[11px] px-2 py-0.5'} font-mono font-medium text-slate-700 bg-slate-100/90 border border-slate-300 rounded inline-block`}>
+                              {item.quantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'plates'} × ₹{Number(item.dailyRate).toFixed(2)}/{selectedLanguage === 'marathi' ? 'दिवस' : 'day'} × {itemDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'days'}
+                            </span>
                           </div>
                         </td>
-                        <td className={`${isHalfPage ? 'py-1 px-1.5 text-xs' : 'py-2.5 px-3 text-sm'} text-center font-mono text-black align-top font-bold`}>
+                        <td className={`${isHalfPage ? 'py-0.5 px-1.5 text-xs' : 'py-2.5 px-3 text-sm'} text-center font-mono text-black align-top font-bold`}>
                           {item.quantity}
                         </td>
-                        <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2.5 px-3'} text-right font-mono text-black align-top font-semibold`}>
+                        <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-2.5 px-3'} text-right font-mono text-black align-top font-semibold`}>
                           ₹{Number(item.dailyRate).toFixed(2)}/{selectedLanguage === 'marathi' ? 'दिवस' : 'd'}
                         </td>
-                        <td className={`${isHalfPage ? 'py-1 pl-2 font-bold' : 'py-2.5 pl-4 font-black text-sm'} text-right font-mono text-black align-top`}>
+                        <td className={`${isHalfPage ? 'py-0.5 pl-2 font-bold' : 'py-2.5 pl-4 font-black text-sm'} text-right font-mono text-black align-top`}>
                           ₹{rowRent.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                       </tr>
@@ -2228,7 +2230,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                   {/* Overdue Extra Days Row if applicable */}
                   {extraDays > 0 && extraAmount > 0 && (
                     <tr>
-                      <td className={`${isHalfPage ? 'py-1 pr-2' : 'py-2 pr-4'} text-black`}>
+                      <td className={`${isHalfPage ? 'py-0.5 pr-2' : 'py-2 pr-4'} text-black`}>
                         <div className="lowercase">
                           {selectedLanguage === 'marathi' ? 'अतिरिक्त दिवस' : 'extra days'} (+{extraDays}{selectedLanguage === 'marathi' ? ' दि' : 'd'})
                         </div>
@@ -2236,9 +2238,9 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                           {selectedLanguage === 'marathi' ? 'मुदतीनंतरचा वापर' : 'Overdue usage beyond cycle'}
                         </div>
                       </td>
-                      <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center font-mono text-black align-top`}>{rental.quantity}</td>
-                      <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right font-mono text-black align-top`}>₹{Number(rental.dailyRate || 1.5).toFixed(2)}</td>
-                      <td className={`${isHalfPage ? 'py-1 pl-2' : 'py-2 pl-4'} text-right font-mono text-black align-top`}>
+                      <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-2 px-3'} text-center font-mono text-black align-top`}>{rental.quantity}</td>
+                      <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-2 px-3'} text-right font-mono text-black align-top`}>₹{Number(rental.dailyRate || 1.5).toFixed(2)}</td>
+                      <td className={`${isHalfPage ? 'py-0.5 pl-2' : 'py-2 pl-4'} text-right font-mono text-black align-top`}>
                         ₹{extraAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                     </tr>
@@ -2248,25 +2250,25 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
               {/* RENTAL CYCLES BREAKDOWN (Simple Template) */}
               {showCycles && allCycles.length > 0 && (
-                <div className={`${isHalfPage ? 'my-1 pt-0.5' : 'my-3 pt-1'}`}>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className={`${isHalfPage ? 'text-[9.5px]' : 'text-[11px]'} font-black uppercase text-black tracking-wider flex items-center gap-1`}>
+                <div className={`${isHalfPage ? 'my-0.5 pt-0' : 'my-3 pt-1'}`}>
+                  <div className="flex justify-between items-center mb-0.5">
+                    <span className={`${isHalfPage ? 'text-[8.5px]' : 'text-[11px]'} font-black uppercase text-black tracking-wider flex items-center gap-1`}>
                       <span>{currentT.cyclesTitle}</span>
                     </span>
-                    <span className={`${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 border border-slate-300 text-slate-800`}>
+                    <span className={`${isHalfPage ? 'text-[7.5px] px-1 py-0' : 'text-[10px]'} font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 border border-slate-300 text-slate-800`}>
                       {allCycles.length} {selectedLanguage === 'marathi' ? 'सायकल्स' : 'Cycles'}
                     </span>
                   </div>
-                  <table className={`w-full text-left my-0.5 border-collapse border border-slate-800 ${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'}`}>
+                  <table className={`w-full text-left my-0.5 border-collapse border border-slate-800 ${isHalfPage ? 'text-[8px] leading-tight' : 'text-[10px]'}`}>
                     <thead>
                       <tr className="bg-slate-100 text-black font-bold border-b border-slate-800">
-                        <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} border-r border-slate-300`}>{currentT.cycleCol}</th>
-                        <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} border-r border-slate-300`}>{currentT.cyclePeriodCol}</th>
-                        <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-center border-r border-slate-300`}>{currentT.cycleDaysCol}</th>
-                        <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-right border-r border-slate-300`}>{currentT.cycleRentCol}</th>
-                        <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-right border-r border-slate-300`}>{currentT.cyclePaidCol}</th>
-                        <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-right border-r border-slate-300`}>{currentT.cyclePendingCol}</th>
-                        <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-center`}>{currentT.cycleStatusCol}</th>
+                        <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} border-r border-slate-300`}>{currentT.cycleCol}</th>
+                        <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} border-r border-slate-300`}>{currentT.cyclePeriodCol}</th>
+                        <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} text-center border-r border-slate-300`}>{currentT.cycleDaysCol}</th>
+                        <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} text-right border-r border-slate-300`}>{currentT.cycleRentCol}</th>
+                        <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} text-right border-r border-slate-300`}>{currentT.cyclePaidCol}</th>
+                        <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} text-right border-r border-slate-300`}>{currentT.cyclePendingCol}</th>
+                        <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} text-center`}>{currentT.cycleStatusCol}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
@@ -2276,20 +2278,20 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                         const endFmt = c.expectedEndDate ? new Date(c.expectedEndDate).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
                         return (
                           <tr key={c.id || c.cycleNumber} className={isCurrent ? 'bg-orange-50/60 font-semibold' : ''}>
-                            <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} border-r border-slate-200`}>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} border-r border-slate-200`}>
                               {selectedLanguage === 'marathi' ? 'सायकल #' : 'Cycle #'}{c.cycleNumber}
                               {isCurrent && (
-                                <span className="ml-1 text-[8px] bg-emerald-100 text-emerald-800 px-1 py-0.2 rounded font-black uppercase">
+                                <span className={`ml-1 ${isHalfPage ? 'text-[7px] px-0.5' : 'text-[8px] px-1'} bg-emerald-100 text-emerald-800 py-0.2 rounded font-black uppercase`}>
                                   {currentT.activeCycleBadge}
                                 </span>
                               )}
                             </td>
-                            <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} font-mono border-r border-slate-200`}>{startFmt} → {endFmt}</td>
-                            <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-center font-mono border-r border-slate-200`}>{c.days}{selectedLanguage === 'marathi' ? ' दि' : 'd'} {c.extraDays > 0 ? `(+${c.extraDays}${selectedLanguage === 'marathi' ? ' दि' : 'd'})` : ''}</td>
-                            <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-right font-mono border-r border-slate-200`}>₹{(c.totalAmount || c.baseRent || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                            <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-right font-mono text-emerald-700 border-r border-slate-200`}>₹{(c.paidAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                            <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-right font-mono text-rose-700 border-r border-slate-200`}>₹{(c.pendingAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                            <td className={`${isHalfPage ? 'py-0.5 px-1.5 text-[8.5px]' : 'py-1 px-2 text-[9px]'} text-center font-bold`}>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} font-mono border-r border-slate-200`}>{startFmt} → {endFmt}</td>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} text-center font-mono border-r border-slate-200`}>{c.days}{selectedLanguage === 'marathi' ? ' दि' : 'd'} {c.extraDays > 0 ? `(+${c.extraDays}${selectedLanguage === 'marathi' ? ' दि' : 'd'})` : ''}</td>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} text-right font-mono border-r border-slate-200`}>₹{(c.totalAmount || c.baseRent || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} text-right font-mono text-emerald-700 border-r border-slate-200`}>₹{(c.paidAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} text-right font-mono text-rose-700 border-r border-slate-200`}>₹{(c.pendingAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2 text-[9px]'} text-center font-bold`}>
                               {c.status === 'completed'
                                 ? currentT.completedCycleBadge
                                 : (c.extraDays > 0 || (Boolean(c.expectedEndDate) && new Date(c.expectedEndDate).getTime() < Date.now()))
@@ -2306,50 +2308,50 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
               {/* RETURNED BATCHES & CONTINUOUS PRORATION (Simple Template) */}
               {partialBreakdown && partialBreakdown.returnedBatches.length > 0 && (
-                <div className={`${isHalfPage ? 'my-1 pt-0.5' : 'my-3 pt-1'}`}>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className={`${isHalfPage ? 'text-[9.5px]' : 'text-[11px]'} font-black uppercase text-black tracking-wider flex items-center gap-1`}>
+                <div className={`${isHalfPage ? 'my-0.5 pt-0' : 'my-3 pt-1'}`}>
+                  <div className="flex justify-between items-center mb-0.5">
+                    <span className={`${isHalfPage ? 'text-[8.5px]' : 'text-[11px]'} font-black uppercase text-black tracking-wider flex items-center gap-1`}>
                       <span>{selectedLanguage === 'marathi' ? 'माघारी आलेले साहित्य व भाडे हिशोब' : 'Returned Plates & Day-Wise Proration'}</span>
                     </span>
-                    <span className={`${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 border border-slate-300 text-slate-800`}>
+                    <span className={`${isHalfPage ? 'text-[7.5px] px-1 py-0' : 'text-[10px]'} font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 border border-slate-300 text-slate-800`}>
                       {selectedLanguage === 'marathi' ? `दर: ₹${partialBreakdown.dailyRate}/दिवस` : `Rate: ₹${partialBreakdown.dailyRate}/day`}
                     </span>
                   </div>
-                  <table className={`w-full text-left my-0.5 border-collapse border border-slate-800 ${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'}`}>
+                  <table className={`w-full text-left my-0.5 border-collapse border border-slate-800 ${isHalfPage ? 'text-[8px] leading-tight' : 'text-[10px]'}`}>
                     <thead>
                       <tr className="bg-slate-100 text-black font-bold border-b border-slate-800">
-                        <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} border-r border-slate-300`}>{selectedLanguage === 'marathi' ? 'तपशील' : 'Details'}</th>
-                        <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} border-r border-slate-300`}>{selectedLanguage === 'marathi' ? 'परत दिनांक' : 'Return Date'}</th>
-                        <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-center border-r border-slate-300`}>{selectedLanguage === 'marathi' ? 'नग' : 'Qty'}</th>
-                        <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-center border-r border-slate-300`}>{selectedLanguage === 'marathi' ? 'वापर दिवस' : 'Days Kept'}</th>
-                        <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-right`}>{selectedLanguage === 'marathi' ? 'भाडे रक्कम' : 'Rent (₹)'}</th>
+                        <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} border-r border-slate-300`}>{selectedLanguage === 'marathi' ? 'तपशील' : 'Details'}</th>
+                        <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} border-r border-slate-300`}>{selectedLanguage === 'marathi' ? 'परत दिनांक' : 'Return Date'}</th>
+                        <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} text-center border-r border-slate-300`}>{selectedLanguage === 'marathi' ? 'नग' : 'Qty'}</th>
+                        <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} text-center border-r border-slate-300`}>{selectedLanguage === 'marathi' ? 'वापर दिवस' : 'Days Kept'}</th>
+                        <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} text-right`}>{selectedLanguage === 'marathi' ? 'भाडे रक्कम' : 'Rent (₹)'}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
                       {partialBreakdown.returnedBatches.map((b, idx) => (
                         <tr key={idx}>
-                          <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} border-r border-slate-200 font-semibold text-slate-800`}>
+                          <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} border-r border-slate-200 font-semibold text-slate-800`}>
                             {selectedLanguage === 'marathi' ? `माघार बॅच #${idx + 1}` : `Returned Batch #${idx + 1}`}
                           </td>
-                          <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} font-mono border-r border-slate-200`}>{b.returnDate}</td>
-                          <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-center font-bold border-r border-slate-200`}>{b.returnedQuantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'Plates'}</td>
-                          <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-center font-mono border-r border-slate-200`}>{b.elapsedDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'Days'}</td>
-                          <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-right font-mono font-bold text-slate-900`}>
+                          <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} font-mono border-r border-slate-200`}>{b.returnDate}</td>
+                          <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} text-center font-bold border-r border-slate-200`}>{b.returnedQuantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'Plates'}</td>
+                          <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} text-center font-mono border-r border-slate-200`}>{b.elapsedDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'Days'}</td>
+                          <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} text-right font-mono font-bold text-slate-900`}>
                             ₹{b.rentAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
                       ))}
                       {partialBreakdown.remainingQuantity > 0 && (
                         <tr className="bg-blue-50/60 font-semibold">
-                          <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} border-r border-slate-200 text-blue-900`}>
+                          <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} border-r border-slate-200 text-blue-900`}>
                             {selectedLanguage === 'marathi' ? 'चालू उर्वरित साहित्य (४० दिवस)' : 'Remaining Plates (Continuing 40 Days)'}
                           </td>
-                          <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} font-mono border-r border-slate-200 text-blue-700 italic`}>
+                          <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} font-mono border-r border-slate-200 text-blue-700 italic`}>
                             {selectedLanguage === 'marathi' ? 'चालू भाडे' : 'Continuing'}
                           </td>
-                          <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-center font-bold text-blue-900 border-r border-slate-200`}>{partialBreakdown.remainingQuantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'Plates'}</td>
-                          <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-center font-mono border-r border-slate-200 text-blue-900`}>{partialBreakdown.remainingPlatesDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'Days'}</td>
-                          <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-right font-mono font-bold text-blue-950`}>
+                          <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} text-center font-bold text-blue-900 border-r border-slate-200`}>{partialBreakdown.remainingQuantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'Plates'}</td>
+                          <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} text-center font-mono border-r border-slate-200 text-blue-900`}>{partialBreakdown.remainingPlatesDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'Days'}</td>
+                          <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} text-right font-mono font-bold text-blue-950`}>
                             ₹{partialBreakdown.remainingPlatesRent.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
@@ -2361,24 +2363,24 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
               {/* LATEST PAYMENTS SECTION (Simple Template) */}
               {showPayments && (
-                <div className={`${isHalfPage ? 'my-1 pt-0.5' : 'my-3 pt-1'}`}>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className={`${isHalfPage ? 'text-[9.5px]' : 'text-[11px]'} font-black uppercase text-black tracking-wider flex items-center gap-1`}>
+                <div className={`${isHalfPage ? 'my-0.5 pt-0' : 'my-3 pt-1'}`}>
+                  <div className="flex justify-between items-center mb-0.5">
+                    <span className={`${isHalfPage ? 'text-[8.5px]' : 'text-[11px]'} font-black uppercase text-black tracking-wider flex items-center gap-1`}>
                       <span>{currentT.paymentsTitle}</span>
                     </span>
-                    <span className={`${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 border border-slate-300 text-slate-800`}>
+                    <span className={`${isHalfPage ? 'text-[7.5px] px-1 py-0' : 'text-[10px]'} font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 border border-slate-300 text-slate-800`}>
                       {rentalPayments.length} {selectedLanguage === 'marathi' ? 'पेमेंट्स' : 'Payments'}
                     </span>
                   </div>
                   {rentalPayments.length > 0 ? (
-                    <table className={`w-full text-left my-0.5 border-collapse border border-slate-800 ${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'}`}>
+                    <table className={`w-full text-left my-0.5 border-collapse border border-slate-800 ${isHalfPage ? 'text-[8px] leading-tight' : 'text-[10px]'}`}>
                       <thead>
                         <tr className="bg-slate-100 text-black font-bold border-b border-slate-800">
-                          <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} border-r border-slate-300`}>{currentT.paymentDateCol}</th>
-                          <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} border-r border-slate-300`}>{currentT.paymentModeCol}</th>
-                          <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} border-r border-slate-300`}>{currentT.paymentCycleCol}</th>
-                          <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} border-r border-slate-300`}>{currentT.paymentRefCol}</th>
-                          <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-right`}>{currentT.paymentAmtCol}</th>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} border-r border-slate-300`}>{currentT.paymentDateCol}</th>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} border-r border-slate-300`}>{currentT.paymentModeCol}</th>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} border-r border-slate-300`}>{currentT.paymentCycleCol}</th>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} border-r border-slate-300`}>{currentT.paymentRefCol}</th>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1 text-[7.5px]' : 'py-1 px-2'} text-right`}>{currentT.paymentAmtCol}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
@@ -2387,18 +2389,18 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                           const isRefund = pay.type === 'refund';
                           return (
                             <tr key={pay.id} className={isRefund ? 'bg-amber-50/60' : ''}>
-                              <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} font-mono border-r border-slate-200`}>{payDateFmt}</td>
-                              <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} font-semibold border-r border-slate-200`}>
+                              <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} font-mono border-r border-slate-200`}>{payDateFmt}</td>
+                              <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} font-semibold border-r border-slate-200`}>
                                 {cleanPaymentMode(pay.paymentMode, selectedLanguage)}
                                 {isRefund && (
-                                  <span className="ml-1 text-[9px] bg-amber-100 text-amber-900 font-bold px-1 py-0.2 rounded border border-amber-300">
+                                  <span className="ml-1 text-[7.5px] bg-amber-100 text-amber-900 font-bold px-1 py-0.2 rounded border border-amber-300">
                                     {selectedLanguage === 'marathi' ? 'परतावा' : 'Refund'}
                                   </span>
                                 )}
                               </td>
-                              <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} border-r border-slate-200`}>{pay.cycleNumber ? (selectedLanguage === 'marathi' ? `सायकल #${pay.cycleNumber}` : `Cycle #${pay.cycleNumber}`) : '-'}</td>
-                              <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-slate-600 border-r border-slate-200 truncate max-w-xs`}>{pay.reference || pay.notes || (isRefund ? (selectedLanguage === 'marathi' ? 'अतिरिक्त ऍडव्हान्स परतावा' : 'Excess advance refunded') : '-')}</td>
-                              <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-right font-mono font-bold ${isRefund ? 'text-amber-700' : 'text-emerald-800'}`}>
+                              <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} border-r border-slate-200`}>{pay.cycleNumber ? (selectedLanguage === 'marathi' ? `सायकल #${pay.cycleNumber}` : `Cycle #${pay.cycleNumber}`) : '-'}</td>
+                              <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} text-slate-600 border-r border-slate-200 truncate max-w-xs`}>{pay.reference || pay.notes || (isRefund ? (selectedLanguage === 'marathi' ? 'अतिरिक्त ऍडव्हान्स परतावा' : 'Excess advance refunded') : '-')}</td>
+                              <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-1 px-2'} text-right font-mono font-bold ${isRefund ? 'text-amber-700' : 'text-emerald-800'}`}>
                                 {isRefund ? `-₹${pay.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : `+₹${pay.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
                               </td>
                             </tr>
@@ -2407,7 +2409,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                       </tbody>
                     </table>
                   ) : (
-                    <div className="p-2 text-center text-slate-500 text-[10px] italic border border-dashed border-slate-300 rounded">
+                    <div className="p-1 text-center text-slate-500 text-[9px] italic border border-dashed border-slate-300 rounded">
                       {currentT.noPaymentsText}
                     </div>
                   )}
@@ -2415,11 +2417,11 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               )}
 
               {/* SUMMARY SECTION: Right-aligned under table */}
-              <div className={`flex justify-end ${isHalfPage ? 'pt-1 pb-1' : 'pt-2 pb-4'}`}>
-                <div className={`${isHalfPage ? 'w-56 sm:w-64 text-[9px]' : 'w-64 sm:w-72 text-xs'} space-y-0.5`}>
+              <div className={`flex justify-end ${isHalfPage ? 'pt-0.5 pb-0.5' : 'pt-2 pb-4'}`}>
+                <div className={`${isHalfPage ? 'w-56 sm:w-64 text-[8.5px]' : 'w-64 sm:w-72 text-xs'} space-y-0.5`}>
                   {allCycles.length > 1 ? (
                     <>
-                      <div className="flex justify-between py-0.5 text-slate-700">
+                      <div className={`flex justify-between ${isHalfPage ? 'py-0' : 'py-0.5'} text-slate-700`}>
                         <span className="font-semibold">
                           {selectedLanguage === 'marathi' ? `सक्रिय सायकल (#${currentActiveCycleNumber}):` : `Active Cycle (#${currentActiveCycleNumber}):`}
                         </span>
@@ -2427,7 +2429,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                           ₹{totalCycleAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
-                      <div className="flex justify-between py-0.5">
+                      <div className={`flex justify-between ${isHalfPage ? 'py-0' : 'py-0.5'}`}>
                         <span className="font-semibold text-black">
                           {selectedLanguage === 'marathi' ? `एकूण भाडे (${allCycles.length} सायकल्स):` : `Total Rent (${allCycles.length} Cycles):`}
                         </span>
@@ -2436,8 +2438,8 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                         </span>
                       </div>
                       {totalPenaltyAmount > 0 && (
-                        <div className="flex justify-between py-0.5 text-amber-950 bg-amber-50 px-1 rounded border border-amber-200">
-                          <span className="font-bold text-[11px]">
+                        <div className={`flex justify-between ${isHalfPage ? 'py-0 text-[8.5px]' : 'py-0.5 text-[11px]'} text-amber-950 bg-amber-50 px-1 rounded border border-amber-200`}>
+                          <span className="font-bold">
                             {selectedLanguage === 'marathi' ? `दंड आकारणी (${penaltyTypesSummary}):` : `Penalty Charges (${penaltyTypesSummary}):`}
                           </span>
                           <span className="font-mono font-bold">
@@ -2445,7 +2447,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                           </span>
                         </div>
                       )}
-                      <div className="flex justify-between py-0.5">
+                      <div className={`flex justify-between ${isHalfPage ? 'py-0' : 'py-0.5'}`}>
                         <span className="font-semibold text-emerald-800">
                           {selectedLanguage === 'marathi' ? 'एकूण जमा पेमेंट्स:' : 'Total Paid Payments:'}
                         </span>
@@ -2454,29 +2456,29 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                         </span>
                       </div>
                       {allCyclesBalanceDue > 0 ? (
-                        <div className={`border-t-2 border-slate-900 ${isHalfPage ? 'pt-1' : 'pt-1.5 mt-1'} flex justify-between items-baseline`}>
-                          <span className={`${isHalfPage ? 'text-xs' : 'text-base'} font-black text-rose-700`}>
+                        <div className={`border-t-2 border-slate-900 ${isHalfPage ? 'pt-0.5 mt-0.5' : 'pt-1.5 mt-1'} flex justify-between items-baseline`}>
+                          <span className={`${isHalfPage ? 'text-[10px]' : 'text-base'} font-black text-rose-700`}>
                             {selectedLanguage === 'marathi' ? 'एकूण येणे बाकी:' : 'Balance Due:'}
                           </span>
-                          <span className={`${isHalfPage ? 'text-sm' : 'text-base sm:text-lg'} font-black font-mono text-rose-700`}>
+                          <span className={`${isHalfPage ? 'text-[11px]' : 'text-base sm:text-lg'} font-black font-mono text-rose-700`}>
                             ₹{allCyclesBalanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       ) : allCyclesRefundDue > 0 ? (
-                        <div className="border-t-2 border-emerald-600 bg-emerald-50/90 p-1.5 rounded mt-1 flex justify-between items-baseline">
-                          <span className="text-xs font-black text-emerald-900">
+                        <div className="border-t-2 border-emerald-600 bg-emerald-50/90 p-1 rounded mt-0.5 flex justify-between items-baseline">
+                          <span className="text-[9px] font-black text-emerald-900">
                             {selectedLanguage === 'marathi' ? 'ग्राहकाला परतावा शिल्लक:' : 'Refund Due to Customer:'}
                           </span>
-                          <span className={`${isHalfPage ? 'text-xs' : 'text-sm sm:text-base'} font-black font-mono text-emerald-800`}>
+                          <span className={`${isHalfPage ? 'text-[10px]' : 'text-sm sm:text-base'} font-black font-mono text-emerald-800`}>
                             ₹{allCyclesRefundDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       ) : (
-                        <div className="border-t-2 border-emerald-600 bg-emerald-50/60 p-1 rounded mt-0.5 flex justify-between items-baseline">
-                          <span className="text-[10px] font-black text-emerald-900">
+                        <div className="border-t-2 border-emerald-600 bg-emerald-50/60 p-0.5 rounded mt-0.5 flex justify-between items-baseline">
+                          <span className="text-[9px] font-black text-emerald-900">
                             {selectedLanguage === 'marathi' ? 'हिशोब पूर्ण समतोल:' : 'Fully Settled:'}
                           </span>
-                          <span className="text-[11px] font-black font-mono text-emerald-800">
+                          <span className="text-[10px] font-black font-mono text-emerald-800">
                             ₹0.00 ✓
                           </span>
                         </div>
@@ -2484,7 +2486,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     </>
                   ) : (
                     <>
-                      <div className="flex justify-between py-0.5 text-black">
+                      <div className={`flex justify-between ${isHalfPage ? 'py-0' : 'py-0.5'} text-black`}>
                         <span className="font-bold">
                           {selectedLanguage === 'marathi' ? `दिवसनिहाय एकूण भाडे (${cycleDays} दिवस):` : `Total Day-Wise Rent (${cycleDays} Days):`}
                         </span>
@@ -2492,7 +2494,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                           ₹{totalCycleAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
-                      <div className="flex justify-between py-0.5 text-emerald-800">
+                      <div className={`flex justify-between ${isHalfPage ? 'py-0' : 'py-0.5'} text-emerald-800`}>
                         <span className="font-bold">
                           {selectedLanguage === 'marathi' ? 'जमा रक्कम (ऍडव्हान्स):' : 'Advance / Total Paid:'}
                         </span>
@@ -2501,29 +2503,29 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                         </span>
                       </div>
                       {allCyclesBalanceDue > 0 ? (
-                        <div className={`border-t-2 border-slate-900 ${isHalfPage ? 'pt-1' : 'pt-1.5 mt-1'} flex justify-between items-baseline`}>
-                          <span className={`${isHalfPage ? 'text-xs' : 'text-base'} font-black text-rose-700`}>
+                        <div className={`border-t-2 border-slate-900 ${isHalfPage ? 'pt-0.5 mt-0.5' : 'pt-1.5 mt-1'} flex justify-between items-baseline`}>
+                          <span className={`${isHalfPage ? 'text-[10px]' : 'text-base'} font-black text-rose-700`}>
                             {selectedLanguage === 'marathi' ? 'शिल्लक येणे बाकी:' : 'Balance Remaining Due:'}
                           </span>
-                          <span className={`${isHalfPage ? 'text-sm' : 'text-base sm:text-lg'} font-black font-mono text-rose-700`}>
+                          <span className={`${isHalfPage ? 'text-[11px]' : 'text-base sm:text-lg'} font-black font-mono text-rose-700`}>
                             ₹{allCyclesBalanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       ) : allCyclesRefundDue > 0 ? (
-                        <div className="border-t-2 border-emerald-600 bg-emerald-50/90 p-1.5 rounded mt-1 flex justify-between items-baseline">
-                          <span className="text-xs font-black text-emerald-900">
+                        <div className="border-t-2 border-emerald-600 bg-emerald-50/90 p-1 rounded mt-0.5 flex justify-between items-baseline">
+                          <span className="text-[9px] font-black text-emerald-900">
                             {selectedLanguage === 'marathi' ? 'ग्राहकाला परतावा शिल्लक:' : 'Excess Refund to Customer:'}
                           </span>
-                          <span className={`${isHalfPage ? 'text-xs' : 'text-sm sm:text-base'} font-black font-mono text-emerald-800`}>
+                          <span className={`${isHalfPage ? 'text-[10px]' : 'text-sm sm:text-base'} font-black font-mono text-emerald-800`}>
                             ₹{allCyclesRefundDue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       ) : (
-                        <div className="border-t-2 border-emerald-600 bg-emerald-50/60 p-1 rounded mt-0.5 flex justify-between items-baseline">
-                          <span className="text-[10px] font-black text-emerald-900">
+                        <div className="border-t-2 border-emerald-600 bg-emerald-50/60 p-0.5 rounded mt-0.5 flex justify-between items-baseline">
+                          <span className="text-[9px] font-black text-emerald-900">
                             {selectedLanguage === 'marathi' ? 'हिशोब पूर्ण समतोल:' : 'Fully Settled:'}
                           </span>
-                          <span className="text-[11px] font-black font-mono text-emerald-800">
+                          <span className="text-[10px] font-black font-mono text-emerald-800">
                             ₹0.00 ✓
                           </span>
                         </div>
@@ -2534,10 +2536,10 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               </div>
 
               {/* FOOTER */}
-              <div className={`${isHalfPage ? 'pt-2' : 'pt-4'} space-y-3`}>
+              <div className={`${isHalfPage ? 'pt-1 space-y-1' : 'pt-4 space-y-3'}`}>
                 {/* Bank Details & Terms */}
                 {(showBankDetails || (printTerms && activeTerms && activeTerms.length > 0)) && (
-                  <div className={`${isHalfPage ? 'pt-1 text-[8.5px]' : 'pt-2 text-[10px]'} border-t border-slate-100 text-slate-500 space-y-0.5`}>
+                  <div className={`${isHalfPage ? 'pt-0.5 text-[8px]' : 'pt-2 text-[10px]'} border-t border-slate-100 text-slate-500 space-y-0.5`}>
                     {showBankDetails && (
                       <div className="flex items-center justify-between gap-2 flex-wrap group">
                         <p className="font-mono">
@@ -2573,38 +2575,56 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 {renderKycDocumentsSection(true)}
 
                 {/* FOOTER: Left Party Signature | Center Thank You | Right Authorized Signature (LAST ON BILL) */}
-                <div className={`${isHalfPage ? 'pt-2' : 'pt-4'}`}>
-                  <div className={`flex justify-between items-end ${isHalfPage ? 'gap-2 sm:gap-3' : 'gap-3 sm:gap-6'}`}>
+                <div className={`${isHalfPage ? 'pt-1' : 'pt-4'}`}>
+                  <div className={`flex justify-between items-end ${isHalfPage ? 'gap-1.5 sm:gap-2' : 'gap-3 sm:gap-6'}`}>
                     {/* Left: Party / Customer Signature */}
-                    <div className={`text-center ${isHalfPage ? 'min-w-[100px] sm:min-w-[120px]' : 'min-w-[120px] sm:min-w-[140px]'}`}>
-                      <div className={`border-b border-black ${isHalfPage ? 'w-24 sm:w-28' : 'w-32 sm:w-36'} mb-1 mx-auto`} />
-                      <p className={`${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} font-bold uppercase text-black tracking-wider`}>
+                    <div className={`text-center ${isHalfPage ? 'min-w-[80px] sm:min-w-[100px]' : 'min-w-[120px] sm:min-w-[140px]'}`}>
+                      <div className={`border-b border-black ${isHalfPage ? 'w-20 sm:w-24 mb-0.5' : 'w-32 sm:w-36 mb-1'} mx-auto`} />
+                      <p className={`${isHalfPage ? 'text-[8px]' : 'text-[10px]'} font-bold uppercase text-black tracking-wider`}>
                         {selectedLanguage === 'marathi' ? 'ग्राहकाची सही / अंगठा' : "Customer's Signature"}
                       </p>
-                      <p className={`${isHalfPage ? 'text-[8px]' : 'text-[9px]'} text-slate-700 font-semibold truncate ${isHalfPage ? 'max-w-[130px]' : 'max-w-[160px]'} mx-auto`}>
+                      <p className={`${isHalfPage ? 'text-[7.5px]' : 'text-[9px]'} text-slate-700 font-semibold truncate ${isHalfPage ? 'max-w-[120px]' : 'max-w-[160px]'} mx-auto`}>
                         {partyDisplayName}
                       </p>
                     </div>
 
                     {/* Center: Thank you */}
                     <div className="text-center pb-0.5">
-                      <p className={`${isHalfPage ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'} font-black text-black tracking-wide`}>
+                      <p className={`${isHalfPage ? 'text-[11px]' : 'text-sm sm:text-base'} font-black text-black tracking-wide`}>
                         {selectedLanguage === 'marathi' ? '॥ धन्यवाद ॥' : 'Thank you!'}
                       </p>
                     </div>
 
                     {/* Right: Authorized Signature */}
-                    <div className={`text-center ${isHalfPage ? 'min-w-[100px] sm:min-w-[120px]' : 'min-w-[120px] sm:min-w-[140px]'}`}>
-                      <div className={`border-b border-black ${isHalfPage ? 'w-24 sm:w-28' : 'w-32 sm:w-36'} mb-1 mx-auto`} />
-                      <p className={`${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} font-bold uppercase text-black tracking-wider`}>
+                    <div className={`text-center ${isHalfPage ? 'min-w-[80px] sm:min-w-[100px]' : 'min-w-[120px] sm:min-w-[140px]'}`}>
+                      <div className={`border-b border-black ${isHalfPage ? 'w-20 sm:w-24 mb-0.5' : 'w-32 sm:w-36 mb-1'} mx-auto`} />
+                      <p className={`${isHalfPage ? 'text-[8px]' : 'text-[10px]'} font-bold uppercase text-black tracking-wider`}>
                         {selectedLanguage === 'marathi' ? 'अधिकृत स्वाक्षरी' : 'Authorized Signature'}
                       </p>
-                      <p className={`${isHalfPage ? 'text-[8px]' : 'text-[9px]'} text-slate-700 font-semibold truncate ${isHalfPage ? 'max-w-[130px]' : 'max-w-[160px]'} mx-auto`}>
+                      <p className={`${isHalfPage ? 'text-[7.5px]' : 'text-[9px]'} text-slate-700 font-semibold truncate ${isHalfPage ? 'max-w-[120px]' : 'max-w-[160px]'} mx-auto`}>
                         {selectedLanguage === 'marathi' ? businessNameMr : businessName}
                       </p>
                     </div>
                   </div>
                 </div>
+
+                {/* Perforation cutting guide for A4 Half-Sheet: marks cut line and saves 50% paper */}
+                {isHalfPage && paperSize === 'half_page' && (
+                  <div className="relative py-1 flex items-center justify-center mt-1 select-none">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-dashed border-slate-400" />
+                    </div>
+                    <div className="relative bg-white px-2 py-0.2 text-[7.5px] font-black text-slate-600 uppercase tracking-wider flex items-center gap-1 border border-dashed border-slate-300 rounded-full shadow-2xs">
+                      <span className="text-[9px]">✂</span>
+                      <span>
+                        {selectedLanguage === 'marathi'
+                          ? 'इथून कापा (CUT HERE) — अर्धे पान पावती | उरलेले ५०% पान पुढील बिलासाठी वापरा'
+                          : 'CUT HERE (इथून कापा) — HALF PAGE BILL | REMAINING 50% SHEET SAVED'}
+                      </span>
+                      <span className="text-[9px]">✂</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -2737,16 +2757,16 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               </div>
 
               {/* Items Table */}
-              <div className={`${isHalfPage ? 'mb-2' : (isCompact ? 'mb-4' : 'mb-6')} overflow-hidden rounded-xl border border-slate-200`}>
-                <table className={`w-full text-left ${isHalfPage ? 'text-[9.5px]' : 'text-xs'} border-collapse`}>
+              <div className={`${isHalfPage ? 'mb-1' : (isCompact ? 'mb-4' : 'mb-6')} overflow-hidden rounded-xl border border-slate-200`}>
+                <table className={`w-full text-left ${isHalfPage ? 'text-[8.5px]' : 'text-xs'} border-collapse`}>
                   <thead>
-                    <tr className={`bg-slate-800 text-white font-bold uppercase ${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} tracking-wider`}>
-                      <th className={`${isHalfPage ? 'py-1 px-1.5 w-8' : 'py-2 px-3 w-10'} text-center`}>{currentT.srNo}</th>
-                      <th className={`${isHalfPage ? 'py-1 px-2' : 'py-2 px-3'}`}>{currentT.particulars}</th>
-                      <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center`}>{currentT.qty}</th>
-                      <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right`}>{currentT.ratePerDay}</th>
-                      <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center`}>{currentT.term}</th>
-                      <th className={`${isHalfPage ? 'py-1 px-2' : 'py-2 px-3'} text-right`}>{currentT.totalRent}</th>
+                    <tr className={`bg-slate-800 text-white font-bold uppercase ${isHalfPage ? 'text-[7.5px]' : 'text-[10px]'} tracking-wider`}>
+                      <th className={`${isHalfPage ? 'py-0.5 px-1 w-6' : 'py-2 px-3 w-10'} text-center`}>{currentT.srNo}</th>
+                      <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-2 px-3'}`}>{currentT.particulars}</th>
+                      <th className={`${isHalfPage ? 'py-0.5 px-1' : 'py-2 px-3'} text-center`}>{currentT.qty}</th>
+                      <th className={`${isHalfPage ? 'py-0.5 px-1' : 'py-2 px-3'} text-right`}>{currentT.ratePerDay}</th>
+                      <th className={`${isHalfPage ? 'py-0.5 px-1' : 'py-2 px-3'} text-center`}>{currentT.term}</th>
+                      <th className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-2 px-3'} text-right`}>{currentT.totalRent}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 font-medium">
@@ -2755,17 +2775,19 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                       const rowRent = item.quantity * item.dailyRate * itemDays;
                       return (
                         <tr key={index} className="hover:bg-slate-50/50">
-                          <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center text-slate-500 font-bold`}>{index + 1}</td>
-                          <td className={`${isHalfPage ? 'py-1 px-2' : 'py-2 px-3'}`}>
-                            <div className={`font-bold text-slate-900 ${isHalfPage ? 'text-[10px]' : ''}`}>{formatPlateType(item.plateType, selectedLanguage)}</div>
-                            <div className={`${isHalfPage ? 'text-[8.5px] px-1 py-0.2' : 'text-[10px] px-1.5 py-0.5'} font-mono text-slate-600 bg-slate-100 rounded mt-0.5 inline-block border border-slate-200`}>
-                              {item.quantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'plates'} × ₹{Number(item.dailyRate).toFixed(2)} × {itemDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'days'}
+                          <td className={`${isHalfPage ? 'py-0.5 px-1' : 'py-2 px-3'} text-center text-slate-500 font-bold`}>{index + 1}</td>
+                          <td className={`${isHalfPage ? 'py-0.5 px-1.5' : 'py-2 px-3'}`}>
+                            <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5">
+                              <span className={`font-bold text-slate-900 ${isHalfPage ? 'text-[9.5px]' : ''}`}>{formatPlateType(item.plateType, selectedLanguage)}</span>
+                              <span className={`${isHalfPage ? 'text-[7.5px] px-1 py-0' : 'text-[10px] px-1.5 py-0.5'} font-mono text-slate-600 bg-slate-100 rounded inline-block border border-slate-200`}>
+                                {item.quantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'plates'} × ₹{Number(item.dailyRate).toFixed(2)} × {itemDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'days'}
+                              </span>
                             </div>
                           </td>
-                          <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center font-bold text-slate-800`}>{item.quantity} {currentT.nosSuffix}</td>
-                          <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right font-mono font-semibold`}>₹{Number(item.dailyRate).toFixed(2)}</td>
-                          <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center font-mono`}>{itemDays} {currentT.daysSuffix}</td>
-                          <td className={`${isHalfPage ? 'py-1 px-2 font-bold' : 'py-2 px-3 font-bold'} text-right text-slate-900 font-mono`}>
+                          <td className={`${isHalfPage ? 'py-0.5 px-1' : 'py-2 px-3'} text-center font-bold text-slate-800`}>{item.quantity} {currentT.nosSuffix}</td>
+                          <td className={`${isHalfPage ? 'py-0.5 px-1' : 'py-2 px-3'} text-right font-mono font-semibold`}>₹{Number(item.dailyRate).toFixed(2)}</td>
+                          <td className={`${isHalfPage ? 'py-0.5 px-1' : 'py-2 px-3'} text-center font-mono`}>{itemDays} {currentT.daysSuffix}</td>
+                          <td className={`${isHalfPage ? 'py-0.5 px-1.5 font-bold' : 'py-2 px-3 font-bold'} text-right text-slate-900 font-mono`}>
                             ₹{rowRent.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                         </tr>
@@ -2792,27 +2814,27 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
               {/* RENTAL CYCLES BREAKDOWN (Standard / Compact / Tax Invoice) */}
               {showCycles && allCycles.length > 0 && (
-                <div className={`${isHalfPage ? 'mb-2' : (isCompact ? 'mb-4' : 'mb-6')} overflow-hidden rounded-xl border border-slate-200`}>
-                  <div className={`bg-slate-100 ${isHalfPage ? 'px-2 py-1' : 'px-3 py-2'} border-b border-slate-200 flex justify-between items-center`}>
-                    <span className={`${isHalfPage ? 'text-[9.5px]' : 'text-xs'} font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide`}>
-                      <Calendar className={`${isHalfPage ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-primary`} />
+                <div className={`${isHalfPage ? 'mb-1' : (isCompact ? 'mb-4' : 'mb-6')} overflow-hidden rounded-xl border border-slate-200`}>
+                  <div className={`bg-slate-100 ${isHalfPage ? 'px-1.5 py-0.5' : 'px-3 py-2'} border-b border-slate-200 flex justify-between items-center`}>
+                    <span className={`${isHalfPage ? 'text-[8.5px]' : 'text-xs'} font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide`}>
+                      <Calendar className={`${isHalfPage ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} text-primary`} />
                       <span>{currentT.cyclesTitle}</span>
                     </span>
-                    <span className={`${isHalfPage ? 'text-[8.5px] px-1.5 py-0.2' : 'text-[10px] px-2 py-0.5'} font-mono font-bold rounded-full bg-slate-200 text-slate-700`}>
+                    <span className={`${isHalfPage ? 'text-[7.5px] px-1 py-0' : 'text-[10px] px-2 py-0.5'} font-mono font-bold rounded-full bg-slate-200 text-slate-700`}>
                       {allCycles.length} {selectedLanguage === 'marathi' ? 'सायकल्स' : 'Cycles'}
                     </span>
                   </div>
                   <div className="overflow-x-auto print:overflow-visible">
-                    <table className={`w-full text-left ${isHalfPage ? 'text-[8.5px]' : 'text-xs'} border-collapse`}>
+                    <table className={`w-full text-left ${isHalfPage ? 'text-[8px] leading-tight' : 'text-xs'} border-collapse`}>
                       <thead>
-                        <tr className={`bg-slate-800 text-white font-bold uppercase ${isHalfPage ? 'text-[8px]' : 'text-[10px]'} tracking-wider`}>
-                          <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'}`}>{currentT.cycleCol}</th>
-                          <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'}`}>{currentT.cyclePeriodCol}</th>
-                          <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center`}>{currentT.cycleDaysCol}</th>
-                          <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right`}>{currentT.cycleRentCol}</th>
-                          <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right`}>{currentT.cyclePaidCol}</th>
-                          <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right`}>{currentT.cyclePendingCol}</th>
-                          <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center`}>{currentT.cycleStatusCol}</th>
+                        <tr className={`bg-slate-800 text-white font-bold uppercase ${isHalfPage ? 'text-[7.5px]' : 'text-[10px]'} tracking-wider`}>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'}`}>{currentT.cycleCol}</th>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'}`}>{currentT.cyclePeriodCol}</th>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-center`}>{currentT.cycleDaysCol}</th>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-right`}>{currentT.cycleRentCol}</th>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-right`}>{currentT.cyclePaidCol}</th>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-right`}>{currentT.cyclePendingCol}</th>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-center`}>{currentT.cycleStatusCol}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 font-medium">
@@ -2828,27 +2850,27 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                             : currentT.activeCycleBadge;
                           return (
                             <tr key={c.id || c.cycleNumber} className={isCurrent ? 'bg-orange-50/60 font-semibold' : 'hover:bg-slate-50/50'}>
-                              <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'}`}>
+                              <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'}`}>
                                 {selectedLanguage === 'marathi' ? 'सायकल #' : 'Cycle #'}{c.cycleNumber}
                                 {isCurrent && (
-                                  <span className={`ml-1 ${isHalfPage ? 'text-[7.5px] px-1' : 'text-[9px] px-1.5 py-0.5'} bg-emerald-100 text-emerald-800 rounded font-black uppercase`}>
+                                  <span className={`ml-1 ${isHalfPage ? 'text-[7px] px-0.5' : 'text-[9px] px-1.5 py-0.5'} bg-emerald-100 text-emerald-800 rounded font-black uppercase`}>
                                     {currentT.activeCycleBadge}
                                   </span>
                                 )}
                               </td>
-                              <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} font-mono`}>{startFmt} → {endFmt}</td>
-                              <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center font-mono`}>{c.days}{selectedLanguage === 'marathi' ? ' दि' : 'd'} {c.extraDays > 0 ? `(+${c.extraDays}${selectedLanguage === 'marathi' ? ' दि' : 'd'})` : ''}</td>
-                              <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right font-mono font-bold text-slate-900`}>
+                              <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} font-mono`}>{startFmt} → {endFmt}</td>
+                              <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-center font-mono`}>{c.days}{selectedLanguage === 'marathi' ? ' दि' : 'd'} {c.extraDays > 0 ? `(+${c.extraDays}${selectedLanguage === 'marathi' ? ' दि' : 'd'})` : ''}</td>
+                              <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-right font-mono font-bold text-slate-900`}>
                                 ₹{(c.totalAmount || c.baseRent || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                               </td>
-                              <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right font-mono text-emerald-700 font-semibold`}>
+                              <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-right font-mono text-emerald-700 font-semibold`}>
                                 ₹{(c.paidAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                               </td>
-                              <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right font-mono text-rose-700 font-semibold`}>
+                              <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-right font-mono text-rose-700 font-semibold`}>
                                 ₹{(c.pendingAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                               </td>
-                              <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center`}>
-                                <span className={`${isHalfPage ? 'text-[8.5px] px-1.5 py-0.2' : 'text-[10px] px-2 py-0.5'} font-bold rounded-full ${
+                              <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-center`}>
+                                <span className={`${isHalfPage ? 'text-[7.5px] px-1 py-0' : 'text-[10px] px-2 py-0.5'} font-bold rounded-full ${
                                   c.status === 'completed' ? 'bg-slate-100 text-slate-700' : isOverdue ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
                                 }`}>
                                   {statusBadge}
@@ -2865,52 +2887,52 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
               {/* RETURNED BATCHES LOG (Standard / Compact / Tax Invoice) */}
               {partialBreakdown && partialBreakdown.returnedBatches.length > 0 && (
-                <div className={`${isHalfPage ? 'mb-2' : (isCompact ? 'mb-4' : 'mb-6')} overflow-hidden rounded-xl border border-slate-200`}>
-                  <div className={`bg-slate-100 ${isHalfPage ? 'px-2 py-1' : 'px-3 py-2'} border-b border-slate-200 flex justify-between items-center`}>
-                    <span className={`${isHalfPage ? 'text-[9.5px]' : 'text-xs'} font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide`}>
-                      <Package className={`${isHalfPage ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-blue-600`} />
+                <div className={`${isHalfPage ? 'mb-1' : (isCompact ? 'mb-4' : 'mb-6')} overflow-hidden rounded-xl border border-slate-200`}>
+                  <div className={`bg-slate-100 ${isHalfPage ? 'px-1.5 py-0.5' : 'px-3 py-2'} border-b border-slate-200 flex justify-between items-center`}>
+                    <span className={`${isHalfPage ? 'text-[8.5px]' : 'text-xs'} font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide`}>
+                      <Package className={`${isHalfPage ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} text-blue-600`} />
                       <span>{selectedLanguage === 'marathi' ? 'माघारी आलेले साहित्य व भाडे हिशोब' : 'Returned Plates & Day-Wise Proration'}</span>
                     </span>
-                    <span className={`${isHalfPage ? 'text-[8.5px] px-1.5 py-0.2' : 'text-[10px] px-2 py-0.5'} font-mono font-bold rounded-full bg-slate-200 text-slate-700`}>
+                    <span className={`${isHalfPage ? 'text-[7.5px] px-1 py-0' : 'text-[10px] px-2 py-0.5'} font-mono font-bold rounded-full bg-slate-200 text-slate-700`}>
                       {selectedLanguage === 'marathi' ? `दर: ₹${partialBreakdown.dailyRate}/दिवस` : `Rate: ₹${partialBreakdown.dailyRate}/day`}
                     </span>
                   </div>
                   <div className="overflow-x-auto print:overflow-visible">
-                    <table className={`w-full text-left ${isHalfPage ? 'text-[8.5px]' : 'text-xs'} border-collapse`}>
+                    <table className={`w-full text-left ${isHalfPage ? 'text-[8px] leading-tight' : 'text-xs'} border-collapse`}>
                       <thead>
-                        <tr className={`bg-slate-800 text-white font-bold uppercase ${isHalfPage ? 'text-[8px]' : 'text-[10px]'} tracking-wider`}>
-                          <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'}`}>{selectedLanguage === 'marathi' ? 'तपशील' : 'Details'}</th>
-                          <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'}`}>{selectedLanguage === 'marathi' ? 'परत दिनांक' : 'Return Date'}</th>
-                          <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center`}>{selectedLanguage === 'marathi' ? 'नग' : 'Qty'}</th>
-                          <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center`}>{selectedLanguage === 'marathi' ? 'वापर दिवस' : 'Days Kept'}</th>
-                          <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right`}>{selectedLanguage === 'marathi' ? 'भाडे रक्कम' : 'Rent (₹)'}</th>
+                        <tr className={`bg-slate-800 text-white font-bold uppercase ${isHalfPage ? 'text-[7.5px]' : 'text-[10px]'} tracking-wider`}>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'}`}>{selectedLanguage === 'marathi' ? 'तपशील' : 'Details'}</th>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'}`}>{selectedLanguage === 'marathi' ? 'परत दिनांक' : 'Return Date'}</th>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-center`}>{selectedLanguage === 'marathi' ? 'नग' : 'Qty'}</th>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-center`}>{selectedLanguage === 'marathi' ? 'वापर दिवस' : 'Days Kept'}</th>
+                          <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-right`}>{selectedLanguage === 'marathi' ? 'भाडे रक्कम' : 'Rent (₹)'}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 font-medium">
                         {partialBreakdown.returnedBatches.map((b, idx) => (
                           <tr key={idx} className="hover:bg-slate-50/50">
-                            <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} font-semibold text-slate-800`}>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} font-semibold text-slate-800`}>
                               {selectedLanguage === 'marathi' ? `माघार बॅच #${idx + 1}` : `Returned Batch #${idx + 1}`}
                             </td>
-                            <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} font-mono`}>{b.returnDate}</td>
-                            <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center font-bold`}>{b.returnedQuantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'Plates'}</td>
-                            <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center font-mono`}>{b.elapsedDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'Days'}</td>
-                            <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right font-mono font-bold text-slate-900`}>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} font-mono`}>{b.returnDate}</td>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-center font-bold`}>{b.returnedQuantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'Plates'}</td>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-center font-mono`}>{b.elapsedDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'Days'}</td>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-right font-mono font-bold text-slate-900`}>
                               ₹{b.rentAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </td>
                           </tr>
                         ))}
                         {partialBreakdown.remainingQuantity > 0 && (
                           <tr className="bg-blue-50/60 font-semibold">
-                            <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-blue-900 font-bold`}>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-blue-900 font-bold`}>
                               {selectedLanguage === 'marathi' ? 'चालू उर्वरित साहित्य (४० दिवस)' : 'Remaining Plates (Continuing 40 Days)'}
                             </td>
-                            <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} font-mono text-blue-700 italic`}>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} font-mono text-blue-700 italic`}>
                               {selectedLanguage === 'marathi' ? 'चालू भाडे' : 'Continuing'}
                             </td>
-                            <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center font-bold text-blue-900`}>{partialBreakdown.remainingQuantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'Plates'}</td>
-                            <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-center font-mono text-blue-900`}>{partialBreakdown.remainingPlatesDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'Days'}</td>
-                            <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right font-mono font-bold text-blue-950`}>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-center font-bold text-blue-900`}>{partialBreakdown.remainingQuantity} {selectedLanguage === 'marathi' ? 'प्लेट्स' : 'Plates'}</td>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-center font-mono text-blue-900`}>{partialBreakdown.remainingPlatesDays} {selectedLanguage === 'marathi' ? 'दिवस' : 'Days'}</td>
+                            <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-right font-mono font-bold text-blue-950`}>
                               ₹{partialBreakdown.remainingPlatesRent.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </td>
                           </tr>
@@ -2923,26 +2945,26 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
               {/* LATEST PAYMENTS LOG (Standard / Compact / Tax Invoice) */}
               {showPayments && (
-                <div className={`${isHalfPage ? 'mb-2' : (isCompact ? 'mb-4' : 'mb-6')} overflow-hidden rounded-xl border border-slate-200`}>
-                  <div className={`bg-slate-100 ${isHalfPage ? 'px-2 py-1' : 'px-3 py-2'} border-b border-slate-200 flex justify-between items-center`}>
-                    <span className={`${isHalfPage ? 'text-[9.5px]' : 'text-xs'} font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide`}>
-                      <Landmark className={`${isHalfPage ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-emerald-600`} />
+                <div className={`${isHalfPage ? 'mb-1' : (isCompact ? 'mb-4' : 'mb-6')} overflow-hidden rounded-xl border border-slate-200`}>
+                  <div className={`bg-slate-100 ${isHalfPage ? 'px-1.5 py-0.5' : 'px-3 py-2'} border-b border-slate-200 flex justify-between items-center`}>
+                    <span className={`${isHalfPage ? 'text-[8.5px]' : 'text-xs'} font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide`}>
+                      <Landmark className={`${isHalfPage ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} text-emerald-600`} />
                       <span>{currentT.paymentsTitle}</span>
                     </span>
-                    <span className={`${isHalfPage ? 'text-[8.5px] px-1.5 py-0.2' : 'text-[10px] px-2 py-0.5'} font-mono font-bold rounded-full bg-slate-200 text-slate-700`}>
+                    <span className={`${isHalfPage ? 'text-[7.5px] px-1 py-0' : 'text-[10px] px-2 py-0.5'} font-mono font-bold rounded-full bg-slate-200 text-slate-700`}>
                       {rentalPayments.length} {selectedLanguage === 'marathi' ? 'पेमेंट्स' : 'Payments'}
                     </span>
                   </div>
                   {rentalPayments.length > 0 ? (
                     <div className="overflow-x-auto print:overflow-visible">
-                      <table className={`w-full text-left ${isHalfPage ? 'text-[8.5px]' : 'text-xs'} border-collapse`}>
+                      <table className={`w-full text-left ${isHalfPage ? 'text-[8px] leading-tight' : 'text-xs'} border-collapse`}>
                         <thead>
-                          <tr className={`bg-slate-800 text-white font-bold uppercase ${isHalfPage ? 'text-[8px]' : 'text-[10px]'} tracking-wider`}>
-                            <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'}`}>{currentT.paymentDateCol}</th>
-                            <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'}`}>{currentT.paymentModeCol}</th>
-                            <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'}`}>{currentT.paymentCycleCol}</th>
-                            <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'}`}>{currentT.paymentRefCol}</th>
-                            <th className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right`}>{currentT.paymentAmtCol}</th>
+                          <tr className={`bg-slate-800 text-white font-bold uppercase ${isHalfPage ? 'text-[7.5px]' : 'text-[10px]'} tracking-wider`}>
+                            <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'}`}>{currentT.paymentDateCol}</th>
+                            <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'}`}>{currentT.paymentModeCol}</th>
+                            <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'}`}>{currentT.paymentCycleCol}</th>
+                            <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'}`}>{currentT.paymentRefCol}</th>
+                            <th className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-right`}>{currentT.paymentAmtCol}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200 font-medium">
@@ -2951,23 +2973,23 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                             const isRefund = pay.type === 'refund';
                             return (
                               <tr key={pay.id} className={isRefund ? 'bg-amber-50/60' : 'hover:bg-slate-50/50'}>
-                                <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} font-mono`}>{payDateFmt}</td>
-                                <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} font-semibold text-slate-900`}>
+                                <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} font-mono`}>{payDateFmt}</td>
+                                <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} font-semibold text-slate-900`}>
                                   {cleanPaymentMode(pay.paymentMode, selectedLanguage)}
                                   {isRefund && (
-                                    <span className={`ml-1 ${isHalfPage ? 'text-[7.5px] px-1' : 'text-[9px] px-1.5 py-0.5'} bg-amber-100 text-amber-900 font-bold rounded border border-amber-300`}>
+                                    <span className={`ml-1 ${isHalfPage ? 'text-[7px] px-0.5' : 'text-[9px] px-1.5 py-0.5'} bg-amber-100 text-amber-900 font-bold rounded border border-amber-300`}>
                                       {selectedLanguage === 'marathi' ? 'परतावा' : 'Refund'}
                                     </span>
                                   )}
                                   {pay.penaltyAmount && pay.penaltyAmount > 0 && (
-                                    <span className={`ml-1 ${isHalfPage ? 'text-[7.5px] px-1' : 'text-[9px] px-1.5 py-0.5'} bg-amber-100 text-amber-950 font-bold rounded border border-amber-300`}>
+                                    <span className={`ml-1 ${isHalfPage ? 'text-[7px] px-0.5' : 'text-[9px] px-1.5 py-0.5'} bg-amber-100 text-amber-950 font-bold rounded border border-amber-300`}>
                                       +{selectedLanguage === 'marathi' ? 'दंड' : 'Penalty'} ₹{pay.penaltyAmount}{pay.penaltyType ? ` (${getPenaltyTypeLabel(pay.penaltyType, selectedLanguage === 'marathi')})` : ''}
                                     </span>
                                   )}
                                 </td>
-                                <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-slate-600`}>{pay.cycleNumber ? (selectedLanguage === 'marathi' ? `सायकल #${pay.cycleNumber}` : `Cycle #${pay.cycleNumber}`) : '-'}</td>
-                                <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-slate-600 max-w-xs truncate`}>{pay.reference || pay.notes || (isRefund ? (selectedLanguage === 'marathi' ? 'अतिरिक्त ऍडव्हान्स परतावा' : 'Excess advance refunded') : '-')}</td>
-                                <td className={`${isHalfPage ? 'py-1 px-1.5' : 'py-2 px-3'} text-right font-mono font-bold ${isRefund ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-slate-600`}>{pay.cycleNumber ? (selectedLanguage === 'marathi' ? `सायकल #${pay.cycleNumber}` : `Cycle #${pay.cycleNumber}`) : '-'}</td>
+                                <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-slate-600 max-w-xs truncate`}>{pay.reference || pay.notes || (isRefund ? (selectedLanguage === 'marathi' ? 'अतिरिक्त ऍडव्हान्स परतावा' : 'Excess advance refunded') : '-')}</td>
+                                <td className={`${isHalfPage ? 'py-[1.5px] px-1' : 'py-2 px-3'} text-right font-mono font-bold ${isRefund ? 'text-amber-700' : 'text-emerald-700'}`}>
                                   {isRefund ? `-₹${pay.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : `+₹${pay.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
                                 </td>
                               </tr>
@@ -3028,39 +3050,39 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                   <div className="divide-y divide-slate-200">
                     {allCycles.length > 1 ? (
                       <>
-                        <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2.5' : 'py-2 px-4'} bg-slate-50 font-medium`}>
+                        <div className={`flex justify-between ${isHalfPage ? 'py-0.5 px-2 text-[8.5px]' : 'py-2 px-4'} bg-slate-50 font-medium`}>
                           <span className="text-slate-600">{currentT.activeCycleLabel} #{currentActiveCycleNumber}</span>
                           <span className="font-bold text-slate-900">₹{totalCycleAmount.toLocaleString('en-IN')}</span>
                         </div>
-                        <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2.5' : 'py-2.5 px-4'} bg-slate-100 font-bold text-slate-900`}>
+                        <div className={`flex justify-between ${isHalfPage ? 'py-0.5 px-2 text-[8.5px]' : 'py-2.5 px-4'} bg-slate-100 font-bold text-slate-900`}>
                           <span>{currentT.totalCyclesRentLabel} ({allCycles.length} {selectedLanguage === 'marathi' ? 'सायकल्स' : 'Cycles'})</span>
-                          <span className={`${isHalfPage ? 'text-xs' : 'text-sm'}`}>₹{allCyclesTotalRent.toLocaleString('en-IN')}</span>
+                          <span className={`${isHalfPage ? 'text-[9.5px]' : 'text-sm'}`}>₹{allCyclesTotalRent.toLocaleString('en-IN')}</span>
                         </div>
                         {totalPenaltyAmount > 0 && (
-                          <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2.5' : 'py-2 px-4'} bg-amber-50 text-amber-950 font-bold border-t border-amber-200`}>
+                          <div className={`flex justify-between ${isHalfPage ? 'py-0.5 px-2 text-[8px]' : 'py-2 px-4'} bg-amber-50 text-amber-950 font-bold border-t border-amber-200`}>
                             <span>
                               {selectedLanguage === 'marathi' ? 'दंड / अतिरिक्त आकारणी' : 'Damage / Penalty Charges'}{' '}
-                              <span className="text-[11px] font-semibold text-amber-800">({penaltyTypesSummary})</span>
+                              <span className="text-[10px] font-semibold text-amber-800">({penaltyTypesSummary})</span>
                             </span>
                             <span className="font-mono">+ ₹{totalPenaltyAmount.toLocaleString('en-IN')}</span>
                           </div>
                         )}
-                        <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2.5' : 'py-2 px-4'} font-bold text-emerald-700 bg-emerald-50/50`}>
+                        <div className={`flex justify-between ${isHalfPage ? 'py-0.5 px-2 text-[8.5px]' : 'py-2 px-4'} font-bold text-emerald-700 bg-emerald-50/50`}>
                           <span>{currentT.totalPaidPaymentsLabel}</span>
                           <span>- ₹{allCyclesTotalPaid.toLocaleString('en-IN')}</span>
                         </div>
                         {allCyclesBalanceDue > 0 ? (
-                          <div className={`flex justify-between ${isHalfPage ? 'py-1.5 px-2.5' : 'py-3 px-4'} font-black bg-rose-50 text-rose-700 ${isHalfPage ? 'text-xs' : 'text-sm'}`}>
+                          <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2' : 'py-3 px-4'} font-black bg-rose-50 text-rose-700 ${isHalfPage ? 'text-[10px]' : 'text-sm'}`}>
                             <span>{currentT.netAllCyclesDueLabel}</span>
                             <span>₹{allCyclesBalanceDue.toLocaleString('en-IN')}</span>
                           </div>
                         ) : allCyclesRefundDue > 0 ? (
-                          <div className={`flex justify-between ${isHalfPage ? 'py-1.5 px-2.5' : 'py-3 px-4'} font-black bg-emerald-50 text-emerald-800 ${isHalfPage ? 'text-xs' : 'text-sm'}`}>
+                          <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2' : 'py-3 px-4'} font-black bg-emerald-50 text-emerald-800 ${isHalfPage ? 'text-[10px]' : 'text-sm'}`}>
                             <span>{selectedLanguage === 'marathi' ? 'ग्राहकाला परतावा शिल्लक' : 'Refund Due to Customer'}</span>
                             <span>₹{allCyclesRefundDue.toLocaleString('en-IN')}</span>
                           </div>
                         ) : (
-                          <div className={`flex justify-between ${isHalfPage ? 'py-1.5 px-2.5' : 'py-3 px-4'} font-black bg-emerald-50 text-emerald-800 ${isHalfPage ? 'text-xs' : 'text-sm'}`}>
+                          <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2' : 'py-3 px-4'} font-black bg-emerald-50 text-emerald-800 ${isHalfPage ? 'text-[10px]' : 'text-sm'}`}>
                             <span>{selectedLanguage === 'marathi' ? 'हिशोब पूर्ण समतोल' : 'Fully Settled'}</span>
                             <span>₹0 ✓</span>
                           </div>
@@ -3068,45 +3090,45 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                       </>
                     ) : (
                       <>
-                        <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2.5' : 'py-2 px-4'} bg-slate-50 font-medium`}>
+                        <div className={`flex justify-between ${isHalfPage ? 'py-0.5 px-2 text-[8.5px]' : 'py-2 px-4'} bg-slate-50 font-medium`}>
                           <span className="text-slate-600">{currentT.baseRentLabel}</span>
                           <span className="font-bold text-slate-900">₹{(totalCycleAmount - extraAmount).toLocaleString('en-IN')}</span>
                         </div>
                         {extraAmount > 0 && (
-                          <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2.5' : 'py-2 px-4'} bg-amber-50/50 text-amber-800`}>
+                          <div className={`flex justify-between ${isHalfPage ? 'py-0.5 px-2 text-[8px]' : 'py-2 px-4'} bg-amber-50/50 text-amber-800`}>
                             <span>{currentT.extraRentLabel}</span>
                             <span className="font-bold">₹{extraAmount.toLocaleString('en-IN')}</span>
                           </div>
                         )}
-                        <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2.5' : 'py-2.5 px-4'} bg-slate-100 font-bold text-slate-900`}>
+                        <div className={`flex justify-between ${isHalfPage ? 'py-0.5 px-2 text-[8.5px]' : 'py-2.5 px-4'} bg-slate-100 font-bold text-slate-900`}>
                           <span>{currentT.totalDueLabel}</span>
-                          <span className={`${isHalfPage ? 'text-xs' : 'text-sm'}`}>₹{totalCycleAmount.toLocaleString('en-IN')}</span>
+                          <span className={`${isHalfPage ? 'text-[9.5px]' : 'text-sm'}`}>₹{totalCycleAmount.toLocaleString('en-IN')}</span>
                         </div>
                         {totalPenaltyAmount > 0 && (
-                          <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2.5' : 'py-2 px-4'} bg-amber-50 text-amber-950 font-bold border-t border-amber-200`}>
+                          <div className={`flex justify-between ${isHalfPage ? 'py-0.5 px-2 text-[8px]' : 'py-2 px-4'} bg-amber-50 text-amber-950 font-bold border-t border-amber-200`}>
                             <span>
                               {selectedLanguage === 'marathi' ? 'दंड / अतिरिक्त आकारणी' : 'Damage / Penalty Charges'}{' '}
-                              <span className="text-[11px] font-semibold text-amber-800">({penaltyTypesSummary})</span>
+                              <span className="text-[10px] font-semibold text-amber-800">({penaltyTypesSummary})</span>
                             </span>
                             <span className="font-mono">+ ₹{totalPenaltyAmount.toLocaleString('en-IN')}</span>
                           </div>
                         )}
-                        <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2.5' : 'py-2 px-4'} font-bold text-emerald-700 bg-emerald-50/50`}>
+                        <div className={`flex justify-between ${isHalfPage ? 'py-0.5 px-2 text-[8.5px]' : 'py-2 px-4'} font-bold text-emerald-700 bg-emerald-50/50`}>
                           <span>{currentT.paidLabel}</span>
                           <span>- ₹{allCyclesTotalPaid.toLocaleString('en-IN')}</span>
                         </div>
                         {allCyclesBalanceDue > 0 ? (
-                          <div className={`flex justify-between ${isHalfPage ? 'py-1.5 px-2.5' : 'py-3 px-4'} font-black bg-rose-50 text-rose-700 ${isHalfPage ? 'text-xs' : 'text-sm'}`}>
+                          <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2' : 'py-3 px-4'} font-black bg-rose-50 text-rose-700 ${isHalfPage ? 'text-[10px]' : 'text-sm'}`}>
                             <span>{currentT.outstandingLabel}</span>
                             <span>₹{allCyclesBalanceDue.toLocaleString('en-IN')}</span>
                           </div>
                         ) : allCyclesRefundDue > 0 ? (
-                          <div className={`flex justify-between ${isHalfPage ? 'py-1.5 px-2.5' : 'py-3 px-4'} font-black bg-emerald-50 text-emerald-800 ${isHalfPage ? 'text-xs' : 'text-sm'}`}>
+                          <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2' : 'py-3 px-4'} font-black bg-emerald-50 text-emerald-800 ${isHalfPage ? 'text-[10px]' : 'text-sm'}`}>
                             <span>{selectedLanguage === 'marathi' ? 'ग्राहकाला परतावा शिल्लक' : 'Refund Due to Customer'}</span>
                             <span>₹{allCyclesRefundDue.toLocaleString('en-IN')}</span>
                           </div>
                         ) : (
-                          <div className={`flex justify-between ${isHalfPage ? 'py-1.5 px-2.5' : 'py-3 px-4'} font-black bg-emerald-50 text-emerald-800 ${isHalfPage ? 'text-xs' : 'text-sm'}`}>
+                          <div className={`flex justify-between ${isHalfPage ? 'py-1 px-2' : 'py-3 px-4'} font-black bg-emerald-50 text-emerald-800 ${isHalfPage ? 'text-[10px]' : 'text-sm'}`}>
                             <span>{selectedLanguage === 'marathi' ? 'हिशोब पूर्ण समतोल' : 'Fully Settled'}</span>
                             <span>₹0 ✓</span>
                           </div>
@@ -3119,8 +3141,8 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
 
               {/* Terms & Conditions block (Standard / Compact / Tax Invoice) */}
               {printTerms && activeTerms && activeTerms.length > 0 && (
-                <div className={`bg-slate-50 border border-slate-200 rounded-xl ${isHalfPage ? 'p-2 text-[9px] mb-2' : (isCompact ? 'p-3 text-[11px] mb-4' : 'p-3 text-[11px] mb-6')} text-slate-600`}>
-                  <span className={`${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} font-black uppercase text-slate-700 tracking-wider block mb-1`}>
+                <div className={`bg-slate-50 border border-slate-200 rounded-xl ${isHalfPage ? 'p-1.5 text-[8px] mb-1' : (isCompact ? 'p-3 text-[11px] mb-4' : 'p-3 text-[11px] mb-6')} text-slate-600`}>
+                  <span className={`${isHalfPage ? 'text-[7.5px]' : 'text-[10px]'} font-black uppercase text-slate-700 tracking-wider block mb-0.5`}>
                     {currentT.termsTitle}
                   </span>
                   <ul className="space-y-0.5 pl-1 leading-relaxed">
@@ -3138,23 +3160,41 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               {renderKycDocumentsSection(false)}
 
               {/* Signatures (LAST ON BILL) */}
-              <div className={`grid grid-cols-2 gap-8 ${isHalfPage ? 'pt-2' : (isCompact ? 'pt-4' : 'pt-6')} border-t border-slate-200 text-xs`}>
-                <div className={`text-center ${isHalfPage ? 'space-y-2' : 'space-y-6'}`}>
-                  <div className={`border-b border-dashed border-slate-400 ${isHalfPage ? 'w-28' : 'w-44'} mx-auto`} />
+              <div className={`grid grid-cols-2 gap-8 ${isHalfPage ? 'pt-1.5' : (isCompact ? 'pt-4' : 'pt-6')} border-t border-slate-200 text-xs`}>
+                <div className={`text-center ${isHalfPage ? 'space-y-1' : 'space-y-6'}`}>
+                  <div className={`border-b border-dashed border-slate-400 ${isHalfPage ? 'w-24' : 'w-44'} mx-auto`} />
                   <p className="font-bold text-slate-800">
                     {currentT.customerSign}<br />
                     <span className="text-[10px] text-slate-400 font-normal">{currentT.customerSignSub}</span>
                   </p>
                 </div>
 
-                <div className={`text-center ${isHalfPage ? 'space-y-2' : 'space-y-6'}`}>
-                  <div className={`border-b border-dashed border-slate-400 ${isHalfPage ? 'w-28' : 'w-44'} mx-auto`} />
+                <div className={`text-center ${isHalfPage ? 'space-y-1' : 'space-y-6'}`}>
+                  <div className={`border-b border-dashed border-slate-400 ${isHalfPage ? 'w-24' : 'w-44'} mx-auto`} />
                   <p className="font-bold text-slate-800">
                     {currentT.authorizedSign}<br />
                     <span className="text-[10px] text-slate-400 font-normal">{currentT.authorizedSignSub}</span>
                   </p>
                 </div>
               </div>
+
+              {/* Perforation cutting guide for A4 Half-Sheet: marks cut line and saves 50% paper */}
+              {isHalfPage && paperSize === 'half_page' && (
+                <div className="relative py-1 flex items-center justify-center mt-1 select-none">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-dashed border-slate-400" />
+                  </div>
+                  <div className="relative bg-white px-2 py-0.2 text-[7.5px] font-black text-slate-600 uppercase tracking-wider flex items-center gap-1 border border-dashed border-slate-300 rounded-full shadow-2xs">
+                    <span className="text-[9px]">✂</span>
+                    <span>
+                      {selectedLanguage === 'marathi'
+                        ? 'इथून कापा (CUT HERE) — अर्धे पान पावती | उरलेले ५०% पान पुढील बिलासाठी वापरा'
+                        : 'CUT HERE (इथून कापा) — HALF PAGE BILL | REMAINING 50% SHEET SAVED'}
+                    </span>
+                    <span className="text-[9px]">✂</span>
+                  </div>
+                </div>
+              )}
 
 
             </div>
