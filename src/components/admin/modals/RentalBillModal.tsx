@@ -1240,7 +1240,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
         </div>
 
         {/* 5. Signatures Footer */}
-        <div className="flex justify-between items-end pt-1 mt-0.5 border-t border-slate-300 text-[8.5px] text-slate-800">
+        <div className="flex justify-between items-end pt-5 mt-2 border-t border-slate-300 text-[8.5px] text-slate-800">
           <div className="text-center space-y-0.5">
             <div className="border-b border-dashed border-slate-600 w-24 sm:w-32 mb-0.5" />
             <p className="font-bold">{selectedLanguage === 'marathi' ? 'ग्राहकाची सही' : "Customer's Signature"}</p>
@@ -2575,12 +2575,12 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                 {renderKycDocumentsSection(true)}
 
                 {/* FOOTER: Left Party Signature | Center Thank You | Right Authorized Signature (LAST ON BILL) */}
-                <div className={`${isHalfPage ? 'pt-1' : 'pt-4'}`}>
-                  <div className={`flex justify-between items-end ${isHalfPage ? 'gap-1.5 sm:gap-2' : 'gap-3 sm:gap-6'}`}>
+                <div className={`${isHalfPage ? 'pt-7 sm:pt-8' : 'pt-9 sm:pt-10'}`}>
+                  <div className={`flex justify-between items-end ${isHalfPage ? 'gap-2 sm:gap-3' : 'gap-3 sm:gap-6'}`}>
                     {/* Left: Party / Customer Signature */}
-                    <div className={`text-center ${isHalfPage ? 'min-w-[80px] sm:min-w-[100px]' : 'min-w-[120px] sm:min-w-[140px]'}`}>
-                      <div className={`border-b border-black ${isHalfPage ? 'w-20 sm:w-24 mb-0.5' : 'w-32 sm:w-36 mb-1'} mx-auto`} />
-                      <p className={`${isHalfPage ? 'text-[8px]' : 'text-[10px]'} font-bold uppercase text-black tracking-wider`}>
+                    <div className={`text-center ${isHalfPage ? 'min-w-[85px] sm:min-w-[105px]' : 'min-w-[120px] sm:min-w-[140px]'}`}>
+                      <div className={`border-b border-black ${isHalfPage ? 'w-24 sm:w-28 mb-1' : 'w-32 sm:w-36 mb-1'} mx-auto`} />
+                      <p className={`${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} font-bold uppercase text-black tracking-wider`}>
                         {selectedLanguage === 'marathi' ? 'ग्राहकाची सही / अंगठा' : "Customer's Signature"}
                       </p>
                       <p className={`${isHalfPage ? 'text-[7.5px]' : 'text-[9px]'} text-slate-700 font-semibold truncate ${isHalfPage ? 'max-w-[120px]' : 'max-w-[160px]'} mx-auto`}>
@@ -2596,9 +2596,9 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
                     </div>
 
                     {/* Right: Authorized Signature */}
-                    <div className={`text-center ${isHalfPage ? 'min-w-[80px] sm:min-w-[100px]' : 'min-w-[120px] sm:min-w-[140px]'}`}>
-                      <div className={`border-b border-black ${isHalfPage ? 'w-20 sm:w-24 mb-0.5' : 'w-32 sm:w-36 mb-1'} mx-auto`} />
-                      <p className={`${isHalfPage ? 'text-[8px]' : 'text-[10px]'} font-bold uppercase text-black tracking-wider`}>
+                    <div className={`text-center ${isHalfPage ? 'min-w-[85px] sm:min-w-[105px]' : 'min-w-[120px] sm:min-w-[140px]'}`}>
+                      <div className={`border-b border-black ${isHalfPage ? 'w-24 sm:w-28 mb-1' : 'w-32 sm:w-36 mb-1'} mx-auto`} />
+                      <p className={`${isHalfPage ? 'text-[8.5px]' : 'text-[10px]'} font-bold uppercase text-black tracking-wider`}>
                         {selectedLanguage === 'marathi' ? 'अधिकृत स्वाक्षरी' : 'Authorized Signature'}
                       </p>
                       <p className={`${isHalfPage ? 'text-[7.5px]' : 'text-[9px]'} text-slate-700 font-semibold truncate ${isHalfPage ? 'max-w-[120px]' : 'max-w-[160px]'} mx-auto`}>
@@ -3143,7 +3143,7 @@ export const RentalBillModal: React.FC<RentalBillModalProps> = ({
               {renderKycDocumentsSection(false)}
 
               {/* Signatures (LAST ON BILL) */}
-              <div className={`grid grid-cols-2 gap-8 ${isHalfPage ? 'pt-1.5' : (isCompact ? 'pt-4' : 'pt-6')} border-t border-slate-200 text-xs`}>
+              <div className={`grid grid-cols-2 gap-8 ${isHalfPage ? 'pt-7 sm:pt-8' : (isCompact ? 'pt-6' : 'pt-8')} border-t border-slate-200 text-xs`}>
                 <div className={`text-center ${isHalfPage ? 'space-y-1' : 'space-y-6'}`}>
                   <div className={`border-b border-dashed border-slate-400 ${isHalfPage ? 'w-24' : 'w-44'} mx-auto`} />
                   <p className="font-bold text-slate-800">
