@@ -14,9 +14,6 @@ import {
   ArrowUpDown,
   Edit2,
   MessageSquare,
-  AlertTriangle,
-  CheckCircle2,
-  Layers,
 } from 'lucide-react';
 import type { Party, PlateStock, Rental, RentalItem, RentalCycle, Payment, ReturnLog } from '../../../data/adminMockData';
 import {
@@ -301,68 +298,6 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
     });
   }, [filteredRentals, sortBy, parties]);
 
-  // Executive KPI summary calculations
-  const stats = useMemo(() => {
-    let activeCount = 0;
-    let overdueCount = 0;
-    let returnedCount = 0;
-    let totalPlatesOut = 0;
-    let totalDueAmount = 0;
-
-    rentals.forEach((rent) => {
-      const { activeCycle, finances } = getLiveCycleData(rent);
-      const hasExtra = finances.extraDays > 0;
-      const isOverdue =
-        rent.status !== 'returned' &&
-        (rent.status === 'overdue' ||
-          hasExtra ||
-          Boolean(activeCycle.expectedEndDate && todayStr > activeCycle.expectedEndDate));
-
-      if (rent.status === 'returned') {
-        returnedCount++;
-      } else if (isOverdue) {
-        overdueCount++;
-        totalPlatesOut += rent.quantity || 0;
-      } else {
-        activeCount++;
-        totalPlatesOut += rent.quantity || 0;
-      }
-
-      const allCycles = getCyclesForRental(rent);
-      let rentalTotal = 0;
-      let rentalPaid = 0;
-      for (const cyc of allCycles) {
-        if (cyc.status === 'active' && rent.status !== 'returned') {
-          const cycFin = calculateCycleFinances(
-            {
-              startDate: cyc.startDate,
-              quantity: cyc.quantity,
-              dailyRate: cyc.dailyRate,
-              baseRent: cyc.baseRent,
-              paidAmount: cyc.paidAmount,
-              items: rent.items,
-            },
-            todayStr
-          );
-          rentalTotal += cycFin.totalAmount;
-        } else {
-          rentalTotal += cyc.totalAmount;
-        }
-        rentalPaid += cyc.paidAmount;
-      }
-      totalDueAmount += Math.max(0, rentalTotal - rentalPaid);
-    });
-
-    return {
-      total: rentals.length,
-      active: activeCount,
-      overdue: overdueCount,
-      returned: returnedCount,
-      totalPlatesOut,
-      totalDueAmount,
-    };
-  }, [rentals, rentalCycles, todayStr]);
-
   const hasActiveFilters =
     Boolean(searchTerm) ||
     statusFilter !== 'All' ||
@@ -577,92 +512,7 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
 
 
   return (
-    <div className="space-y-5 text-left">
-      {/* Quick Status KPI Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Active Rentals */}
-        <div
-          onClick={() => setStatusFilter(statusFilter === 'active' ? 'All' : 'active')}
-          className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer ${
-            statusFilter === 'active'
-              ? 'bg-emerald-500/10 border-emerald-500 text-emerald-950 shadow-sm ring-2 ring-emerald-500/20'
-              : 'bg-white border-slate-200/80 hover:border-emerald-300 shadow-2xs'
-          }`}
-          title={isMarathi ? 'सक्रिय नोंदी फिल्टर करा' : 'Filter active records'}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              {isMarathi ? 'सक्रिय वाटप' : 'Active Rentals'}
-            </span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl font-black text-slate-900">{stats.active}</span>
-            <span className="text-[11px] text-emerald-600 font-bold">{isMarathi ? 'चालू भाडे' : 'Running'}</span>
-          </div>
-        </div>
-
-        {/* Overdue Rentals */}
-        <div
-          onClick={() => setStatusFilter(statusFilter === 'overdue' ? 'All' : 'overdue')}
-          className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer ${
-            statusFilter === 'overdue'
-              ? 'bg-rose-500/10 border-rose-500 text-rose-950 shadow-sm ring-2 ring-rose-500/20'
-              : 'bg-white border-slate-200/80 hover:border-rose-300 shadow-2xs'
-          }`}
-          title={isMarathi ? 'मुदत संपलेल्या नोंदी फिल्टर करा' : 'Filter overdue records'}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              {isMarathi ? 'मुदत संपली' : 'Overdue'}
-            </span>
-            <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
-              <AlertTriangle className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl font-black text-rose-600">{stats.overdue}</span>
-            <span className="text-[11px] text-rose-600 font-bold">{isMarathi ? 'जादा दिवस' : 'Past 40d'}</span>
-          </div>
-        </div>
-
-        {/* Plates On Site */}
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              {isMarathi ? 'साइटवर प्लेट्स' : 'Plates on Site'}
-            </span>
-            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Layers className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-xl sm:text-2xl font-black text-slate-900">{stats.totalPlatesOut}</span>
-            <span className="text-[11px] text-slate-400 font-semibold">{isMarathi ? 'नग वाटप' : 'Plates'}</span>
-          </div>
-        </div>
-
-        {/* Total Outstanding Dues */}
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              {isMarathi ? 'येणे बाकी रक्कम' : 'Total Pending Due'}
-            </span>
-            <div className="w-7 h-7 rounded-lg bg-orange-50 text-primary flex items-center justify-center">
-              <span className="text-xs font-black">₹</span>
-            </div>
-          </div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className={`text-xl sm:text-2xl font-black ${stats.totalDueAmount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-              ₹{stats.totalDueAmount.toLocaleString('en-IN')}
-            </span>
-            <span className="text-[11px] text-slate-400 font-semibold">{isMarathi ? 'शिल्लक' : 'Balance'}</span>
-          </div>
-        </div>
-      </div>
-
+    <div className="space-y-6 text-left">
       {/* Search and Filters Bar */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
         {/* Row 1: Search Input + New Rental Button */}
