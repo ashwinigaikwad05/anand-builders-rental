@@ -13,6 +13,7 @@ import { formatMarathiDate, formatDateRange, getMarathiPaymentMode, formatPartyN
 import { useAccountNames } from '../../../utils/paymentAccountUtils';
 
 export interface ReturnInputPayload extends Omit<ReturnLog, 'id' | 'partyName' | 'plateType' | 'issuedQuantity'> {
+  plateType?: string;
   collectedAmount?: number;
   refundAmount?: number;
   paymentMode?: 'Cash' | 'Account 1' | 'Account 2';
@@ -66,6 +67,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
   // Form states
   const [selectedPartyId, setSelectedPartyId] = useState('');
   const [selectedRentalId, setSelectedRentalId] = useState('');
+  const [returnItemsMap, setReturnItemsMap] = useState<Record<string, number>>({});
   const [returnedQty, setReturnedQty] = useState<number>(0);
   const [returnDate, setReturnDate] = useState(todayStr);
 
@@ -85,6 +87,93 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
     return returns
       .filter((ret) => ret.rentalId === rental.id)
       .reduce((sum, ret) => sum + ret.returnedQuantity, 0);
+  };
+
+  const getRentalItems = (rental: Rental): { plateType: string; quantity: number; dailyRate?: number }[] => {
+    if (rental.items && Array.isArray(rental.items) && rental.items.length > 0) {
+      return rental.items.map((it) => ({
+        plateType: (it.plateType || '').replace(/[*xX]/g, '×').trim(),
+        quantity: Number(it.quantity) || 0,
+        dailyRate: it.dailyRate ?? rental.dailyRate,
+      }));
+    }
+    const raw = rental.plateType || '';
+    if (raw.includes(',') || raw.includes('(')) {
+      const parts = raw.split(',');
+      const parsed: { plateType: string; quantity: number; dailyRate?: number }[] = [];
+      for (const part of parts) {
+        const match = part.match(/(.*?)\((\d+)\)/);
+        if (match) {
+          parsed.push({
+            plateType: match[1].replace(/[*xX]/g, '×').trim(),
+            quantity: parseInt(match[2], 10) || 0,
+            dailyRate: rental.dailyRate,
+          });
+        }
+      }
+      if (parsed.length > 0) return parsed;
+    }
+    return [
+      {
+        plateType: (rental.plateType || '24×3').replace(/[*xX]/g, '×').trim(),
+        quantity: rental.quantity || 0,
+        dailyRate: rental.dailyRate,
+      },
+    ];
+  };
+
+  const getItemRemainingMap = (rental: Rental): Record<string, number> => {
+    const items = getRentalItems(rental);
+    const totalAlreadyReturned = getAlreadyReturned(rental);
+
+    const itemReturnedCounts: Record<string, number> = {};
+    items.forEach((it) => {
+      itemReturnedCounts[it.plateType] = 0;
+    });
+
+    const priorReturns = returns.filter((r) => r.rentalId === rental.id);
+    let parsedAnySpecific = false;
+
+    for (const ret of priorReturns) {
+      const raw = ret.plateType || '';
+      if (raw.includes('(') && raw.includes(')')) {
+        const parts = raw.split(',');
+        for (const p of parts) {
+          const m = p.match(/(.*?)\((\d+)\)/);
+          if (m) {
+            const type = m[1].replace(/[*xX]/g, '×').trim();
+            const q = parseInt(m[2], 10) || 0;
+            if (itemReturnedCounts[type] !== undefined) {
+              itemReturnedCounts[type] += q;
+              parsedAnySpecific = true;
+            }
+          }
+        }
+      } else {
+        const type = raw.replace(/[*xX]/g, '×').trim();
+        if (itemReturnedCounts[type] !== undefined && items.length === 1) {
+          itemReturnedCounts[type] += ret.returnedQuantity;
+          parsedAnySpecific = true;
+        }
+      }
+    }
+
+    const remainingMap: Record<string, number> = {};
+    if (parsedAnySpecific) {
+      items.forEach((it) => {
+        const ret = itemReturnedCounts[it.plateType] || 0;
+        remainingMap[it.plateType] = Math.max(0, it.quantity - ret);
+      });
+    } else {
+      let toDeduct = totalAlreadyReturned;
+      items.forEach((it) => {
+        const deductHere = Math.min(it.quantity, toDeduct);
+        remainingMap[it.plateType] = Math.max(0, it.quantity - deductHere);
+        toDeduct -= deductHere;
+      });
+    }
+
+    return remainingMap;
   };
 
   const getRemainingToReturn = (rental: Rental) => {
@@ -144,11 +233,13 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
     if (preselectedRentalId) {
       const targetRental = rentals.find((r) => r.id === preselectedRentalId);
       if (targetRental) {
-        const remaining = getRemainingToReturn(targetRental);
+        const remainingMap = getItemRemainingMap(targetRental);
+        const remaining = Object.values(remainingMap).reduce((s, v) => s + v, 0);
         const due = computeRentalPendingDue(targetRental, todayStr);
 
         setSelectedPartyId(targetRental.partyId);
         setSelectedRentalId(targetRental.id);
+        setReturnItemsMap(remainingMap);
         setReturnedQty(remaining);
         setReturnDate(todayStr);
         setCollectedAmount(due);
@@ -178,6 +269,26 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
   const selectedRental = rentals.find((r) => r.id === selectedRentalId);
   const selectedParty = parties.find((p) => p.id === selectedPartyId);
   const selectedActiveCycle = selectedRental ? getActiveCycle(selectedRental) : null;
+
+  const selectedRentalItems = React.useMemo(() => {
+    return selectedRental ? getRentalItems(selectedRental) : [];
+  }, [selectedRental]);
+
+  const selectedRentalRemainingMap = React.useMemo(() => {
+    return selectedRental ? getItemRemainingMap(selectedRental) : {};
+  }, [selectedRental, returns]);
+
+  const returningPlateTypesStr = React.useMemo(() => {
+    if (!selectedRental) return '';
+    const items = selectedRentalItems;
+    const activeItems = items.filter((it) => (returnItemsMap[it.plateType] || 0) > 0);
+    if (activeItems.length === 0) {
+      return formatPlateType(selectedRental.plateType, isMarathi ? 'marathi' : 'english');
+    }
+    return activeItems
+      .map((it) => (items.length > 1 ? `${it.plateType} (${returnItemsMap[it.plateType]})` : it.plateType))
+      .join(', ');
+  }, [selectedRental, selectedRentalItems, returnItemsMap, isMarathi]);
 
   const cycleElapsed = selectedActiveCycle
     ? calculateCalendarDays(selectedActiveCycle.startDate, returnDate)
@@ -320,6 +431,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
     const firstParty = parties[0]?.id || '';
     setSelectedPartyId(firstParty);
     setSelectedRentalId('');
+    setReturnItemsMap({});
     setReturnedQty(0);
     setReturnDate(todayStr);
     setPenaltyAmount(0);
@@ -336,6 +448,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
   const handlePartyChange = (partyId: string) => {
     setSelectedPartyId(partyId);
     setSelectedRentalId('');
+    setReturnItemsMap({});
     setReturnedQty(0);
     setPenaltyAmount(0);
     setCollectedAmount(0);
@@ -347,10 +460,13 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
     setSelectedRentalId(rentalId);
     const rental = rentals.find((r) => r.id === rentalId);
     if (rental) {
-      const remaining = getRemainingToReturn(rental);
-      setReturnedQty(remaining);
+      const remainingMap = getItemRemainingMap(rental);
+      setReturnItemsMap(remainingMap);
+      const totalRemaining = Object.values(remainingMap).reduce((s, v) => s + v, 0);
+      setReturnedQty(totalRemaining);
       setPenaltyAmount(0);
     } else {
+      setReturnItemsMap({});
       setReturnedQty(0);
       setPenaltyAmount(0);
       setCollectedAmount(0);
@@ -361,8 +477,29 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
 
   const handleReturnAll = () => {
     if (selectedRental) {
-      const remaining = getRemainingToReturn(selectedRental);
-      setReturnedQty(remaining);
+      const remainingMap = getItemRemainingMap(selectedRental);
+      setReturnItemsMap(remainingMap);
+      const total = Object.values(remainingMap).reduce((s, v) => s + v, 0);
+      setReturnedQty(total);
+    }
+  };
+
+  const handleItemQtyChange = (plateType: string, qty: number, maxAllowed: number) => {
+    const clamped = Math.max(0, Math.min(qty, maxAllowed));
+    const nextMap = { ...returnItemsMap, [plateType]: clamped };
+    setReturnItemsMap(nextMap);
+    const total = Object.values(nextMap).reduce((sum, val) => sum + (val || 0), 0);
+    setReturnedQty(total);
+  };
+
+  const handleMainQtyChange = (qty: number, maxAllowed: number) => {
+    const clamped = Math.max(0, Math.min(qty, maxAllowed));
+    setReturnedQty(clamped);
+    if (selectedRental) {
+      const items = getRentalItems(selectedRental);
+      if (items.length === 1) {
+        setReturnItemsMap({ [items[0].plateType]: clamped });
+      }
     }
   };
 
@@ -395,10 +532,12 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
   const handleExecuteReturn = () => {
     if (!selectedRental) return;
     const remainingLimit = getRemainingToReturn(selectedRental);
+    const plateTypeToRecord = returningPlateTypesStr || selectedRental.plateType;
 
     onAddReturn({
       partyId: selectedPartyId,
       rentalId: selectedRentalId,
+      plateType: plateTypeToRecord,
       returnedQuantity: returnedQty,
       remainingQuantity: remainingLimit - returnedQty,
       returnDate,
@@ -406,7 +545,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
       refundAmount: settlementAction === 'refund' && refundAmount > 0 ? refundAmount : 0,
       paymentMode: (settlementAction === 'collect' && collectedAmount > 0) || (settlementAction === 'refund' && refundAmount > 0) ? paymentMode : undefined,
       paymentReference: paymentReference.trim() || undefined,
-      paymentNotes: (paymentNotes.trim() ? paymentNotes.trim() : (settlementAction === 'refund' ? `Advance excess refund returned to customer (${returnedQty} plates returned)` : `Material return settlement (${returnedQty} plates)`)) + (penaltyAmount > 0 ? ` (दंड: ${getPenaltyTypeLabel(penaltyType, isMarathi)} ₹${penaltyAmount})` : ''),
+      paymentNotes: (paymentNotes.trim() ? paymentNotes.trim() : (settlementAction === 'refund' ? `Advance excess refund returned to customer (${returnedQty} plates: ${plateTypeToRecord})` : `Material return settlement (${returnedQty} plates: ${plateTypeToRecord})`)) + (penaltyAmount > 0 ? ` (दंड: ${getPenaltyTypeLabel(penaltyType, isMarathi)} ₹${penaltyAmount})` : ''),
       penaltyAmount: penaltyAmount > 0 ? penaltyAmount : undefined,
       penaltyType: penaltyAmount > 0 ? penaltyType : undefined,
       daysKept: batchDays,
@@ -575,9 +714,12 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                       </div>
                       <button
                         onClick={() => {
+                          const remainingMap = getItemRemainingMap(rent);
+                          const totalRemaining = Object.values(remainingMap).reduce((s, v) => s + v, 0);
                           setSelectedPartyId(rent.partyId);
                           setSelectedRentalId(rent.id);
-                          setReturnedQty(remaining);
+                          setReturnItemsMap(remainingMap);
+                          setReturnedQty(totalRemaining);
                           setPenaltyAmount(0);
                           setCollectedAmount(due);
                           setReturnDate(todayStr);
@@ -648,7 +790,10 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                     const cyc = getActiveCycle(r);
                     return (
                       <option key={r.id} value={r.id}>
-                        {formatPlateType(r.plateType, isMarathi ? 'marathi' : 'english')} {cyc ? `[${isMarathi ? 'सायकल' : 'Cycle'} ${cyc.cycleNumber}]` : ''} ({isMarathi ? 'दिलेले:' : 'Issued:'} {r.quantity} • {isMarathi ? 'शिल्लक:' : 'Remaining:'} {remaining} {isMarathi ? 'नग' : 'plates'})
+                        {r.billNumber ? `[${isMarathi ? 'बिल' : 'Bill'} #${r.billNumber}] ` : ''}
+                        {formatPlateType(r.plateType, isMarathi ? 'marathi' : 'english')}
+                        {cyc ? ` [${isMarathi ? 'सायकल' : 'Cycle'} ${cyc.cycleNumber}]` : ''} 
+                        ({isMarathi ? 'दिलेले:' : 'Issued:'} {r.quantity} • {isMarathi ? 'शिल्लक:' : 'Remaining:'} {remaining} {isMarathi ? 'नग' : 'plates'})
                       </option>
                     );
                   })}
@@ -656,7 +801,7 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
               </div>
 
               {selectedRental && (
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2 text-xs">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 text-xs">
                   <div className="flex justify-between">
                     <span className="text-slate-500 font-medium">{isMarathi ? 'दिलेले एकूण साहित्य:' : 'Issued Quantity:'}</span>
                     <span className="font-bold text-slate-800">{selectedRental.quantity} {isMarathi ? 'प्लेट्स' : 'plates'}</span>
@@ -670,6 +815,43 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                     <span className="font-black text-orange-600 text-sm">
                       {getRemainingToReturn(selectedRental)} {isMarathi ? 'प्लेट्स' : 'plates'}
                     </span>
+                  </div>
+
+                  {/* Plate Types Breakdown Section */}
+                  <div className="pt-2 border-t border-slate-200 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-slate-700">
+                        {isMarathi ? 'साहित्य प्रकार तपशील:' : 'Plate Types Breakdown:'}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        {selectedRentalItems.length} {isMarathi ? 'प्रकार' : 'sizes'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {selectedRentalItems.map((it, idx) => {
+                        const itemRem = selectedRentalRemainingMap[it.plateType] ?? it.quantity;
+                        return (
+                          <div key={idx} className="bg-white p-2.5 rounded-xl border border-slate-200/90 flex items-center justify-between shadow-2xs">
+                            <div className="space-y-0.5">
+                              <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-xs inline-block">
+                                {it.plateType}
+                              </span>
+                              <p className="text-[10px] text-slate-400">
+                                {isMarathi ? 'दर:' : 'Rate:'} ₹{it.dailyRate ?? selectedRental.dailyRate}/d
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs font-bold text-slate-700">
+                                {it.quantity} {isMarathi ? 'दिले' : 'issued'}
+                              </p>
+                              <p className="text-[11px] font-black text-orange-600">
+                                {itemRem} {isMarathi ? 'शिल्लक' : 'left'}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   {/* Active Cycle Duration & Extra Days Breakdown */}
@@ -695,50 +877,137 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
               )}
 
               {/* Step 3: Quantities and Date with Return All button */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-bold text-slate-500 uppercase">
-                      {isMarathi ? 'वापसी संख्या (नग) *' : 'Return Qty (Plates) *'}
-                    </label>
-                    {selectedRental && (
+              {selectedRental && selectedRentalItems.length > 1 ? (
+                <div className="space-y-3">
+                  <div className="bg-amber-50/70 border border-amber-200/90 p-3.5 rounded-2xl space-y-3">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-bold text-amber-950 uppercase flex items-center gap-1.5">
+                        <span>{isMarathi ? 'साहित्य प्रकारानुसार वापसी नग *' : 'Return Qty by Plate Type *'}</span>
+                      </label>
                       <button
                         type="button"
                         onClick={handleReturnAll}
-                        className="text-[11px] text-primary font-bold hover:text-primary-dark cursor-pointer"
+                        className="text-[11px] text-primary font-bold hover:text-primary-dark cursor-pointer bg-white px-2.5 py-1 rounded-lg border border-orange-200 shadow-2xs hover:bg-orange-50 transition-colors"
                       >
-                        {isMarathi ? 'सर्व (' : 'All ('}{getRemainingToReturn(selectedRental)})
+                        {isMarathi ? 'सर्व जमा करा (' : 'Return All ('}{getRemainingToReturn(selectedRental)})
                       </button>
-                    )}
-                  </div>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={returnedQty || ''}
-                    onChange={(e) => setReturnedQty(Math.max(0, parseInt(e.target.value) || 0))}
-                    placeholder="e.g. 100"
-                    className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
-                  />
-                </div>
+                    </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase">{isMarathi ? 'वापसी दिनांक *' : 'Return Date *'}</label>
-                  <input
-                    type="date"
-                    required
-                    value={returnDate}
-                    onChange={(e) => {
-                      setReturnDate(e.target.value);
-                      if (selectedRental) {
-                        const due = computeRentalPendingDue(selectedRental, e.target.value);
-                        setCollectedAmount(due);
-                      }
-                    }}
-                    className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
-                  />
+                    <div className="space-y-2">
+                      {selectedRentalItems.map((it, idx) => {
+                        const itemMax = selectedRentalRemainingMap[it.plateType] ?? it.quantity;
+                        const currentVal = returnItemsMap[it.plateType] ?? 0;
+                        return (
+                          <div key={idx} className="bg-white p-2.5 rounded-xl border border-slate-200/90 flex items-center justify-between gap-3 shadow-2xs">
+                            <div className="min-w-0">
+                              <span className="font-mono font-bold text-slate-800 text-xs bg-slate-100 px-2 py-0.5 rounded">
+                                {it.plateType}
+                              </span>
+                              <p className="text-[10px] text-slate-500 mt-0.5">
+                                {isMarathi ? 'शिल्लक:' : 'Remaining:'} <strong className="text-orange-600 font-bold">{itemMax} नग</strong>
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleItemQtyChange(it.plateType, itemMax, itemMax)}
+                                className="text-[10px] font-bold text-primary hover:text-primary-dark px-2 py-1 rounded bg-orange-50 hover:bg-orange-100 cursor-pointer border border-orange-200 transition-colors"
+                              >
+                                {isMarathi ? 'सर्व' : 'All'}
+                              </button>
+                              <input
+                                type="number"
+                                min="0"
+                                max={itemMax}
+                                value={currentVal || ''}
+                                onChange={(e) => handleItemQtyChange(it.plateType, parseInt(e.target.value) || 0, itemMax)}
+                                placeholder="0"
+                                className="w-20 bg-slate-50 border border-slate-300 focus:border-primary focus:bg-white focus:outline-none focus:ring-1 px-2.5 py-1.5 rounded-lg text-sm font-bold text-slate-900 text-center font-mono"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2 border-t border-amber-200/80 text-xs">
+                      <span className="font-bold text-amber-950">{isMarathi ? 'एकूण वापसी प्लेट्स:' : 'Total Returning Plates:'}</span>
+                      <span className="font-black text-sm text-primary font-mono">{returnedQty} {isMarathi ? 'नग' : 'plates'}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">{isMarathi ? 'वापसी दिनांक *' : 'Return Date *'}</label>
+                    <input
+                      type="date"
+                      required
+                      value={returnDate}
+                      onChange={(e) => {
+                        setReturnDate(e.target.value);
+                        if (selectedRental) {
+                          const due = computeRentalPendingDue(selectedRental, e.target.value);
+                          setCollectedAmount(due);
+                        }
+                      }}
+                      className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
+                    />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-bold text-slate-500 uppercase">
+                        {isMarathi ? 'वापसी संख्या (नग) *' : 'Return Qty (Plates) *'}
+                      </label>
+                      {selectedRental && (
+                        <button
+                          type="button"
+                          onClick={handleReturnAll}
+                          className="text-[11px] text-primary font-bold hover:text-primary-dark cursor-pointer"
+                        >
+                          {isMarathi ? 'सर्व (' : 'All ('}{getRemainingToReturn(selectedRental)})
+                        </button>
+                      )}
+                    </div>
+                    {selectedRental && selectedRentalItems[0] && (
+                      <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 pb-0.5">
+                        <span>{isMarathi ? 'प्रकार:' : 'Type:'}</span>
+                        <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.2 rounded">
+                          {selectedRentalItems[0].plateType}
+                        </span>
+                      </div>
+                    )}
+                    <input
+                      type="number"
+                      min="1"
+                      max={selectedRental ? getRemainingToReturn(selectedRental) : undefined}
+                      required
+                      value={returnedQty || ''}
+                      onChange={(e) => handleMainQtyChange(parseInt(e.target.value) || 0, selectedRental ? getRemainingToReturn(selectedRental) : 99999)}
+                      placeholder="e.g. 100"
+                      className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800 font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">{isMarathi ? 'वापसी दिनांक *' : 'Return Date *'}</label>
+                    <input
+                      type="date"
+                      required
+                      value={returnDate}
+                      onChange={(e) => {
+                        setReturnDate(e.target.value);
+                        if (selectedRental) {
+                          const due = computeRentalPendingDue(selectedRental, e.target.value);
+                          setCollectedAmount(due);
+                        }
+                      }}
+                      className="w-full bg-white border border-slate-200 focus:border-primary focus:outline-none focus:ring-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Dynamic Partial Return & Continuing Calculation Card */}
               {selectedRental && returnedQty > 0 && (
@@ -1180,9 +1449,9 @@ export const ReturnsTab: React.FC<ReturnsTabProps> = ({
                   <span className="font-bold text-slate-900">{selectedParty.name}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">{isMarathi ? 'प्लेट साईझ:' : 'Plate Size:'}</span>
-                  <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
-                    {selectedRental.plateType}
+                  <span className="text-slate-500 font-medium">{isMarathi ? 'साहित्य प्रकार / साईझ:' : 'Plate Types / Sizes:'}</span>
+                  <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 text-right max-w-[65%]">
+                    {returningPlateTypesStr || selectedRental.plateType}
                   </span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">

@@ -482,6 +482,11 @@ export function formatPlateType(
   const trimmed = rawType.trim();
   if (!trimmed) return lang === 'marathi' ? 'स्टील प्लेट' : 'Steel Plate';
 
+  // If rawType represents multiple plate sizes (e.g. "21x3 (40), 24x3 (50)"), preserve all sizes
+  if (trimmed.includes(',') || (trimmed.match(/\d+\s*[*×xX]\s*\d+/g) || []).length > 1) {
+    return trimmed.replace(/[*xX]/g, '×');
+  }
+
   // Extract dimensions like "24x3", "24×3", "21*3", etc.
   const sizeMatch = trimmed.match(/(\d+\s*[*×xX]\s*\d+)/);
   const size = sizeMatch ? sizeMatch[1].replace(/[*xX]/g, '×') : '';

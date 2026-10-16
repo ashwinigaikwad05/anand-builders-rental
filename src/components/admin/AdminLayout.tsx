@@ -1834,11 +1834,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       const party = rawParties.find((p) => p.id === newReturn.partyId);
       if (!matchedRental || !party) return;
 
+      const returningPlateType = newReturn.plateType || matchedRental.plateType;
+
       const inserted = await insertReturn({
         party_id: newReturn.partyId,
         party_name: party.name,
         rental_id: newReturn.rentalId,
-        plate_type: matchedRental.plateType,
+        plate_type: returningPlateType,
         issued_quantity: matchedRental.quantity,
         returned_quantity: newReturn.returnedQuantity,
         remaining_quantity: newReturn.remainingQuantity,
@@ -1856,7 +1858,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         ...newReturn,
         id: inserted.id,
         partyName: party.name,
-        plateType: matchedRental.plateType,
+        plateType: returningPlateType,
         issuedQuantity: matchedRental.quantity,
         collectedAmount: newReturn.collectedAmount,
         refundAmount: newReturn.refundAmount,
@@ -2189,7 +2191,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       const ledEntry = await insertLedgerEntry({
         party_id: newReturn.partyId,
         date: newReturn.returnDate,
-        description: `Material Return Intake: ${newReturn.returnedQuantity} Plates of ${matchedRental.plateType} returned${isFullReturn ? ' (Cycle Completed)' : ''}${actionText}`,
+        description: `Material Return Intake: ${newReturn.returnedQuantity} Plates of ${returningPlateType} returned${isFullReturn ? ' (Cycle Completed)' : ''}${actionText}`,
         debit: 0,
         credit: 0,
         balance: Math.max(0, (parties.find((p) => p.id === newReturn.partyId)?.pending || 0) - amountCollected),
@@ -2212,7 +2214,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
 
       addToast(
         'success',
-        `Received ${newReturn.returnedQuantity} plates of ${matchedRental.plateType} from ${party.name}.${returnPenalty > 0 ? ` Penalty: ₹${returnPenalty.toLocaleString('en-IN')}.` : ''}${amountRefunded > 0 ? ` Refunded ₹${amountRefunded.toLocaleString('en-IN')} (${newReturn.paymentMode || 'Cash'}).` : ''}${amountCollected > 0 ? ` Collected ₹${amountCollected.toLocaleString('en-IN')} (${newReturn.paymentMode || 'Cash'}).` : ''}`
+        `Received ${newReturn.returnedQuantity} plates of ${returningPlateType} from ${party.name}.${returnPenalty > 0 ? ` Penalty: ₹${returnPenalty.toLocaleString('en-IN')}.` : ''}${amountRefunded > 0 ? ` Refunded ₹${amountRefunded.toLocaleString('en-IN')} (${newReturn.paymentMode || 'Cash'}).` : ''}${amountCollected > 0 ? ` Collected ₹${amountCollected.toLocaleString('en-IN')} (${newReturn.paymentMode || 'Cash'}).` : ''}`
       );
     } catch (err: any) {
       addToast('error', err?.message || 'Failed to record return.');
