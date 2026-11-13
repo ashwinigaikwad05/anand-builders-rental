@@ -214,6 +214,19 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
     })
   : null;
 
+export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export const isUuid = (id: any): boolean => typeof id === 'string' && UUID_REGEX.test(id);
+export const genUuid = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 // Local fallback keys for graceful offline resilience
 const STORAGE_PREFIX = 'anand_';
 export const getLocal = <T>(key: string): T[] => {
@@ -234,7 +247,86 @@ export const setLocal = <T>(key: string, data: T[]) => {
   } catch {}
 };
 
-export async function safeSupabaseQuery<T>(queryPromise: Promise<T> | any, timeoutMs = 1500): Promise<T> {
+/**
+ * Redirects an old party ID to a new canonical Supabase UUID across all offline localStorage tables.
+ */
+export function updateLocalPartyIdRedirect(oldId: string, newId: string): void {
+  if (!oldId || !newId || oldId === newId) return;
+
+  // 1. Parties
+  const parties = getLocal<PartyRecord>('parties');
+  let partyChanged = false;
+  const updatedParties = parties.map((p) => {
+    if (p.id === oldId) {
+      partyChanged = true;
+      return { ...p, id: newId };
+    }
+    return p;
+  });
+  if (partyChanged) setLocal('parties', updatedParties);
+
+  // 2. Rentals
+  const rentals = getLocal<RentalRecord>('rentals');
+  let rentChanged = false;
+  const updatedRentals = rentals.map((r) => {
+    if (r.party_id === oldId) {
+      rentChanged = true;
+      return { ...r, party_id: newId };
+    }
+    return r;
+  });
+  if (rentChanged) setLocal('rentals', updatedRentals);
+
+  // 3. Rental Cycles
+  const cycles = getLocal<RentalCycleRecord>('rental_cycles');
+  let cycChanged = false;
+  const updatedCycles = cycles.map((c) => {
+    if (c.party_id === oldId) {
+      cycChanged = true;
+      return { ...c, party_id: newId };
+    }
+    return c;
+  });
+  if (cycChanged) setLocal('rental_cycles', updatedCycles);
+
+  // 4. Returns
+  const returns = getLocal<ReturnRecord>('returns');
+  let retChanged = false;
+  const updatedReturns = returns.map((ret) => {
+    if (ret.party_id === oldId) {
+      retChanged = true;
+      return { ...ret, party_id: newId };
+    }
+    return ret;
+  });
+  if (retChanged) setLocal('returns', updatedReturns);
+
+  // 5. Payments
+  const payments = getLocal<PaymentRecord>('payments');
+  let payChanged = false;
+  const updatedPayments = payments.map((pay) => {
+    if (pay.party_id === oldId) {
+      payChanged = true;
+      return { ...pay, party_id: newId };
+    }
+    return pay;
+  });
+  if (payChanged) setLocal('payments', updatedPayments);
+
+  // 6. Ledger
+  const ledger = getLocal<LedgerEntryRecord>('ledger_entries');
+  let ledChanged = false;
+  const updatedLedger = ledger.map((l) => {
+    if (l.party_id === oldId) {
+      ledChanged = true;
+      return { ...l, party_id: newId };
+    }
+    return l;
+  });
+  if (ledChanged) setLocal('ledger_entries', updatedLedger);
+}
+
+export async function safeSupabaseQuery<T>(queryPromise: Promise<T> | any, timeoutMs = 2500): Promise<T> {
   let timer: any;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error('Supabase query timed out')), timeoutMs);
@@ -246,10 +338,125 @@ export async function safeSupabaseQuery<T>(queryPromise: Promise<T> | any, timeo
   }
 }
 
-
 // ------------------------------------------------------------------------------
 // 1. PARTIES API
 // ------------------------------------------------------------------------------
+
+/**
+ * Ensures that a party exists in Supabase's `parties` table before inserting dependent records.
+ * Resolves local mock/offline IDs to real Supabase UUIDs, creates the customer in Supabase if missing,
+ * and completely prevents foreign key constraint violations like "rentals_party_id_fkey".
+ */
+export async function ensurePartyExistsInSupabase(
+  partyId: string,
+  partyName?: string,
+  partyMobile?: string
+): Promise<string> {
+  if (!supabase || !isSupabaseConfigured) {
+    return partyId;
+  }
+
+  const trimmedName = (partyName || '').trim();
+  const trimmedMobile = (partyMobile || '').trim();
+
+  // 1. If partyId is already a valid UUID, verify if it exists in remote parties table
+  if (isUuid(partyId)) {
+    try {
+      const { data: existing } = await supabase
+        .from('parties')
+        .select('id')
+        .eq('id', partyId)
+        .maybeSingle();
+
+      if (existing?.id) {
+        return existing.id;
+      }
+    } catch (e) {
+      console.warn('Error checking party by UUID in Supabase:', e);
+    }
+  }
+
+  // 2. Lookup local record to find best matching customer details
+  const localParties = getLocal<PartyRecord>('parties');
+  const cleanMobileDigits = (m?: string | null) => (m || '').replace(/\D/g, '').slice(-10);
+
+  const matchedLocal = localParties.find(
+    (p) =>
+      (partyId && p.id === partyId) ||
+      (trimmedMobile && cleanMobileDigits(p.mobile) === cleanMobileDigits(trimmedMobile)) ||
+      (trimmedName && p.name && p.name.trim().toLowerCase() === trimmedName.toLowerCase())
+  );
+
+  const searchMobile = (trimmedMobile || matchedLocal?.mobile || '').trim();
+  const searchName = (trimmedName || matchedLocal?.name || 'ग्राहक').trim();
+
+  // 3. Search in remote Supabase by 10-digit mobile if available
+  if (searchMobile && cleanMobileDigits(searchMobile).length >= 10) {
+    try {
+      const { data: byMobile } = await supabase
+        .from('parties')
+        .select('id, name')
+        .eq('mobile', searchMobile)
+        .limit(1)
+        .maybeSingle();
+
+      if (byMobile?.id) {
+        if (partyId && partyId !== byMobile.id) {
+          updateLocalPartyIdRedirect(partyId, byMobile.id);
+        }
+        return byMobile.id;
+      }
+    } catch (e) {
+      console.warn('Error querying party by mobile in Supabase:', e);
+    }
+  }
+
+  // 4. Search in remote Supabase by exact name
+  if (searchName && searchName !== 'ग्राहक') {
+    try {
+      const { data: byName } = await supabase
+        .from('parties')
+        .select('id')
+        .eq('name', searchName)
+        .limit(1)
+        .maybeSingle();
+
+      if (byName?.id) {
+        if (partyId && partyId !== byName.id) {
+          updateLocalPartyIdRedirect(partyId, byName.id);
+        }
+        return byName.id;
+      }
+    } catch (e) {
+      console.warn('Error querying party by name in Supabase:', e);
+    }
+  }
+
+  // 5. Party is missing in remote Supabase database! Auto-create now to guarantee valid foreign key
+  try {
+    const created = await insertParty({
+      name: searchName,
+      mobile: searchMobile || '9999999999',
+      address: matchedLocal?.address || undefined,
+      notes: matchedLocal?.notes || undefined,
+      photo_url: matchedLocal?.photo_url || undefined,
+      aadhaar_url: matchedLocal?.aadhaar_url || undefined,
+      aadhaar_back_url: matchedLocal?.aadhaar_back_url || undefined,
+      cheque_url: matchedLocal?.cheque_url || undefined,
+    });
+
+    if (created?.id) {
+      if (partyId && partyId !== created.id) {
+        updateLocalPartyIdRedirect(partyId, created.id);
+      }
+      return created.id;
+    }
+  } catch (err: any) {
+    console.error('ensurePartyExistsInSupabase auto-create failed:', err?.message || err);
+  }
+
+  return partyId;
+}
 
 export async function fetchParties(): Promise<PartyRecord[]> {
   if (supabase) {
@@ -265,10 +472,85 @@ export async function fetchParties(): Promise<PartyRecord[]> {
         console.warn('Failed to fetch parties from Supabase:', error.message);
         return getLocal<PartyRecord>('parties');
       }
-      if (data) {
-        setLocal('parties', data);
-        return data as PartyRecord[];
+
+      const local = getLocal<PartyRecord>('parties');
+      const localMap = new Map(local.map((p) => [p.id, p]));
+      const localByName = new Map(local.map((p) => [p.name.trim().toLowerCase(), p]));
+
+      // If remote Supabase has 0 parties, but offline localStorage has parties:
+      // Auto-sync local parties to Supabase so foreign keys become valid!
+      if ((!data || data.length === 0) && local.length > 0) {
+        console.info('Supabase parties table is empty, auto-syncing local parties to Supabase...');
+        const syncedParties: PartyRecord[] = [];
+        for (const locParty of local) {
+          try {
+            const synced = await insertParty({
+              name: locParty.name,
+              mobile: locParty.mobile,
+              address: locParty.address || undefined,
+              notes: locParty.notes || undefined,
+              photo_url: locParty.photo_url || undefined,
+              aadhaar_url: locParty.aadhaar_url || undefined,
+              aadhaar_back_url: locParty.aadhaar_back_url || undefined,
+              cheque_url: locParty.cheque_url || undefined,
+            });
+            if (locParty.id && locParty.id !== synced.id) {
+              updateLocalPartyIdRedirect(locParty.id, synced.id);
+            }
+            syncedParties.push(synced);
+          } catch (e) {
+            console.warn('Auto-sync party on load error:', e);
+            syncedParties.push(locParty);
+          }
+        }
+        setLocal('parties', syncedParties);
+        return syncedParties;
       }
+
+      // Merge remote parties with locally cached KYC images
+      const mergedParties: PartyRecord[] = (data || []).map((remoteParty: any) => {
+        const loc = localMap.get(remoteParty.id) || localByName.get((remoteParty.name || '').trim().toLowerCase());
+        return {
+          ...remoteParty,
+          photo_url: remoteParty.photo_url || loc?.photo_url || null,
+          aadhaar_url: remoteParty.aadhaar_url || loc?.aadhaar_url || null,
+          aadhaar_back_url: remoteParty.aadhaar_back_url || loc?.aadhaar_back_url || null,
+          cheque_url: remoteParty.cheque_url || loc?.cheque_url || null,
+        };
+      });
+
+      // Also ensure any parties that existed only locally are synced up to Supabase
+      const remoteIds = new Set(mergedParties.map((p) => p.id));
+      const remoteNames = new Set(mergedParties.map((p) => p.name.trim().toLowerCase()));
+      for (const locParty of local) {
+        const normName = (locParty.name || '').trim().toLowerCase();
+        if (!remoteIds.has(locParty.id) && !remoteNames.has(normName)) {
+          try {
+            const synced = await insertParty({
+              name: locParty.name,
+              mobile: locParty.mobile,
+              address: locParty.address || undefined,
+              notes: locParty.notes || undefined,
+              photo_url: locParty.photo_url || undefined,
+              aadhaar_url: locParty.aadhaar_url || undefined,
+              aadhaar_back_url: locParty.aadhaar_back_url || undefined,
+              cheque_url: locParty.cheque_url || undefined,
+            });
+            if (locParty.id && locParty.id !== synced.id) {
+              updateLocalPartyIdRedirect(locParty.id, synced.id);
+            }
+            mergedParties.push(synced);
+            remoteIds.add(synced.id);
+            remoteNames.add(synced.name.trim().toLowerCase());
+          } catch (e) {
+            console.warn('Syncing extra local party error:', e);
+            mergedParties.push(locParty);
+          }
+        }
+      }
+
+      setLocal('parties', mergedParties);
+      return mergedParties;
     } catch (err: any) {
       console.warn('Network error in fetchParties, using local:', err?.message || err);
       return getLocal<PartyRecord>('parties');
@@ -288,7 +570,7 @@ export async function insertParty(party: {
   cheque_url?: string | null;
 }): Promise<PartyRecord> {
   const newRecord: PartyRecord = {
-    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `party-${Date.now()}`,
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : genUuid(),
     name: party.name.trim(),
     mobile: party.mobile.trim(),
     address: party.address?.trim() || null,
@@ -303,12 +585,16 @@ export async function insertParty(party: {
   };
 
   if (supabase) {
-    const insertPayload: any = {
+    const basePayload: any = {
       name: newRecord.name,
       mobile: newRecord.mobile,
       address: newRecord.address,
       notes: newRecord.notes,
       status: 'active',
+    };
+
+    const fullPayload: any = {
+      ...basePayload,
       photo_url: newRecord.photo_url,
       aadhaar_url: newRecord.aadhaar_url,
       aadhaar_back_url: newRecord.aadhaar_back_url,
@@ -316,39 +602,52 @@ export async function insertParty(party: {
     };
 
     try {
+      let insertedData: any = null;
       const { data, error } = await supabase
         .from('parties')
-        .insert([insertPayload])
+        .insert([fullPayload])
         .select()
         .single();
 
       if (error) {
-        if (error.message.includes('aadhaar_back_url')) {
-          // Schema fallback if column not created yet in remote DB
-          delete insertPayload.aadhaar_back_url;
+        // If remote Supabase schema cache does not have KYC columns yet (e.g. PGRST204), retry with base columns
+        if (
+          error.message.includes('schema cache') ||
+          error.message.includes('column') ||
+          error.code === 'PGRST204'
+        ) {
+          console.warn('Remote Supabase parties table schema missing KYC columns, retrying with base columns...');
           const { data: retryData, error: retryErr } = await supabase
             .from('parties')
-            .insert([insertPayload])
+            .insert([basePayload])
             .select()
             .single();
-          if (retryErr) throw new Error(retryErr.message);
-          if (retryData) {
-            const local = getLocal<PartyRecord>('parties');
-            setLocal('parties', [{ ...retryData, aadhaar_back_url: newRecord.aadhaar_back_url } as PartyRecord, ...local.filter((p) => p.id !== retryData.id)]);
-            return { ...retryData, aadhaar_back_url: newRecord.aadhaar_back_url } as PartyRecord;
+
+          if (retryErr) {
+            throw new Error(retryErr.message);
           }
+          insertedData = retryData;
         } else {
           throw new Error(error.message);
         }
+      } else {
+        insertedData = data;
       }
 
-      if (data) {
+      if (insertedData) {
         const local = getLocal<PartyRecord>('parties');
-        setLocal('parties', [data as PartyRecord, ...local.filter((p) => p.id !== data.id)]);
-        return data as PartyRecord;
+        const finalParty: PartyRecord = {
+          ...insertedData,
+          photo_url: newRecord.photo_url,
+          aadhaar_url: newRecord.aadhaar_url,
+          aadhaar_back_url: newRecord.aadhaar_back_url,
+          cheque_url: newRecord.cheque_url,
+        };
+        setLocal('parties', [finalParty, ...local.filter((p) => p.id !== finalParty.id)]);
+        return finalParty;
       }
     } catch (err: any) {
-      console.warn('Network or schema fallback for insertParty:', err?.message || err);
+      console.warn('Network or schema error for insertParty, saving locally:', err?.message || err);
     }
   }
 
@@ -371,44 +670,74 @@ export async function updateParty(
     cheque_url?: string | null;
   }
 ): Promise<PartyRecord> {
+  const baseUpdates: any = {
+    ...(updates.name !== undefined ? { name: updates.name.trim() } : {}),
+    ...(updates.mobile !== undefined ? { mobile: updates.mobile.trim() } : {}),
+    ...(updates.address !== undefined ? { address: updates.address?.trim() || null } : {}),
+    ...(updates.notes !== undefined ? { notes: updates.notes?.trim() || null } : {}),
+    ...(updates.status !== undefined ? { status: updates.status } : {}),
+    updated_at: new Date().toISOString(),
+  };
+
+  const fullUpdates: any = {
+    ...baseUpdates,
+    ...(updates.photo_url !== undefined ? { photo_url: updates.photo_url } : {}),
+    ...(updates.aadhaar_url !== undefined ? { aadhaar_url: updates.aadhaar_url } : {}),
+    ...(updates.aadhaar_back_url !== undefined ? { aadhaar_back_url: updates.aadhaar_back_url } : {}),
+    ...(updates.cheque_url !== undefined ? { cheque_url: updates.cheque_url } : {}),
+  };
+
   if (supabase) {
-    const updatePayload: any = {
-      ...updates,
-      updated_at: new Date().toISOString(),
-    };
     try {
+      let updatedData: any = null;
       const { data, error } = await supabase
         .from('parties')
-        .update(updatePayload)
+        .update(fullUpdates)
         .eq('id', id)
         .select()
         .single();
 
-      if (error && error.message.includes('aadhaar_back_url')) {
-        delete updatePayload.aadhaar_back_url;
-        const { data: retryData, error: retryErr } = await supabase
-          .from('parties')
-          .update(updatePayload)
-          .eq('id', id)
-          .select()
-          .single();
-        if (!retryErr && retryData) {
-          const local = getLocal<PartyRecord>('parties');
-          const merged = { ...retryData, aadhaar_back_url: updates.aadhaar_back_url } as PartyRecord;
-          setLocal('parties', local.map((p) => (p.id === id ? merged : p)));
-          return merged;
+      if (error) {
+        if (
+          error.message.includes('schema cache') ||
+          error.message.includes('column') ||
+          error.code === 'PGRST204'
+        ) {
+          const { data: retryData, error: retryErr } = await supabase
+            .from('parties')
+            .update(baseUpdates)
+            .eq('id', id)
+            .select()
+            .single();
+
+          if (!retryErr && retryData) {
+            updatedData = retryData;
+          } else if (retryErr) {
+            throw new Error(retryErr.message);
+          }
+        } else {
+          throw new Error(error.message);
         }
-      } else if (error) {
-        throw new Error(error.message);
+      } else {
+        updatedData = data;
       }
 
-      if (data) {
+      if (updatedData) {
         const local = getLocal<PartyRecord>('parties');
-        setLocal('parties', local.map((p) => (p.id === id ? (data as PartyRecord) : p)));
-        return data as PartyRecord;
+        const existing = local.find((p) => p.id === id);
+        const merged: PartyRecord = {
+          ...existing,
+          ...updatedData,
+          photo_url: updates.photo_url !== undefined ? updates.photo_url : existing?.photo_url,
+          aadhaar_url: updates.aadhaar_url !== undefined ? updates.aadhaar_url : existing?.aadhaar_url,
+          aadhaar_back_url: updates.aadhaar_back_url !== undefined ? updates.aadhaar_back_url : existing?.aadhaar_back_url,
+          cheque_url: updates.cheque_url !== undefined ? updates.cheque_url : existing?.cheque_url,
+        };
+        setLocal('parties', local.map((p) => (p.id === id ? merged : p)));
+        return merged;
       }
     } catch (err: any) {
-      console.warn('Network or schema fallback for updateParty:', err?.message || err);
+      console.warn('Network or schema error for updateParty:', err?.message || err);
     }
   }
 
@@ -1170,10 +1499,16 @@ export async function insertRentalCycle(cycle: {
   notes?: string | null;
   items?: RentalItemRecord[];
 }): Promise<RentalCycleRecord> {
+  // Ensure valid party_id foreign key before inserting into rental_cycles
+  let resolvedPartyId = cycle.party_id;
+  if (supabase && isSupabaseConfigured) {
+    resolvedPartyId = await ensurePartyExistsInSupabase(cycle.party_id);
+  }
+
   const newRecord: RentalCycleRecord = {
-    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `cyc-${Date.now()}-${Math.random().toString().slice(2, 6)}`,
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : genUuid(),
     rental_id: cycle.rental_id,
-    party_id: cycle.party_id,
+    party_id: resolvedPartyId,
     cycle_number: cycle.cycle_number,
     start_date: cycle.start_date,
     expected_end_date: cycle.expected_end_date,
@@ -1314,9 +1649,15 @@ export async function insertRental(rental: {
 }): Promise<RentalRecord> {
   const expectedEndDate = calculateExpectedCycleEndDate(rental.issue_date, rental.days || 40);
 
+  // Guarantee valid foreign key before inserting to prevent "rentals_party_id_fkey" violation
+  let resolvedPartyId = rental.party_id;
+  if (supabase && isSupabaseConfigured) {
+    resolvedPartyId = await ensurePartyExistsInSupabase(rental.party_id, rental.party_name);
+  }
+
   const newRecord: RentalRecord = {
-    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `rent-${Date.now()}`,
-    party_id: rental.party_id,
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : genUuid(),
+    party_id: resolvedPartyId,
     party_name: rental.party_name,
     plate_type: rental.plate_type,
     quantity: Math.floor(Number(rental.quantity)),
@@ -1340,33 +1681,48 @@ export async function insertRental(rental: {
   };
 
   if (supabase) {
-    const { data, error } = await supabase
+    const insertPayload: any = {
+      party_id: newRecord.party_id,
+      party_name: newRecord.party_name,
+      plate_type: newRecord.plate_type,
+      quantity: newRecord.quantity,
+      daily_rate: newRecord.daily_rate,
+      issue_date: newRecord.issue_date,
+      expected_return_date: newRecord.expected_return_date,
+      days: newRecord.days,
+      total_rent: newRecord.total_rent,
+      paid_amount: newRecord.paid_amount,
+      pending_amount: newRecord.pending_amount,
+      payment_mode: newRecord.payment_mode,
+      payment_status: newRecord.payment_status,
+      status: newRecord.status,
+      notes: newRecord.notes,
+      items: newRecord.items,
+      current_cycle_number: 1,
+      current_cycle_start_date: newRecord.issue_date,
+      current_cycle_end_date: expectedEndDate,
+    };
+
+    let { data, error } = await supabase
       .from('rentals')
-      .insert([
-        {
-          party_id: newRecord.party_id,
-          party_name: newRecord.party_name,
-          plate_type: newRecord.plate_type,
-          quantity: newRecord.quantity,
-          daily_rate: newRecord.daily_rate,
-          issue_date: newRecord.issue_date,
-          expected_return_date: newRecord.expected_return_date,
-          days: newRecord.days,
-          total_rent: newRecord.total_rent,
-          paid_amount: newRecord.paid_amount,
-          pending_amount: newRecord.pending_amount,
-          payment_mode: newRecord.payment_mode,
-          payment_status: newRecord.payment_status,
-          status: newRecord.status,
-          notes: newRecord.notes,
-          items: newRecord.items,
-          current_cycle_number: 1,
-          current_cycle_start_date: newRecord.issue_date,
-          current_cycle_end_date: expectedEndDate,
-        },
-      ])
+      .insert([insertPayload])
       .select()
       .single();
+
+    // Aggressive self-heal fallback if foreign key constraint error still triggers
+    if (error && error.message.includes('rentals_party_id_fkey')) {
+      console.warn('Foreign key violation encountered in insertRental, triggering self-healing recovery...');
+      resolvedPartyId = await ensurePartyExistsInSupabase(rental.party_id, rental.party_name);
+      newRecord.party_id = resolvedPartyId;
+      insertPayload.party_id = resolvedPartyId;
+      const retryRes = await supabase
+        .from('rentals')
+        .insert([insertPayload])
+        .select()
+        .single();
+      data = retryRes.data;
+      error = retryRes.error;
+    }
 
     if (error) {
       console.warn('insertRental Supabase insert error:', error.message);
@@ -1375,7 +1731,7 @@ export async function insertRental(rental: {
       const local = getLocal<RentalRecord>('rentals');
       setLocal('rentals', [data as RentalRecord, ...local.filter((r) => r.id !== data.id)]);
 
-      // Create Cycle 1 record in rental_cycles
+      // Create Cycle 1 record in rental_cycles with the guaranteed valid party_id
       await insertRentalCycle({
         rental_id: data.id,
         party_id: data.party_id,
@@ -1419,6 +1775,7 @@ export async function insertRental(rental: {
     paid_amount: newRecord.paid_amount,
     pending_amount: newRecord.pending_amount,
     status: 'active',
+    items: newRecord.items,
   });
 
   return newRecord;
@@ -1607,9 +1964,14 @@ export async function insertReturn(returnLog: {
   batch_rent?: number;
   notes?: string;
 }): Promise<ReturnRecord> {
+  let resolvedPartyId = returnLog.party_id;
+  if (supabase && isSupabaseConfigured) {
+    resolvedPartyId = await ensurePartyExistsInSupabase(returnLog.party_id, returnLog.party_name);
+  }
+
   const newRecord: ReturnRecord = {
-    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `ret-${Date.now()}`,
-    party_id: returnLog.party_id,
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : genUuid(),
+    party_id: resolvedPartyId,
     party_name: returnLog.party_name,
     rental_id: returnLog.rental_id || null,
     plate_type: returnLog.plate_type,
@@ -1709,9 +2071,14 @@ export async function insertPayment(payment: {
   status?: 'verified' | 'pending';
   type?: 'payment' | 'refund';
 }): Promise<PaymentRecord> {
+  let resolvedPartyId = payment.party_id;
+  if (supabase && isSupabaseConfigured) {
+    resolvedPartyId = await ensurePartyExistsInSupabase(payment.party_id, payment.party_name);
+  }
+
   const newRecord: PaymentRecord = {
-    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `pay-${Date.now()}`,
-    party_id: payment.party_id,
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : genUuid(),
+    party_id: resolvedPartyId,
     party_name: payment.party_name,
     rental_id: payment.rental_id || null,
     cycle_id: payment.cycle_id || null,
@@ -1802,9 +2169,14 @@ export async function insertLedgerEntry(entry: {
   reference_type?: string;
   reference_id?: string;
 }): Promise<LedgerEntryRecord> {
+  let resolvedPartyId = entry.party_id;
+  if (supabase && isSupabaseConfigured) {
+    resolvedPartyId = await ensurePartyExistsInSupabase(entry.party_id);
+  }
+
   const newRecord: LedgerEntryRecord = {
-    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `led-${Date.now()}`,
-    party_id: entry.party_id,
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : genUuid(),
+    party_id: resolvedPartyId,
     date: entry.date,
     description: entry.description,
     debit: Number(entry.debit),
@@ -2112,19 +2484,19 @@ export async function seedSampleStarterData(): Promise<void> {
 
   // 2. Inventory stock (Total 830 plates owned)
   const sampleStock: InventoryStockItem[] = [
-    { id: 'stock-1', plate_size: '24×3', quantity: 200, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
-    { id: 'stock-2', plate_size: '21×3', quantity: 150, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
-    { id: 'stock-3', plate_size: '18×3', quantity: 150, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
-    { id: 'stock-4', plate_size: '15×3', quantity: 100, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
-    { id: 'stock-5', plate_size: '12×3', quantity: 100, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
-    { id: 'stock-6', plate_size: '9×3', quantity: 80, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
-    { id: 'stock-7', plate_size: '6×3', quantity: 50, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
+    { id: 'd0000000-0000-4000-8000-000000000001', plate_size: '24×3', quantity: 200, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
+    { id: 'd0000000-0000-4000-8000-000000000002', plate_size: '21×3', quantity: 150, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
+    { id: 'd0000000-0000-4000-8000-000000000003', plate_size: '18×3', quantity: 150, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
+    { id: 'd0000000-0000-4000-8000-000000000004', plate_size: '15×3', quantity: 100, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
+    { id: 'd0000000-0000-4000-8000-000000000005', plate_size: '12×3', quantity: 100, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
+    { id: 'd0000000-0000-4000-8000-000000000006', plate_size: '9×3', quantity: 80, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
+    { id: 'd0000000-0000-4000-8000-000000000007', plate_size: '6×3', quantity: 50, received_date: dateTwentyDaysAgo, notes: 'Initial Yard Stock Batch 1' },
   ];
 
-  // 3. Parties
-  const party1Id = 'party-ramesh-patil';
-  const party2Id = 'party-ganesh-shinde';
-  const party3Id = 'party-mauli-const';
+  // 3. Parties (Standard valid UUIDs)
+  const party1Id = 'e0000000-0000-4000-8000-000000000001';
+  const party2Id = 'e0000000-0000-4000-8000-000000000002';
+  const party3Id = 'e0000000-0000-4000-8000-000000000003';
 
   const sampleParties: PartyRecord[] = [
     {
@@ -2157,9 +2529,9 @@ export async function seedSampleStarterData(): Promise<void> {
   ];
 
   // 4. Rentals and cycles
-  const rental1Id = 'rent-sample-01';
-  const rental2Id = 'rent-sample-02';
-  const rental3Id = 'rent-sample-03';
+  const rental1Id = 'f0000000-0000-4000-8000-000000000001';
+  const rental2Id = 'f0000000-0000-4000-8000-000000000002';
+  const rental3Id = 'f0000000-0000-4000-8000-000000000003';
 
   const cycle1End = calculateExpectedCycleEndDate(dateTwentyDaysAgo, 40);
   const sampleRentals: RentalRecord[] = [
@@ -2235,8 +2607,8 @@ export async function seedSampleStarterData(): Promise<void> {
     },
   ];
 
-  const sampleCycles: RentalCycleRecord[] = sampleRentals.map((r) => ({
-    id: `cyc-${r.id}-1`,
+  const sampleCycles: RentalCycleRecord[] = sampleRentals.map((r, idx) => ({
+    id: `c0000000-0000-4000-8000-00000000000${idx + 1}`,
     rental_id: r.id,
     party_id: r.party_id,
     cycle_number: 1,
@@ -2259,11 +2631,11 @@ export async function seedSampleStarterData(): Promise<void> {
   // 5. Payments
   const samplePayments: PaymentRecord[] = [
     {
-      id: 'pay-sample-01',
+      id: 'b0000000-0000-4000-8000-000000000001',
       party_id: party1Id,
       party_name: 'रमेश पाटील',
       rental_id: rental1Id,
-      cycle_id: `cyc-${rental1Id}-1`,
+      cycle_id: sampleCycles[0].id,
       cycle_number: 1,
       amount: 2000,
       payment_date: dateTwentyDaysAgo,
@@ -2275,11 +2647,11 @@ export async function seedSampleStarterData(): Promise<void> {
       created_at: dateTwentyDaysAgo + 'T10:16:00Z',
     },
     {
-      id: 'pay-sample-02',
+      id: 'b0000000-0000-4000-8000-000000000002',
       party_id: party2Id,
       party_name: 'गणेश शिंदे',
       rental_id: rental2Id,
-      cycle_id: `cyc-${rental2Id}-1`,
+      cycle_id: sampleCycles[1].id,
       cycle_number: 1,
       amount: 1500,
       payment_date: dateTenDaysAgo,
@@ -2291,11 +2663,11 @@ export async function seedSampleStarterData(): Promise<void> {
       created_at: dateTenDaysAgo + 'T11:25:00Z',
     },
     {
-      id: 'pay-sample-03',
+      id: 'b0000000-0000-4000-8000-000000000003',
       party_id: party3Id,
       party_name: 'माउली कन्स्ट्रक्शन',
       rental_id: rental3Id,
-      cycle_id: `cyc-${rental3Id}-1`,
+      cycle_id: sampleCycles[2].id,
       cycle_number: 1,
       amount: 3000,
       payment_date: dateTwentyDaysAgo,
@@ -2311,7 +2683,7 @@ export async function seedSampleStarterData(): Promise<void> {
   // 6. Ledger entries
   const sampleLedger: LedgerEntryRecord[] = [
     {
-      id: 'led-1',
+      id: 'a0000000-0000-4000-8000-000000000001',
       party_id: party1Id,
       date: dateTwentyDaysAgo,
       description: 'भाडे वाटप (पावती क्र. १) - १२० सेंट्रिंग प्लेट्स (४० दिवस)',
@@ -2320,7 +2692,7 @@ export async function seedSampleStarterData(): Promise<void> {
       balance: 7200,
     },
     {
-      id: 'led-2',
+      id: 'a0000000-0000-4000-8000-000000000002',
       party_id: party1Id,
       date: dateTwentyDaysAgo,
       description: 'ॲडव्हान्स रोख जमा',
@@ -2329,7 +2701,7 @@ export async function seedSampleStarterData(): Promise<void> {
       balance: 5200,
     },
     {
-      id: 'led-3',
+      id: 'a0000000-0000-4000-8000-000000000003',
       party_id: party2Id,
       date: dateTenDaysAgo,
       description: 'भाडे वाटप (पावती क्र. २) - ५० सेंट्रिंग प्लेट्स (४० दिवस)',
@@ -2338,7 +2710,7 @@ export async function seedSampleStarterData(): Promise<void> {
       balance: 3000,
     },
     {
-      id: 'led-4',
+      id: 'a0000000-0000-4000-8000-000000000004',
       party_id: party2Id,
       date: dateTenDaysAgo,
       description: 'ॲडव्हान्स बँक जमा',
@@ -2347,7 +2719,7 @@ export async function seedSampleStarterData(): Promise<void> {
       balance: 1500,
     },
     {
-      id: 'led-5',
+      id: 'a0000000-0000-4000-8000-000000000005',
       party_id: party3Id,
       date: dateTwentyDaysAgo,
       description: 'भाडे वाटप (पावती क्र. ३) - १०० सेंट्रिंग प्लेट्स (४० दिवस)',
@@ -2356,7 +2728,7 @@ export async function seedSampleStarterData(): Promise<void> {
       balance: 6000,
     },
     {
-      id: 'led-6',
+      id: 'a0000000-0000-4000-8000-000000000006',
       party_id: party3Id,
       date: dateTwentyDaysAgo,
       description: 'ॲडव्हान्स डिजिटल जमा',
@@ -2369,7 +2741,7 @@ export async function seedSampleStarterData(): Promise<void> {
   // 7. Notifications
   const sampleNotifications: NotificationRecord[] = [
     {
-      id: 'notif-1',
+      id: '90000000-0000-4000-8000-000000000001',
       party_id: party1Id,
       type: 'payment',
       title: 'नवीन पेमेंट नोंद',
@@ -2378,7 +2750,7 @@ export async function seedSampleStarterData(): Promise<void> {
       is_read: false,
     },
     {
-      id: 'notif-2',
+      id: '90000000-0000-4000-8000-000000000002',
       party_id: party3Id,
       type: 'due',
       title: 'भाडे वाटप नोंद',
@@ -2402,9 +2774,19 @@ export async function seedSampleStarterData(): Promise<void> {
   // If Supabase is connected, insert them into remote tables too
   if (supabase) {
     try {
+      const samplePartiesForDb = sampleParties.map((p) => ({
+        id: p.id,
+        name: p.name,
+        mobile: p.mobile,
+        address: p.address,
+        notes: p.notes,
+        status: p.status,
+        created_at: p.created_at,
+      }));
+
       await supabase.from('plate_types').upsert(samplePlateTypes);
       await supabase.from('inventory_stock').upsert(sampleStock);
-      await supabase.from('parties').upsert(sampleParties);
+      await supabase.from('parties').upsert(samplePartiesForDb);
       await supabase.from('rentals').upsert(sampleRentals);
       await supabase.from('rental_cycles').upsert(sampleCycles);
       await supabase.from('payments').upsert(samplePayments);

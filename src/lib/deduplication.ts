@@ -1,5 +1,6 @@
 import {
   supabase,
+  isUuid,
   type PartyRecord,
   type InventoryStockItem,
   type PlateTypeRecord,
@@ -448,35 +449,61 @@ export async function deduplicateAllStoredData(): Promise<DeduplicationReport> {
   setLocal('ledger_entries', ledgerRes.cleanEntries);
   setLocal('notifications', notifRes.cleanNotifications);
 
-  // If Supabase is connected, delete removed rows from remote tables
+  // If Supabase is connected, update redirected foreign keys and delete removed rows
   if (supabase) {
     try {
-      if (partyRes.removedIds.length > 0) {
-        await supabase.from('parties').delete().in('id', partyRes.removedIds);
+      // First update any foreign keys pointing to redirected parties so cascade deletes don't delete valid rentals
+      if (partyRes.idRedirectMap.size > 0) {
+        for (const [oldId, newId] of partyRes.idRedirectMap.entries()) {
+          if (isUuid(oldId) && isUuid(newId)) {
+            try {
+              await supabase.from('rentals').update({ party_id: newId }).eq('party_id', oldId);
+              await supabase.from('rental_cycles').update({ party_id: newId }).eq('party_id', oldId);
+              await supabase.from('returns').update({ party_id: newId }).eq('party_id', oldId);
+              await supabase.from('payments').update({ party_id: newId }).eq('party_id', oldId);
+              await supabase.from('ledger_entries').update({ party_id: newId }).eq('party_id', oldId);
+            } catch (redirErr) {
+              console.warn('Redirect party_id update warning:', redirErr);
+            }
+          }
+        }
       }
-      if (typeRes.removedIds.length > 0) {
-        await supabase.from('plate_types').delete().in('id', typeRes.removedIds);
+
+      const validUuidPartyRemovals = partyRes.removedIds.filter(isUuid);
+      if (validUuidPartyRemovals.length > 0) {
+        await supabase.from('parties').delete().in('id', validUuidPartyRemovals);
       }
-      if (stockRes.removedIds.length > 0) {
-        await supabase.from('inventory_stock').delete().in('id', stockRes.removedIds);
+      const validUuidTypeRemovals = typeRes.removedIds.filter(isUuid);
+      if (validUuidTypeRemovals.length > 0) {
+        await supabase.from('plate_types').delete().in('id', validUuidTypeRemovals);
       }
-      if (rentalRes.removedIds.length > 0) {
-        await supabase.from('rentals').delete().in('id', rentalRes.removedIds);
+      const validUuidStockRemovals = stockRes.removedIds.filter(isUuid);
+      if (validUuidStockRemovals.length > 0) {
+        await supabase.from('inventory_stock').delete().in('id', validUuidStockRemovals);
       }
-      if (cycleRes.removedIds.length > 0) {
-        await supabase.from('rental_cycles').delete().in('id', cycleRes.removedIds);
+      const validUuidRentalRemovals = rentalRes.removedIds.filter(isUuid);
+      if (validUuidRentalRemovals.length > 0) {
+        await supabase.from('rentals').delete().in('id', validUuidRentalRemovals);
       }
-      if (returnRes.removedIds.length > 0) {
-        await supabase.from('returns').delete().in('id', returnRes.removedIds);
+      const validUuidCycleRemovals = cycleRes.removedIds.filter(isUuid);
+      if (validUuidCycleRemovals.length > 0) {
+        await supabase.from('rental_cycles').delete().in('id', validUuidCycleRemovals);
       }
-      if (payRes.removedIds.length > 0) {
-        await supabase.from('payments').delete().in('id', payRes.removedIds);
+      const validUuidReturnRemovals = returnRes.removedIds.filter(isUuid);
+      if (validUuidReturnRemovals.length > 0) {
+        await supabase.from('returns').delete().in('id', validUuidReturnRemovals);
       }
-      if (ledgerRes.removedIds.length > 0) {
-        await supabase.from('ledger_entries').delete().in('id', ledgerRes.removedIds);
+      const validUuidPayRemovals = payRes.removedIds.filter(isUuid);
+      if (validUuidPayRemovals.length > 0) {
+        await supabase.from('payments').delete().in('id', validUuidPayRemovals);
       }
-      if (notifRes.removedIds.length > 0) {
-        await supabase.from('notifications').delete().in('id', notifRes.removedIds);
+      const validUuidLedgerRemovals = ledgerRes.removedIds.filter(isUuid);
+      if (validUuidLedgerRemovals.length > 0) {
+        await supabase.from('ledger_entries').delete().in('id', validUuidLedgerRemovals);
+      }
+      const validUuidNotifRemovals = notifRes.removedIds.filter(isUuid);
+      if (validUuidNotifRemovals.length > 0) {
+        await supabase.from('notifications').delete().in('id', validUuidNotifRemovals);
       }
     } catch (err) {
       console.warn('Supabase remote deduplication warning:', err);

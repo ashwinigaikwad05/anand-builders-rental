@@ -121,10 +121,10 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
               </div>
             )}
 
-            {/* Email Field */}
+            {/* Email / Username Field */}
             <div className="space-y-1.5 text-left">
               <label htmlFor="email" className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Admin Email ID
+                Admin Email / Username
               </label>
               <div className="relative mt-1">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -133,11 +133,11 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
                 <input
                   id="email"
                   name="email"
-                  type="email"
-                  autoComplete="email"
+                  type="text"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
+                  placeholder="admin@anandplates.com किंवा admin"
                   className="w-full bg-slate-950 border border-slate-800 focus:border-primary focus:ring-primary focus:outline-none focus:ring-1 pl-11 pr-4 py-3 rounded-xl text-sm text-white font-medium"
                 />
               </div>

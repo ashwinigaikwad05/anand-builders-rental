@@ -1133,10 +1133,18 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         items: (newRental.items as any) || [],
       });
 
+      const effectivePartyId = inserted.party_id || newRental.partyId;
+
+      if (inserted.party_id && inserted.party_id !== newRental.partyId) {
+        setRawParties((prev) =>
+          prev.map((p) => (p.id === newRental.partyId ? { ...p, id: inserted.party_id } : p))
+        );
+      }
+
       const initialCycle: RentalCycle = {
         id: `cyc-init-${inserted.id}`,
         rentalId: inserted.id,
-        partyId: newRental.partyId,
+        partyId: effectivePartyId,
         cycleNumber: 1,
         startDate: newRental.issueDate,
         expectedEndDate: expectedEndDate,
@@ -1159,6 +1167,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       const normPartyName = (newRental.partyName || '').trim().toLowerCase().replace(/\s+/g, ' ');
       const matchedParty = parties.find(
         (p) =>
+          (effectivePartyId && p.id === effectivePartyId) ||
           (newRental.partyId && p.id === newRental.partyId) ||
           p.name.trim().toLowerCase().replace(/\s+/g, ' ') === normPartyName
       );
@@ -1167,6 +1176,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       const createdRental: Rental = {
         ...newRental,
         id: inserted.id,
+        partyId: effectivePartyId,
         totalRent,
         paid: newRental.paid,
         pending,
@@ -1187,9 +1197,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
           ? newRental.items.map((it) => `${it.quantity} Plates of ${it.plateType}`).join(', ')
           : `${newRental.quantity} Plates of ${newRental.plateType}`;
 
-      const currentPartyPending = parties.find((p) => p.id === newRental.partyId)?.pending || 0;
+      const currentPartyPending = parties.find((p) => p.id === effectivePartyId || p.id === newRental.partyId)?.pending || 0;
       const ledEntry = await insertLedgerEntry({
-        party_id: newRental.partyId,
+        party_id: effectivePartyId,
         date: newRental.issueDate,
         description: `Rental Issued: ${itemsDescription} for ${newRental.days} days`,
         debit: totalRent,
@@ -1215,7 +1225,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
       // If advance payment was made, add payment voucher log
       if (newRental.paid > 0) {
         const insertedPayment = await insertPayment({
-          party_id: newRental.partyId,
+          party_id: effectivePartyId,
           party_name: newRental.partyName,
           rental_id: inserted.id,
           cycle_id: initialCycle.id,
@@ -1230,7 +1240,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
 
         const pay: Payment = {
           id: insertedPayment.id,
-          partyId: newRental.partyId,
+          partyId: effectivePartyId,
           partyName: newRental.partyName,
           rentalId: inserted.id,
           cycleId: initialCycle.id,
@@ -1245,7 +1255,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentPath, onNavigat
         setPayments((prev) => [pay, ...prev]);
 
         const ledEntryPay = await insertLedgerEntry({
-          party_id: newRental.partyId,
+          party_id: effectivePartyId,
           date: newRental.issueDate,
           description: `Advance Payment Received - Cycle 1 - ${pay.paymentMode} (Ref: ${pay.reference})`,
           debit: 0,

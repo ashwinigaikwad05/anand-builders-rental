@@ -144,84 +144,65 @@ function App() {
   };
 
   // --- ROUTING DISPATCHER ---
-  const isUrlAdmin = currentPath.startsWith('/admin');
+  // Optional: Keep public customer marketing site accessible only on /public or /landing if ever needed
+  const isPublicMarketingRoute = currentPath === '/public' || currentPath === '/landing';
 
-  if (isUrlAdmin) {
-    if (isAuthChecking) {
-      return (
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
-          <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs text-slate-400 font-medium tracking-wide">Authenticating Admin Session...</p>
-        </div>
-      );
-    }
-
-    if (!isAdminAuthenticated) {
-      // Force render Login if not authenticated
-      if (currentPath !== '/admin/login') {
-        window.history.replaceState(null, '', '/admin/login');
-      }
-      return <AdminLogin onLoginSuccess={handleLoginSuccess} />;
-    } else {
-      // Logged in. If path is login or bare /admin, route to dashboard
-      if (currentPath === '/admin/login' || currentPath === '/admin' || currentPath === '/admin/') {
-        window.history.replaceState(null, '', '/admin/dashboard');
-      }
-      return (
-        <AdminLayout
-          currentPath={currentPath}
-          onNavigate={navigateTo}
-          onLogout={handleLogout}
+  if (isPublicMarketingRoute) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col w-full text-slate-800 font-sans">
+        <Navbar
+          onQuoteClick={() => scrollToSection('contact')}
+          onNavigate={scrollToSection}
         />
-      );
-    }
+        <Hero
+          onExploreClick={() => scrollToSection('plates')}
+          onQuoteClick={() => scrollToSection('contact')}
+        />
+        <Highlights />
+        <PlateCollection onEnquire={handleEnquire} />
+        <WhyChooseUs />
+        <HowItWorks />
+        <PricingCalculator />
+        <BusinessBenefits />
+        <CTA
+          onContactClick={() => scrollToSection('contact')}
+          onQuoteClick={() => scrollToSection('contact')}
+        />
+        <ContactSection />
+        <Footer onNavigate={scrollToSection} />
+      </div>
+    );
   }
 
-  // Else: Render Public customer site (unchanged)
+  // 1. Session checking spinner
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
+        <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs text-slate-400 font-medium tracking-wide">Authenticating Admin Session...</p>
+      </div>
+    );
+  }
+
+  // 2. Not Authenticated -> ALWAYS show Login Page
+  if (!isAdminAuthenticated) {
+    if (currentPath !== '/login' && currentPath !== '/admin/login') {
+      window.history.replaceState(null, '', '/login');
+    }
+    return <AdminLogin onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // 3. Authenticated -> Show Admin Management Portal
+  if (currentPath === '/login' || currentPath === '/admin/login' || currentPath === '/' || !currentPath.startsWith('/admin')) {
+    window.history.replaceState(null, '', '/admin/dashboard');
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col w-full text-slate-800 font-sans">
-      {/* Sticky Navbar */}
-      <Navbar
-        onQuoteClick={() => scrollToSection('contact')}
-        onNavigate={scrollToSection}
-      />
-
-      {/* Hero Section */}
-      <Hero
-        onExploreClick={() => scrollToSection('plates')}
-        onQuoteClick={() => scrollToSection('contact')}
-      />
-
-      {/* Trust Stats / Highlights banner */}
-      <Highlights />
-
-      {/* Plate Collection (Product Cards Grid) */}
-      <PlateCollection onEnquire={handleEnquire} />
-
-      {/* Why Choose Us Features */}
-      <WhyChooseUs />
-
-      {/* How It Works Timeline */}
-      <HowItWorks />
-
-      {/* Pricing formula & cost simulation calculator */}
-      <PricingCalculator />
-
-      {/* Shuttering inventory & delivery benefits */}
-      <BusinessBenefits />
-
-      {/* Final Action CTA */}
-      <CTA
-        onContactClick={() => scrollToSection('contact')}
-        onQuoteClick={() => scrollToSection('contact')}
-      />
-
-      {/* Contact info cards */}
-      <ContactSection />
-
-      {/* Professional Footer */}
-      <Footer onNavigate={scrollToSection} />
-    </div>
+    <AdminLayout
+      currentPath={currentPath.startsWith('/admin') ? currentPath : '/admin/dashboard'}
+      onNavigate={navigateTo}
+      onLogout={handleLogout}
+    />
   );
 }
 

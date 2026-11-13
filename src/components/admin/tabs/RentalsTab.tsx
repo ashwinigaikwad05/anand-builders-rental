@@ -431,7 +431,14 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
     }
 
     const party = parties.find((p) => p.id === selectedPartyId);
-    if (!party) return;
+    if (!party) {
+      setValidationError(
+        isMarathi
+          ? 'कृपया वैध ग्राहक निवडा किंवा प्रथम नवीन ग्राहक जोडा.'
+          : 'Please select a valid customer party or register a new customer first.'
+      );
+      return;
+    }
 
     const items: RentalItem[] = plateRows.map((r) => ({
       plateType: r.plateType,
@@ -1277,6 +1284,13 @@ export const RentalsTab: React.FC<RentalsTabProps> = ({
                       </option>
                     ))}
                   </select>
+                  {parties.length === 0 && (
+                    <p className="text-xs text-amber-600 font-medium mt-1">
+                      {isMarathi
+                        ? '⚠️ कोणताही ग्राहक सापडला नाही. कृपया प्रथम "ग्राहक" टॅबमध्ये जाऊन ग्राहक जोडा.'
+                        : '⚠️ No customers registered yet. Please add a customer in "Customers" tab first.'}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
