@@ -19,7 +19,7 @@ export const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 // Web Client ID from existing Google Cloud Project
 export const GOOGLE_CLIENT_ID =
   (import.meta as any).env?.VITE_GOOGLE_DRIVE_CLIENT_ID ||
-  '215206829034-sqtfc0hh0jilfgq8onclu8k0a4jcao8l.apps.googleusercontent.com';
+  '376763771428-cjfivho6qo8s43jjq6amgcip8v9ud7no.apps.googleusercontent.com';
 
 const KEY_EMAIL = 'anand_drive_backup_email';
 const KEY_FOLDER_ID = 'anand_drive_backup_folder_id';
