@@ -28,11 +28,57 @@ const KEY_LAST_RESTORE_AT = 'anand_drive_backup_last_restore_at';
 const KEY_AUTO_ENABLED = 'anand_drive_backup_auto_enabled';
 const KEY_LAST_TEST_STATUS = 'anand_drive_backup_last_test_status';
 const KEY_SAFETY_BACKUP = 'anand_safety_backup_before_restore';
+const KEY_CACHED_TOKEN = 'anand_drive_cached_token';
+const KEY_TOKEN_EXPIRES_AT = 'anand_drive_token_expires_at';
 
 let cachedToken: string | null = null;
 let tokenExpiresAt = 0;
 let tokenClientInstance: any = null;
 let isBusy = false;
+
+/**
+ * Retrieve cached token from memory or persistent localStorage if still valid
+ */
+function getValidCachedToken(): string | null {
+  if (cachedToken && Date.now() < tokenExpiresAt - 60000) {
+    return cachedToken;
+  }
+  try {
+    const storedToken = localStorage.getItem(KEY_CACHED_TOKEN);
+    const storedExpiresAt = Number(localStorage.getItem(KEY_TOKEN_EXPIRES_AT)) || 0;
+    if (storedToken && Date.now() < storedExpiresAt - 60000) {
+      cachedToken = storedToken;
+      tokenExpiresAt = storedExpiresAt;
+      return cachedToken;
+    }
+  } catch (_) {}
+  return null;
+}
+
+/**
+ * Store access token in memory and localStorage with expiration
+ */
+function storeCachedToken(token: string, expiresInSeconds: number): void {
+  cachedToken = token;
+  const expiresIn = Number(expiresInSeconds) || 3600;
+  tokenExpiresAt = Date.now() + expiresIn * 1000;
+  try {
+    localStorage.setItem(KEY_CACHED_TOKEN, token);
+    localStorage.setItem(KEY_TOKEN_EXPIRES_AT, String(tokenExpiresAt));
+  } catch (_) {}
+}
+
+/**
+ * Clear cached token from memory and localStorage
+ */
+function clearCachedToken(): void {
+  cachedToken = null;
+  tokenExpiresAt = 0;
+  try {
+    localStorage.removeItem(KEY_CACHED_TOKEN);
+    localStorage.removeItem(KEY_TOKEN_EXPIRES_AT);
+  } catch (_) {}
+}
 
 export interface DriveBackupFile {
   id: string;
@@ -81,9 +127,16 @@ export function loadGsiScript(): Promise<boolean> {
 /**
  * Request OAuth 2.0 access token using Google Identity Services (GIS)
  */
-export async function requestAccessToken({ prompt = '' }: { prompt?: string } = {}): Promise<string> {
-  if (cachedToken && Date.now() < tokenExpiresAt - 60000) {
-    return cachedToken;
+export async function requestAccessToken({
+  prompt = '',
+  forceAccountSelect = false,
+}: {
+  prompt?: string;
+  forceAccountSelect?: boolean;
+} = {}): Promise<string> {
+  const validToken = getValidCachedToken();
+  if (validToken && !forceAccountSelect) {
+    return validToken;
   }
 
   await loadGsiScript();
@@ -92,11 +145,14 @@ export async function requestAccessToken({ prompt = '' }: { prompt?: string } = 
     throw new Error('Google Identity Services SDK is unavailable.');
   }
 
+  const connectedEmail = localStorage.getItem(KEY_EMAIL);
+
   return new Promise((resolve, reject) => {
     try {
       tokenClientInstance = (window as any).google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
         scope: DRIVE_FILE_SCOPE,
+        hint: !forceAccountSelect && connectedEmail ? connectedEmail : undefined,
         callback: (response: any) => {
           if (response.error) {
             if (response.error === 'popup_closed_by_user' || response.error === 'access_denied') {
@@ -111,17 +167,23 @@ export async function requestAccessToken({ prompt = '' }: { prompt?: string } = 
             return;
           }
 
-          cachedToken = response.access_token;
-          const expiresInSec = Number(response.expires_in) || 3600;
-          tokenExpiresAt = Date.now() + expiresInSec * 1000;
-          resolve(cachedToken as string);
+          storeCachedToken(response.access_token, response.expires_in);
+          resolve(response.access_token as string);
         },
         error_callback: (err: any) => {
           reject(new Error(err?.message || 'Failed to initialize Google OAuth dialog.'));
         },
       });
 
-      tokenClientInstance.requestAccessToken({ prompt });
+      const requestOptions: any = {};
+      if (prompt) {
+        requestOptions.prompt = prompt;
+      }
+      if (!forceAccountSelect && connectedEmail) {
+        requestOptions.hint = connectedEmail;
+      }
+
+      tokenClientInstance.requestAccessToken(requestOptions);
     } catch (err) {
       reject(err);
     }
@@ -408,11 +470,16 @@ export const googleDriveBackupService = {
   /**
    * Connect Google Drive account
    */
-  connectGoogleDrive: async (getCurrentData: () => any) => {
+  connectGoogleDrive: async (getCurrentData: () => any, { forceAccountSelect = false } = {}) => {
     if (isBusy) throw new Error('A backup or restore operation is already in progress.');
     isBusy = true;
     try {
-      const token = await requestAccessToken({ prompt: 'consent' });
+      const existingEmail = localStorage.getItem(KEY_EMAIL);
+      // If already connected and not explicitly forcing account switch, use hint and avoid forcing consent prompt
+      const token = await requestAccessToken({
+        prompt: !existingEmail || forceAccountSelect ? '' : '',
+        forceAccountSelect,
+      });
       const user = await fetchDriveUser(token);
       if (!user.email) {
         throw new Error('Could not identify connected Google account email.');
@@ -462,13 +529,13 @@ export const googleDriveBackupService = {
     if (isBusy) throw new Error('A backup or restore operation is already in progress.');
     isBusy = true;
     try {
-      if (cachedToken && (window as any).google?.accounts?.oauth2?.revoke) {
+      const activeToken = getValidCachedToken();
+      if (activeToken && (window as any).google?.accounts?.oauth2?.revoke) {
         try {
-          (window as any).google.accounts.oauth2.revoke(cachedToken, () => {});
+          (window as any).google.accounts.oauth2.revoke(activeToken, () => {});
         } catch (_) {}
       }
-      cachedToken = null;
-      tokenExpiresAt = 0;
+      clearCachedToken();
       localStorage.removeItem(KEY_EMAIL);
       localStorage.removeItem(KEY_FOLDER_ID);
       localStorage.removeItem(KEY_LAST_TEST_STATUS);
@@ -484,7 +551,7 @@ export const googleDriveBackupService = {
    */
   changeGoogleAccount: async (getCurrentData: () => any) => {
     await googleDriveBackupService.disconnectGoogleDrive();
-    return await googleDriveBackupService.connectGoogleDrive(getCurrentData);
+    return await googleDriveBackupService.connectGoogleDrive(getCurrentData, { forceAccountSelect: true });
   },
 
   /**
